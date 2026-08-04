@@ -56,17 +56,27 @@ export function HeaderScoreboard() {
 
       <span className="text-er-dim text-[10px] tracking-[0.24em]">Move</span>
 
-      {/* Tabular numerals plus a min-width: without both, the whole cluster
-          shifts sideways every time the digit count or move length changes,
-          which is exactly what makes a live readout feel cheap. */}
-      <span className="min-w-[2ch] text-center text-[15px] leading-none font-medium tabular-nums">
+      {/* Tabular numerals plus a min-width wide enough for the worst case:
+          without both, the whole cluster shifts sideways every time the digit
+          count or the move length changes, which is exactly what makes a live
+          readout feel cheap.
+
+          `tracking-normal` undoes the header's inherited 0.22em — letterspacing
+          on a single display numeral buys nothing and it defeats the min-width,
+          since 3 tracked digits are wider than 3ch. 3ch covers move 100+, which
+          a real Model 1v1 game reaches (the 50-move rule allows it). */}
+      <span className="min-w-[3ch] text-center text-[15px] leading-none font-medium tracking-normal tabular-nums">
         {moveNumberOf(ply)}
       </span>
 
       {/* Notation is the one thing in this header that must NOT be uppercased:
           case is semantic. "Nxb5" -> "NXB5" loses the piece letter, and
-          "dxe5" -> "DXE5" reads as a bishop move. */}
-      <span className="text-er-dim min-w-[6ch] tracking-[0.08em] normal-case">
+          "dxe5" -> "DXE5" reads as a bishop move.
+
+          8ch because the longest SAN this can print is a capture-promotion with
+          check — "exd8=Q+", 7 characters. The hero replay never exceeds 5, but
+          the play screens can, and that's the screen someone stares at. */}
+      <span className="text-er-dim min-w-[8ch] tracking-[0.08em] normal-case">
         {lastSan ?? "—"}
       </span>
     </div>
