@@ -313,10 +313,18 @@ build rather than reaching for Git LFS — Vercel does not fetch LFS objects
 during a build by default, so LFS-tracked static assets can arrive as pointer
 text files and break at runtime in a way that works fine locally.
 
-**No COOP/COEP headers needed.** The spec deliberately chose the
-single-threaded Stockfish build to avoid `SharedArrayBuffer`, so `next.config.ts`
-needs no custom headers. If anyone ever swaps in the multi-threaded build, that
-changes — cross-origin isolation headers become mandatory.
+**No COOP/COEP headers needed — for two different reasons now.** Stockfish uses
+the single-threaded build, which never touches `SharedArrayBuffer`.
+onnxruntime-web (Maia) only *ships* threaded-named binaries, so there the
+guarantee is a runtime setting instead: `ort.env.wasm.numThreads = 1` in
+`lib/chess/engineMaia.ts`. Verified against a production build:
+`crossOriginIsolated` is `false`, `SharedArrayBuffer` is absent, no console
+warnings, inference correct. If anyone raises `numThreads` above 1 without
+adding cross-origin-isolation headers, ort logs a warning and **falls back to
+single-threaded** rather than breaking — so the failure mode is a misleading
+console message and no speedup, not a crash. Raising it for real means serving
+COOP/COEP headers from `next.config.ts`, which would also let the
+multi-threaded Stockfish build in; treat that as one decision, not two.
 
 **onnxruntime-web wasm paths (Task 3).** onnxruntime-web loads its own `.wasm`
 files at runtime and doesn't always resolve them correctly under a bundler.
@@ -331,6 +339,18 @@ glue module — `ort-wasm-simd-threaded.jsep.mjs` alongside
 `previous call to 'initWasm()' failed`, which reads like an ORT/browser problem
 and is really just a 404. Also set `ort.env.wasm.numThreads = 1` to stay
 single-threaded and keep the no-COOP/COEP decision intact.
+
+**Copy only the jsep pair.** `onnxruntime-web` 1.27 ships five wasm/glue
+variants, and it's tempting to copy the lot. Don't — the default import resolves
+to the **jsep** build, so `ort-wasm-simd-threaded.jsep.wasm` + `.jsep.mjs` are
+the only two ever fetched. The plain `.wasm`, plain `.mjs`, `asyncify.mjs` and
+`jspi.mjs` are 13.6 MB of dead weight; verified by deleting them and re-running
+`/dev/maia-test` clean. `public/ort/` should be 26.9 MB, two files. A further
+13.4 MB is available if someone converts `engineMaia.ts` to a client-side
+dynamic `import("onnxruntime-web/wasm")` — that switches it to the CPU-only
+plain pair. The naive static `import … from "onnxruntime-web/wasm"` does **not**
+work: it fails `next build` with `ERR_INVALID_URL` during prerender, because
+that bundle resolves its own URL at module scope.
 
 **Next 16 snapshots `public/` at build time.** Files added to `public/` *after*
 `next build` return 404 from `next start` until you rebuild. This bites whenever

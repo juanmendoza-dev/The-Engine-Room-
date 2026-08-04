@@ -327,13 +327,30 @@ future.
 - ~~The move table is fetched unpinned.~~ **Fixed.** Both the model and the table
   are now pinned to `e23a50e`
   (`src/hooks/useMaiaEngine/data/all_moves.json`), so they cannot drift apart.
-- **`public/ort/` is ~38 MB of vendored ORT assets**, because I copied both the
-  jsep and non-jsep wasm variants for safety. The run only appeared to need the
-  jsep pair, so this could likely be halved. MIT-licensed, so committing is
-  unproblematic — just larger than it needs to be.
-- **No IndexedDB caching of the 89 MB model.** The reference app caches it and
-  shows a progress bar; we rely on the browser HTTP cache. First Maia move on a
-  cold cache is a long wait, and Model 1v1 needs a loading state for it.
+- ~~**`public/ort/` is ~38 MB of vendored ORT assets**, because I copied both the
+  jsep and non-jsep wasm variants for safety.~~ **Trimmed.** It was 40.4 MB; the
+  hunch was right and it's now 26.9 MB, two files. The default
+  `onnxruntime-web` import resolves to the **jsep** build, so the jsep `.wasm` +
+  `.mjs` are the only ones ever fetched — the plain `.wasm`, plain `.mjs`,
+  `asyncify.mjs` and `jspi.mjs` were dead. Confirmed by deleting them and
+  re-running `/dev/maia-test`: all checks pass, no console errors. Another
+  13.4 MB is there for the taking via a client-side dynamic
+  `import("onnxruntime-web/wasm")`; the static version of that import breaks
+  `next build`. Details in `docs/deployment.md` §4.
+- ~~**No loading state for the 89 MB model.**~~ **Done.** The download now
+  streams with a byte/percent readout on both `/model-1v1` and `/user-1v1`
+  (`components/MaiaLoadNotice.tsx`), a heads-up line before you even press
+  Start, and a **stall timeout** — 20 s of zero bytes aborts with a real message
+  instead of leaving a permanent thinking lamp. It's a stall timeout rather than
+  a total one on purpose: 93 MB is a legitimate ~2.5 minutes on 5 Mbit/s wifi,
+  so any total budget generous enough for that is useless for catching a hang.
+- **Still no IndexedDB caching of the model, and the HTTP-cache assumption above
+  was wrong.** Chrome declines to disk-cache a body that large (the 25 KB move
+  table caches fine), so **every full page load re-downloads all 93 MB** —
+  measured, not theorised. Within one tab it loads once, via the module-level
+  singleton; F5 pays again. That makes the reference app's IndexedDB cache the
+  actual fix rather than a nice-to-have, and it's the one piece of this worth
+  an hour post-demo.
 - **No `LICENSE` file in the repo**, despite already shipping GPL-3.0 Stockfish.
 - The `logits_side_info` output head is unused. Unexamined — it may be Maia 2's
   auxiliary prediction target and might be interesting for a future feature.
