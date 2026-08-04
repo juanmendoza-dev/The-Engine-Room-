@@ -33,10 +33,13 @@ const ELO_MAX = 2000;
 const ELO_STEP = 100;
 
 /**
- * Rough download size, for the "this will take a moment" notice we show before
- * the real Content-Length arrives. Actual measured body: 93,246,338 bytes.
+ * Rough download size, for the "this will take a moment" notice shown before the
+ * real Content-Length arrives. Decimal MB, to match the progress readout - the
+ * measured body is 93,246,338 bytes, which is 93MB decimal and the 89MiB the
+ * docs call "~89MB". Keep both numbers in the UI in the same unit or the notice
+ * contradicts the progress bar directly under it.
  */
-export const MAIA_MODEL_SIZE_MB = 89;
+export const MAIA_MODEL_SIZE_MB = 93;
 
 /**
  * Abort if the download makes no progress at all for this long.
