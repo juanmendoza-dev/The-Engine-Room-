@@ -210,20 +210,6 @@
     transform: translateY(-12px);
   }
 }
-@keyframes er-sq-turn {
-  0%,
-  42% {
-    transform: rotate(0deg);
-  }
-  50%,
-  92% {
-    transform: rotate(90deg);
-  }
-  100% {
-    transform: rotate(180deg);
-  }
-}
-
 /* ---------------------------------------------------------------------------
    Components. Layout stays in the JSX as utilities; anything with hover
    inversions, theme-conditional glows, or entry choreography lives here.
@@ -235,18 +221,20 @@
 
 /* Header ------------------------------------------------------------------ */
 
-.er-brand-square {
-  width: 16px;
-  height: 16px;
-  background: var(--er-text);
-  animation: er-sq-turn 6s cubic-bezier(0.7, 0, 0.2, 1) infinite;
-  transition:
-    background 0.35s,
-    box-shadow 0.35s;
+/* The ER monogram (components/BrandMark.tsx). Deliberately inherits `color`
+   rather than setting it, so the mark flips with the edition for free and also
+   survives an inverted ground (index-row hover, the press platen). Only the
+   plate-corner tick is themed: red in both editions, lit at night — same
+   --er-accent-glow trick as everything else, invisible by day because the day
+   token is transparent. */
+.er-mark {
+  display: block;
+  flex: none;
 }
-:root[data-theme="dark"] .er-brand-square {
-  background: var(--er-accent);
-  box-shadow: 0 0 14px var(--er-accent-glow);
+.er-mark-tick {
+  fill: var(--er-accent);
+  filter: drop-shadow(0 0 5px var(--er-accent-glow));
+  transition: fill 0.35s;
 }
 
 /* Header scoreboard: the two side-to-move squares. Whichever side is to move
