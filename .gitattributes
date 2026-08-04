@@ -1,2 +1,8 @@
 .githooks/* text eol=lf
 .claude/hooks/* text eol=lf
+
+# Engine assets. Git on Windows will happily decide a binary is text and
+# rewrite its line endings, which corrupts it silently.
+*.wasm binary
+*.onnx binary
+*.nnue binary
