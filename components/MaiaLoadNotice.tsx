@@ -63,19 +63,24 @@ export function MaiaLoadNotice({ active }: Props) {
         Downloading Maia · {receivedMb} {totalMb ? `/ ${totalMb} ` : ""}MB
         {percent === null ? "" : ` · ${percent}%`}
       </p>
-      <div
-        className="border-er-line bg-er-surface2 h-1 w-full max-w-[320px] overflow-hidden border"
-        role="progressbar"
-        aria-label="Downloading the Maia model"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={percent ?? undefined}
-      >
+      {/* Only once Content-Length has arrived. Rendering the bar with an unknown
+          total meant a full bar for the split second before the headers landed,
+          which then snapped back to 0% - it read as "done, no wait, restarting". */}
+      {percent !== null && (
         <div
-          className="bg-er-accent h-full transition-[width] duration-300"
-          style={{ width: `${percent ?? 100}%` }}
-        />
-      </div>
+          className="border-er-line bg-er-surface2 h-1 w-full max-w-[320px] overflow-hidden border"
+          role="progressbar"
+          aria-label="Downloading the Maia model"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={percent}
+        >
+          <div
+            className="bg-er-accent h-full transition-[width] duration-300"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
