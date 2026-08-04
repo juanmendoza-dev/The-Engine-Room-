@@ -72,8 +72,10 @@ the new default. Anything theme-conditional hangs off
 ## Structure
 
 - **Header** (`components/SiteHeader.tsx`, all screens): rotating ink square
-  (red + glowing at night), letterspaced mono wordmark, live badge, edition
-  toggle. No logo glyph, no gradient wordmark.
+  (red + glowing at night), letterspaced mono wordmark, live scoreboard, edition
+  toggle. No logo glyph, no gradient wordmark. Stays a *server* component —
+  only the scoreboard needs the client, and it's a separate component so the
+  rest of the header isn't dragged over the boundary with it.
 - **Hero** (`app/page.tsx`): three-line THE / ENGINE / ROOM headline, each
   line rising from an `overflow: hidden` mask (`.er-line`), "ENGINE" hollow
   via `-webkit-text-stroke` (`.er-hollow`; fills red on headline hover).
@@ -89,6 +91,43 @@ the new default. Anything theme-conditional hangs off
 - **Mode index** (`.er-index-row`): full-width hairline rows, not cards.
   Hover floods the row (ink by day, paper by night) and slides it right.
   Tag + description columns hide under 720px.
+
+## Header scoreboard — the live readout
+
+`components/HeaderScoreboard.tsx` + `lib/boardFeed.ts`. Two squares for the two
+sides with the side to move ringed in red, the move number, and the last move in
+algebraic. Replaced the old `Live — engines coupled` badge, which is worth
+understanding as a design lesson rather than just a deleted line:
+
+**The badge wasn't ugly, it was untrue.** Nothing was live and no engines were
+coupled — it spent the loudest element in the header (a pulsing accent dot) on a
+claim the app couldn't back. But the landing page *does* have a real game running
+on it: `ReplayBoard`'s Opera Game, one ply every 1150ms. So the fix wasn't to
+remove the readout, it was to connect it.
+
+- **`lib/boardFeed.ts` is a module-level store, not React context.** The header
+  lives in the root layout and every board lives inside the page, so a provider
+  would have to wrap the whole layout, and publishing upward from board to
+  provider means calling `setState` from an effect — the same
+  `react-hooks/set-state-in-effect` trap `TransitionLink`'s pressed state hit
+  (see Traps below). `useSyncExternalStore` is the shape React ships for this.
+  `getServerBoardFrame()` returns `null` so the server render and the first
+  client render agree, then a board mounts and publishes.
+- **Three publishers, one readout.** The hero replay, `/model-1v1`, and
+  `/user-1v1` all publish `{ ply, lastSan, over }`. Adding another board is one
+  effect, no new component.
+- **`null` means "no board on this route" and is not the same as ply 0.** On
+  `/history` the scoreboard renders nothing — dead chrome reading "no game"
+  would be worse than an empty slot. `/model-1v1` publishes from ply 0 because
+  its board is on screen before you press Start; `/user-1v1` publishes `null`
+  until `started`, because there genuinely is no board yet.
+- **The move number is *moves completed*** (`ceil(ply / 2)`), deliberately
+  matching the caption under the hero board so the two can't visibly disagree.
+  Read strictly, "Move 1 · e5 · white to move" means one full move is played and
+  white is up next — not that white is playing move 1.
+- **Width is pinned** (`tabular-nums` + `min-w` on the number and the notation).
+  A readout that resizes itself every ply is most of what makes a live element
+  feel cheap; it was measured at a constant 153px across a whole game.
 
 ## Route transition — "the press"
 
@@ -145,6 +184,21 @@ Things worth knowing before you touch it:
 
 ## Traps
 
+- **Never let chess notation inherit the header's `uppercase`.** Case is
+  semantic in algebraic notation: `Nxb5` uppercased to `NXB5` loses the piece
+  letter, and `dxe5` → `DXE5` reads as a bishop move. The scoreboard's notation
+  span carries `normal-case` for exactly this, and it's the only thing in that
+  header which isn't caps. Hit in the mockup pass before it could ship.
+- **`role="status"` on anything that updates on a timer is an accessibility
+  bug.** Status carries an implicit `aria-live="polite"`, so the scoreboard would
+  have announced itself to a screen reader once every 1150ms, forever, on the
+  landing page. It's `role="img"` with an `aria-label` instead — a single
+  labelled graphic, read when you reach it, never shouting. (The label also
+  stops the bare fragments "Move", "4", "Bg4" being read as a sentence.)
+- **`[role="status"]` is not a safe test selector on any page with a board.**
+  react-chessboard's dnd-kit sensor mounts a hidden 1px `DndLiveRegion` with
+  that exact role, so a verification script looking for a status element finds
+  dnd-kit's and reports the wrong thing. Target `.er-turn` instead.
 - The entry animations use `animation-fill-mode: forwards` on `transform` —
   never put a *hover* transform on the same element that has a forwards-fill
   transform animation, the fill wins forever. (Hovers here animate child
