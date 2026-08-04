@@ -390,6 +390,11 @@ git commit -m "add the engine preset list and a single getMoveFor entry point"
 
 ### Task 5: Menu screen
 
+**Design reference:** `docs/design/hero-preview.html` (open directly in a
+browser) + `docs/design/hero-notes.md` for the token table, copy, and a
+translation note — the preview uses a design tool's own template syntax,
+not JSX, so it's a visual/interaction spec to build from, not code to copy.
+
 **Files:**
 - Modify: `app/page.tsx`
 
