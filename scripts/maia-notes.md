@@ -217,6 +217,24 @@ start position is not ~0, so don't read this as a centipawn-like eval.
 **Legality — PASS** (necessary, not sufficient): all three FENs produced
 chess.js-legal moves.
 
+**End-to-end through the real app — PASS.** After Model 1v1 (#8) merged, Maia was
+wired into `lib/chess/engines.ts` using the three-step seam that PR's author left
+in place, and a real game was driven on the actual `/model-1v1` screen: **Maia 1100
+as White versus Stockfish 1320 as Black, 11 plies, no console errors**. So the
+contract holds all the way through — my engine, their registry, their game loop,
+their UI — not just on the dev page.
+
+Two things that came out of that run:
+
+- The first Maia move takes a long time on a cold cache, because it's fetching
+  89 MB. An earlier attempt reported "PASS" while the board was still empty; the
+  page said `0 PLIES / No moves yet` and my throwaway driver's regex had matched
+  "MAIA **1100**" as a ply count (`\s*` crossed a newline into "MOVES"). Worth
+  knowing if anyone writes a similar check: anchor on `PLIES` and don't let
+  whitespace classes span lines.
+- Maia 1100 played `Nc3` then retreated `Nb1`, consistent with the knight-move
+  preference noted above and with 1100-rated play being deliberately weak.
+
 **Speed: ~35 ms per move**, versus Stockfish's ~500 ms. Task 6 should know these
 are an order of magnitude apart — a Maia-vs-Maia game will feel very different in
 pace from Stockfish-vs-Stockfish, and the inter-move delay probably wants to be
