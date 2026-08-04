@@ -1,5 +1,10 @@
 # Hero design — notes
 
+> **Superseded 2026-08-04.** This brass/steam design was replaced by the
+> "Ink & Bone" revamp — see `ink-and-bone-notes.md` in this folder for the
+> current tokens, fonts, and structure. Kept for history; don't build new
+> screens from this file.
+
 `hero-preview.html` in this folder is the exported hero design for the Menu
 screen (see the "Landing-page hero" decision in the UI workflow brainstorm).
 **Open it directly in a browser** — it's fully self-contained (fonts,
