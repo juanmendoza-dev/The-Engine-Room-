@@ -313,15 +313,65 @@ build rather than reaching for Git LFS — Vercel does not fetch LFS objects
 during a build by default, so LFS-tracked static assets can arrive as pointer
 text files and break at runtime in a way that works fine locally.
 
-**No COOP/COEP headers needed.** The spec deliberately chose the
-single-threaded Stockfish build to avoid `SharedArrayBuffer`, so `next.config.ts`
-needs no custom headers. If anyone ever swaps in the multi-threaded build, that
-changes — cross-origin isolation headers become mandatory.
+**No COOP/COEP headers needed — for two different reasons now.** Stockfish uses
+the single-threaded build, which never touches `SharedArrayBuffer`.
+onnxruntime-web (Maia) only *ships* threaded-named binaries, so there the
+guarantee is a runtime setting instead: `ort.env.wasm.numThreads = 1` in
+`lib/chess/engineMaia.ts`. Verified against a production build:
+`crossOriginIsolated` is `false`, `SharedArrayBuffer` is absent, no console
+warnings, inference correct. If anyone raises `numThreads` above 1 without
+adding cross-origin-isolation headers, ort logs a warning and **falls back to
+single-threaded** rather than breaking — so the failure mode is a misleading
+console message and no speedup, not a crash. Raising it for real means serving
+COOP/COEP headers from `next.config.ts`, which would also let the
+multi-threaded Stockfish build in; treat that as one decision, not two.
 
 **onnxruntime-web wasm paths (Task 3).** onnxruntime-web loads its own `.wasm`
 files at runtime and doesn't always resolve them correctly under a bundler.
 If it 404s on Vercel, the fix is copying its wasm assets into `public/` and
 setting `ort.env.wasm.wasmPaths` to that path.
+
+Confirmed while doing Task 3, with one correction: copying the `.wasm` is
+necessary but **not sufficient**. ORT also dynamically imports a matching `.mjs`
+glue module — `ort-wasm-simd-threaded.jsep.mjs` alongside
+`ort-wasm-simd-threaded.jsep.wasm` — so copy both. A missing `.mjs` surfaces as
+`no available backend found` with every backend reporting
+`previous call to 'initWasm()' failed`, which reads like an ORT/browser problem
+and is really just a 404. Also set `ort.env.wasm.numThreads = 1` to stay
+single-threaded and keep the no-COOP/COEP decision intact.
+
+**The Maia model is hosted in a second repo of ours (Task 3).** `engineMaia.ts`
+fetches ~93 MB at runtime from **`juanmendoza-dev/engine-room-assets`** via
+`raw.githubusercontent.com`, pinned to a commit. It is not in this repo and not
+on Vercel, on purpose: it would be 93 MB of git history plus ~93 MB of egress per
+page load (roughly 1,000 loads against Hobby's 100 GB/month). Two rules if you
+ever move it:
+
+- **The host must send `Access-Control-Allow-Origin`.** `raw.githubusercontent.com`
+  sends `*`. **GitHub Release assets do not send it at all** — they redirect to an
+  Azure blob with no CORS headers, and a browser `fetch()` of one fails with a
+  bare "Failed to fetch". This was tried, verified broken in a real browser, and
+  abandoned; don't spend the afternoon again.
+- **Never Git LFS for it.** `raw` serves LFS pointer text instead of content, so
+  LFS breaks it the same way it breaks Vercel static assets (above).
+
+**Copy only the jsep pair.** `onnxruntime-web` 1.27 ships five wasm/glue
+variants, and it's tempting to copy the lot. Don't — the default import resolves
+to the **jsep** build, so `ort-wasm-simd-threaded.jsep.wasm` + `.jsep.mjs` are
+the only two ever fetched. The plain `.wasm`, plain `.mjs`, `asyncify.mjs` and
+`jspi.mjs` are 13.6 MB of dead weight; verified by deleting them and re-running
+`/dev/maia-test` clean. `public/ort/` should be 26.9 MB, two files. A further
+13.4 MB is available if someone converts `engineMaia.ts` to a client-side
+dynamic `import("onnxruntime-web/wasm")` — that switches it to the CPU-only
+plain pair. The naive static `import … from "onnxruntime-web/wasm"` does **not**
+work: it fails `next build` with `ERR_INVALID_URL` during prerender, because
+that bundle resolves its own URL at module scope.
+
+**Next 16 snapshots `public/` at build time.** Files added to `public/` *after*
+`next build` return 404 from `next start` until you rebuild. This bites whenever
+you copy engine assets in as a separate step from the build — the app looks
+broken at runtime for a reason that has nothing to do with your code. Rebuild
+after adding anything to `public/`.
 
 **The history page and prerendering (Task 11).** An earlier version of this
 note said `app/history/page.tsx` must set `export const dynamic =

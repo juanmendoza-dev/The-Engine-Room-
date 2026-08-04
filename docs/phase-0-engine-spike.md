@@ -214,10 +214,31 @@ me.
   carrying forward: the build we use is the **lite** single-threaded one, because
   the plain single-threaded wasm is 107.8 MB and GitHub rejects anything over
   100 MB. Task 2's "What differed" section in the build plan has the full list.
-  **Held unmerged pending agent review** — see
-  [`task-02-stockfish-review.md`](task-02-stockfish-review.md) for the review
-  brief: every decision and why, how to reproduce the verification, and the soft
-  spots worth attacking.
-- **Task 3 — not started.**
+  **Merged as `5fbc001` (#6)** after agent review — reviewed at 9/10 and accepted
+  with three corrections, all applied. See
+  [`task-02-stockfish-review.md`](task-02-stockfish-review.md) for the full
+  brief. Two findings later tasks need: `UCI_Elo`'s real range on this build is
+  **1320–3190** (so 1320 is the engine's floor, not an arbitrary preset), and
+  search depth does **not** vary with ELO, because Stockfish weakens play by
+  choosing a worse candidate move rather than searching shallower. That means
+  Task 2 proved the options are accepted and the engine searches — not that the
+  ELO settings change playing strength. Task 6 is where that becomes measurable.
+- **Task 3 — done**, landed via PR `#7`. **Maia works**: `getMaiaMove` returns
+  human-plausible legal moves in ~35 ms. Spec is
+  [`task-03-maia-spec.md`](task-03-maia-spec.md); the authoritative record of what
+  actually happened is [`../scripts/maia-notes.md`](../scripts/maia-notes.md),
+  because the spec's checkpoints didn't run as written — CP1 found a far easier
+  path and made CP2–CP6 moot.
+
+  Three things later tasks need: we use **Maia 2 (MIT)**, not Maia 3, because Maia
+  3's weights are AGPL-3.0 and that clause reaches a deployed site; the 89 MB
+  weights are **fetched at runtime**, so the first Maia move on a cold cache is
+  slow and Model 1v1 needs a loading state for it; and Maia is ~35 ms per move
+  against Stockfish's ~500 ms, so inter-move delay wants to be per-engine.
+
+  Phase 0's central lesson, worth carrying: for Maia, "returns a legal move" is
+  **not** a correctness check, because the decoder filters to legal moves — a wrong
+  encoder still returns legal chess. One open question is flagged in the notes
+  rather than glossed over.
 
 Updated as each lands.

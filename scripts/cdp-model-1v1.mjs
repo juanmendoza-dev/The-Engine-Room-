@@ -145,7 +145,11 @@ while (Date.now() < deadline) {
   }
 
   // Result screen renders one of these once chess.js says the game is over.
-  if (/\bwins\b|\bDraw\b/.test(text)) {
+  // Case-insensitive on purpose: ResultScreen's heading is Tailwind `uppercase`,
+  // and innerText reports *rendered* text, so this actually arrives as
+  // "STOCKFISH 2800 WINS". A case-sensitive test here silently never fires and
+  // the run just falls out via the MIN_PLIES exit looking like a pass.
+  if (/\bwins\b|\bdraw\b/i.test(text)) {
     finished = true;
     break;
   }
@@ -160,7 +164,7 @@ console.log("=== MOVE LOG EXCERPT ===");
 console.log(moveLog.trim() || "(none)");
 
 if (finished) {
-  const summary = text.match(/.*(wins|Draw).*/)?.[0];
+  const summary = text.match(/.*(wins|draw).*/i)?.[0];
   console.log("=== RESULT ===");
   console.log(summary?.trim() ?? "(unparsed)");
 }

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Board } from "@/components/Board";
 import { EngineConfigPicker } from "@/components/EngineConfigPicker";
+import { MaiaLoadNotice } from "@/components/MaiaLoadNotice";
 import { ResultScreen } from "@/components/ResultScreen";
 import { ALL_ENGINE_PRESETS, STOCKFISH_PRESETS } from "@/lib/chess/engines";
 import { GameAbortedError, runModelGame, type ModelGameResult } from "@/lib/chess/gameLoop";
@@ -92,6 +93,7 @@ export default function Model1v1Page() {
   }
 
   const configured = Boolean(white && black);
+  const usesMaia = white?.type === "maia" || black?.type === "maia";
   const sideToMove = moves.length % 2 === 0 ? "White" : "Black";
   const thinkingLabel = moves.length % 2 === 0 ? white?.label : black?.label;
 
@@ -138,6 +140,8 @@ export default function Model1v1Page() {
               {sideToMove} thinking · {thinkingLabel}
             </p>
           )}
+
+          <MaiaLoadNotice active={usesMaia} />
 
           {error && (
             <div
