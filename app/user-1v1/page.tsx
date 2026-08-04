@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Board } from "@/components/Board";
 import { EngineConfigPicker } from "@/components/EngineConfigPicker";
+import { MaiaLoadNotice } from "@/components/MaiaLoadNotice";
 import { ResultScreen } from "@/components/ResultScreen";
 import { ALL_ENGINE_PRESETS, STOCKFISH_PRESETS, getMoveFor } from "@/lib/chess/engines";
 import { describeEnd, type GameEndInfo } from "@/lib/chess/gameLoop";
@@ -213,6 +214,8 @@ export default function User1v1Page() {
               )}
             </p>
           )}
+
+          <MaiaLoadNotice active={engine?.type === "maia"} />
 
           {error && (
             <div

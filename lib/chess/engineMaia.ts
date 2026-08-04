@@ -32,6 +32,28 @@ const ELO_MIN = 1100;
 const ELO_MAX = 2000;
 const ELO_STEP = 100;
 
+/**
+ * Rough download size, for the "this will take a moment" notice we show before
+ * the real Content-Length arrives. Actual measured body: 93,246,338 bytes.
+ */
+export const MAIA_MODEL_SIZE_MB = 89;
+
+/**
+ * Abort if the download makes no progress at all for this long.
+ *
+ * Deliberately a *stall* timeout rather than a total one. A total budget can't
+ * work here: 89MB is ~25s on a fast line but a legitimate ~2.5 minutes on
+ * 5 Mbit/s conference wifi, so any cap generous enough for the slow case is too
+ * long to be useful in the stalled case. Measuring silence instead catches the
+ * failure we actually care about - a fetch that hangs forever and leaves a
+ * permanent "thinking" lamp on the board - without punishing slow-but-working
+ * connections.
+ */
+const STALL_TIMEOUT_MS = 20_000;
+
+/** Report progress at most once per this many bytes, to bound re-renders. */
+const PROGRESS_INTERVAL_BYTES = 1_000_000;
+
 let session: ort.InferenceSession | null = null;
 let moveTable: Record<string, number> | null = null;
 let moveTableReversed: string[] | null = null;
@@ -145,7 +167,136 @@ export function eloToCategory(elo: number): number {
   return Math.floor((elo - ELO_MIN) / ELO_STEP) + 1;
 }
 
+// ── Load state, published so the UI can explain the wait ─────────────────────
+// The model is ~89MB fetched at runtime, and Chrome refuses to disk-cache a body
+// that large, so *every* full page load pays the download again. Without this,
+// picking Maia means staring at a frozen board under a "thinking" lamp for 25s+
+// with nothing to distinguish it from a hang.
+
+export type MaiaLoadStatus = "idle" | "downloading" | "initializing" | "ready" | "failed";
+
+export interface MaiaLoadState {
+  status: MaiaLoadStatus;
+  /** Bytes of the model body received so far. */
+  receivedBytes: number;
+  /** Content-Length, when the server sends one. */
+  totalBytes: number | null;
+  error: string | null;
+}
+
+const IDLE_STATE: MaiaLoadState = {
+  status: "idle",
+  receivedBytes: 0,
+  totalBytes: null,
+  error: null,
+};
+
+let loadState: MaiaLoadState = IDLE_STATE;
+const loadListeners = new Set<() => void>();
+
+/**
+ * Current load state. A stable reference between changes, so it can be handed
+ * straight to `useSyncExternalStore` as the snapshot.
+ */
+export function getMaiaLoadState(): MaiaLoadState {
+  return loadState;
+}
+
+export function subscribeMaiaLoad(listener: () => void): () => void {
+  loadListeners.add(listener);
+  return () => loadListeners.delete(listener);
+}
+
+function setLoadState(patch: Partial<MaiaLoadState>): void {
+  loadState = { ...loadState, ...patch };
+  for (const listener of loadListeners) listener();
+}
+
 // ── Loading ──────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch with byte progress and a stall timeout. Streams the body rather than
+ * awaiting `arrayBuffer()` so there's something to report during the ~25s the
+ * model takes, and so a silent connection can be distinguished from a slow one.
+ */
+async function fetchModel(): Promise<Uint8Array> {
+  const controller = new AbortController();
+  let stalled = false;
+  let stallTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const armStallTimer = () => {
+    clearTimeout(stallTimer);
+    stallTimer = setTimeout(() => {
+      stalled = true;
+      controller.abort();
+    }, STALL_TIMEOUT_MS);
+  };
+
+  armStallTimer();
+  try {
+    const response = await fetch(MODEL_URL, { signal: controller.signal });
+    if (!response.ok) throw new Error(`Maia model fetch failed: ${response.status}`);
+
+    const header = response.headers.get("content-length");
+    const totalBytes = header ? Number(header) : null;
+    setLoadState({ status: "downloading", receivedBytes: 0, totalBytes });
+
+    // No streaming body (very old browser): fall back to a plain buffered read.
+    // The stall timer still covers a connection that dies mid-transfer.
+    if (!response.body) {
+      const buffered = new Uint8Array(await response.arrayBuffer());
+      setLoadState({ receivedBytes: buffered.byteLength });
+      return buffered;
+    }
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    let reported = 0;
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      chunks.push(value);
+      received += value.byteLength;
+      armStallTimer();
+
+      if (received - reported >= PROGRESS_INTERVAL_BYTES) {
+        reported = received;
+        setLoadState({ receivedBytes: received });
+      }
+    }
+
+    const model = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      model.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    setLoadState({ receivedBytes: received });
+    return model;
+  } catch (err) {
+    if (stalled) {
+      throw new Error(
+        `Maia model download stalled (no data for ${STALL_TIMEOUT_MS / 1000}s). Check your connection and refresh.`,
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(stallTimer);
+  }
+}
+
+async function fetchMoveTable(): Promise<Record<string, number>> {
+  // 25KB - no progress worth reporting, but it still needs a timeout so a hung
+  // request can't leave the load pending forever.
+  const response = await fetch(MOVE_TABLE_URL, {
+    signal: AbortSignal.timeout(STALL_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`Maia move table fetch failed: ${response.status}`);
+  return (await response.json()) as Record<string, number>;
+}
 
 async function load(): Promise<void> {
   if (loading) return loading;
@@ -161,27 +312,29 @@ async function load(): Promise<void> {
     ort.env.wasm.wasmPaths = "/ort/";
     ort.env.wasm.numThreads = 1;
 
-    const [modelResponse, tableResponse] = await Promise.all([
-      fetch(MODEL_URL),
-      fetch(MOVE_TABLE_URL),
-    ]);
-    if (!modelResponse.ok) throw new Error(`Maia model fetch failed: ${modelResponse.status}`);
-    if (!tableResponse.ok) throw new Error(`Maia move table fetch failed: ${tableResponse.status}`);
+    setLoadState({ status: "downloading", receivedBytes: 0, totalBytes: null, error: null });
 
-    const [modelBuffer, table] = await Promise.all([
-      modelResponse.arrayBuffer(),
-      tableResponse.json() as Promise<Record<string, number>>,
-    ]);
+    const [model, table] = await Promise.all([fetchModel(), fetchMoveTable()]);
 
     moveTable = table;
     moveTableReversed = [];
     for (const [uci, index] of Object.entries(table)) moveTableReversed[index] = uci;
 
-    session = await ort.InferenceSession.create(modelBuffer);
+    // Session creation is another ~2-3s of wasm compile on top of the download,
+    // and it's silent, so it gets its own status rather than looking like a hang
+    // right at the point the progress bar fills.
+    setLoadState({ status: "initializing" });
+    session = await ort.InferenceSession.create(model);
+
+    setLoadState({ status: "ready" });
   })();
 
-  loading.catch(() => {
+  loading.catch((err: unknown) => {
     loading = null; // let a failed load be retried
+    setLoadState({
+      status: "failed",
+      error: err instanceof Error ? err.message : String(err),
+    });
   });
 
   return loading;
