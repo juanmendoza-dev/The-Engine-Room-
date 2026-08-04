@@ -355,6 +355,32 @@ ever move it:
 - **Never Git LFS for it.** `raw` serves LFS pointer text instead of content, so
   LFS breaks it the same way it breaks Vercel static assets (above).
 
+**Maia's cold load is much slower on production than on localhost — plan the demo
+around it.** Measured on the live site, two cold runs, click Start → first move on
+the board: **73 s and 261 s**. Local `next start` on the same machine measured
+23–49 s, and the review before that reported 24–29 s. Nothing regressed; the
+comparison was just never like-for-like:
+
+| | localhost | production |
+| --- | --- | --- |
+| Maia model (GitHub raw) | ~93 MB over the network | ~93 MB over the network |
+| `ort` jsep wasm | served from disk, ~free | **~27 MB over the network** |
+
+So a cold production visitor downloads ~120 MB, and the two transfers compete for
+the same bandwidth. It's also just variable: the 261 s run and the 73 s run were
+minutes apart on the same connection. Don't read a slow load as a broken one —
+the progress bar keeps counting, which is exactly what it's there for.
+
+Our mirror is **not** the cause; benchmarked against the file it replaced, ours
+was faster (37.7 s vs 63.8 s for the same 93 MB).
+
+**Demo mitigation:** open a Maia game once before anyone is watching, and don't
+reload that tab. The session is a module-level singleton, so it loads once per
+tab and every later game in that tab is instant. A refresh pays the full cost
+again — Chrome will not disk-cache a body that size. The real fix is the
+IndexedDB cache noted in `scripts/maia-notes.md`; until then, treat "don't hit F5
+on stage" as the operational rule.
+
 **Copy only the jsep pair.** `onnxruntime-web` 1.27 ships five wasm/glue
 variants, and it's tempting to copy the lot. Don't — the default import resolves
 to the **jsep** build, so `ort-wasm-simd-threaded.jsep.wasm` + `.jsep.mjs` are

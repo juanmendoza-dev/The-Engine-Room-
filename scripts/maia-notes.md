@@ -391,7 +391,11 @@ future.
   measured, not theorised. Within one tab it loads once, via the module-level
   singleton; F5 pays again. That makes the reference app's IndexedDB cache the
   actual fix rather than a nice-to-have, and it's the one piece of this worth
-  an hour post-demo.
+  an hour post-demo. **Now measured on production and it's worse than the local
+  numbers suggested: 73 s and 261 s to first move, cold.** The local 23–49 s
+  figures didn't include the ~27 MB `ort` wasm, which comes off disk on localhost
+  and off the network live — so a real visitor pulls ~120 MB, not 93 MB. See
+  `docs/deployment.md` §4 for the demo-day workaround.
 - **No `LICENSE` file in the repo**, despite already shipping GPL-3.0 Stockfish.
 - The `logits_side_info` output head is unused. Unexamined — it may be Maia 2's
   auxiliary prediction target and might be interesting for a future feature.
