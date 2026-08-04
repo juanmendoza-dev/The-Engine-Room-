@@ -1,0 +1,22 @@
+#!/bin/sh
+# AGENTS.md rule: every pushed commit must be signed and verifiable.
+zero=0000000000000000000000000000000000000000
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue
+
+  bad=0
+  for commit in $(git rev-list "$local_sha" --not --remotes=origin 2>/dev/null); do
+    if ! git verify-commit "$commit" >/dev/null 2>&1; then
+      echo "ERROR: commit $commit is not signed/verified." >&2
+      bad=1
+    fi
+  done
+
+  if [ "$bad" = "1" ]; then
+    echo "AGENTS.md rule: all commits must be signed. Fix signing config, re-commit, and push again." >&2
+    exit 1
+  fi
+done
+
+exit 0
