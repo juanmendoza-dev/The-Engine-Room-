@@ -204,7 +204,11 @@ me.
 
 ## Status
 
-- Task 2 — not started
-- Task 3 — not started
+- **Task 2 — done**, commit `54f050d`. Three positions at ELO 1320/1800/2800 all
+  return chess.js-legal moves, verified in headless Chrome. One correction worth
+  carrying forward: the build we use is the **lite** single-threaded one, because
+  the plain single-threaded wasm is 107.8 MB and GitHub rejects anything over
+  100 MB. Task 2's "What differed" section in the build plan has the full list.
+- **Task 3 — not started.**
 
 Updated as each lands.
