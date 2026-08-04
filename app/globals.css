@@ -1,72 +1,64 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Design tokens — from docs/design/hero-notes.md. Dark is the default; the
-   theme toggle sets data-theme="light" on <html>. Every token is referenced
-   through @theme inline below so Tailwind utilities pick up the swap at
-   runtime instead of being baked in at build time.
+   Design tokens — "Ink & Bone", see docs/design/ink-and-bone-notes.md.
+
+   Two editions of the same print job:
+   - Day (default): ink printed on bone paper. Red is a printed accent.
+   - Night (data-theme="dark"): the print shop after hours — ink ground,
+     paper type, and red stops being printed ink and becomes *lit signage*
+     (everything red picks up a glow that doesn't exist by day).
+
+   Every token is referenced through @theme inline below so Tailwind
+   utilities pick up the swap at runtime instead of being baked in at build.
    --------------------------------------------------------------------------- */
 
 :root {
-  --er-bg: #14110d;
-  --er-surface: #1d1813;
-  --er-surface2: #171310;
-  --er-plate: #221c15;
-  --er-plate2: #181410;
-  --er-line: #2b241c;
-  --er-text: #ede4d4;
-  --er-dim: #9c8f7c;
-  --er-accent: #c9974a;
-  --er-accent-deep: #8a6320;
-  --er-accent-line: rgba(201, 151, 74, 0.35);
-  --er-copper: #c2703e;
-  --er-copper-line: rgba(194, 112, 62, 0.4);
-  --er-verd: #5e8f7f;
-  --er-glow: rgba(201, 151, 74, 0.1);
-  --er-glow-copper: rgba(194, 112, 62, 0.09);
-  --er-glow-verd: rgba(94, 143, 127, 0.07);
-  --er-steam: rgba(237, 228, 212, 1);
-  --er-steam-op: 0.14;
-  --er-puff-op: 0.5;
-  --er-sheen: rgba(237, 228, 212, 0.05);
-  --er-tex: 0.05;
-  --er-shadow: 0.55;
-  --er-shadow2: 0.35;
-  --er-sq-light: #3b332a;
-  --er-sq-dark: #241e17;
-  --er-sq-white-piece: #e9dcc2;
-  --er-sq-black-piece: #100d0a;
+  --er-bg: #f2f0ea;
+  --er-surface: #ece9e1;
+  --er-surface2: #e9e6dd;
+  --er-line: rgba(22, 21, 26, 0.14);
+  --er-text: #16151a;
+  --er-dim: rgba(22, 21, 26, 0.6);
+  --er-accent: #e0331f;
+  --er-accent-glow: transparent; /* no glow on paper */
+  --er-stroke: var(--er-text); /* hollow headline stroke */
+  --er-frame: var(--er-text); /* board frame */
+  --er-marquee-line: var(--er-text);
+  --er-invert-bg: #16151a; /* index-row hover flood */
+  --er-invert-fg: #f2f0ea;
+  --er-invert-dim: rgba(242, 240, 234, 0.72);
+  --er-ember: transparent; /* ambient corner glow, night only */
+  --er-sq-light: #e9e6dd;
+  --er-sq-dark: #dcd8cb;
+  --er-sq-white-piece: #fdfcf8;
+  --er-sq-black-piece: #16151a;
+  --er-piece-w-shadow: 0 0 1.5px #16151a, 0 1.5px 2px rgba(22, 21, 26, 0.55);
+  --er-piece-b-shadow: none;
 }
 
-:root[data-theme="light"] {
-  --er-bg: #ece5d8;
-  --er-surface: #f6f1e6;
-  --er-surface2: #efe8da;
-  --er-plate: #f6f1e6;
-  --er-plate2: #e6ddcc;
-  --er-line: #d5c9b3;
-  --er-text: #241d12;
-  --er-dim: #6f6350;
-  --er-accent: #96700f;
-  --er-accent-deep: #7a5c1a;
-  --er-accent-line: rgba(150, 112, 15, 0.4);
-  --er-copper: #a4552a;
-  --er-copper-line: rgba(164, 85, 42, 0.4);
-  --er-verd: #3f7566;
-  --er-glow: rgba(201, 151, 74, 0.18);
-  --er-glow-copper: rgba(164, 85, 42, 0.1);
-  --er-glow-verd: rgba(63, 117, 102, 0.08);
-  --er-steam: rgba(60, 48, 30, 1);
-  --er-steam-op: 0.07;
-  --er-puff-op: 0.28;
-  --er-sheen: rgba(255, 255, 255, 0.35);
-  --er-tex: 0.03;
-  --er-shadow: 0.18;
-  --er-shadow2: 0.1;
-  --er-sq-light: #d9cdb5;
-  --er-sq-dark: #b09a78;
-  --er-sq-white-piece: #fffaf0;
-  --er-sq-black-piece: #241d12;
+:root[data-theme="dark"] {
+  --er-bg: #131217;
+  --er-surface: #1b1a21;
+  --er-surface2: #17161c;
+  --er-line: rgba(236, 233, 223, 0.15);
+  --er-text: #ece9df;
+  --er-dim: rgba(236, 233, 223, 0.55);
+  --er-accent: #ff4f35;
+  --er-accent-glow: rgba(255, 79, 53, 0.45);
+  --er-stroke: var(--er-accent); /* ENGINE strokes in lit red at night */
+  --er-frame: rgba(255, 79, 53, 0.55); /* safelight hairline on the board */
+  --er-marquee-line: var(--er-line);
+  --er-invert-bg: #ece9df; /* night hover floods PAPER, not ink */
+  --er-invert-fg: #16151a;
+  --er-invert-dim: rgba(22, 21, 26, 0.65);
+  --er-ember: rgba(255, 79, 53, 0.06);
+  --er-sq-light: #1c1b22;
+  --er-sq-dark: #26242e;
+  --er-sq-white-piece: #f4f1e8;
+  --er-sq-black-piece: #0b0a0e;
+  --er-piece-w-shadow: 0 2px 3px rgba(0, 0, 0, 0.6);
+  --er-piece-b-shadow: 0 0 2px rgba(236, 233, 223, 0.5);
 }
 
 @theme inline {
@@ -77,12 +69,10 @@
   --color-er-text: var(--er-text);
   --color-er-dim: var(--er-dim);
   --color-er-accent: var(--er-accent);
-  --color-er-copper: var(--er-copper);
-  --color-er-verd: var(--er-verd);
 
   --font-display: var(--font-er-display);
+  --font-display-black: var(--font-er-black);
   --font-mono: var(--font-er-mono);
-  --font-martian: var(--font-er-martian);
 }
 
 /* These belong in `base` on purpose. Unlayered rules outrank every Tailwind
@@ -91,33 +81,41 @@
 @layer base {
   html,
   body {
-    background: var(--er-bg);
+    background-color: var(--er-bg);
     color: var(--er-text);
   }
 
   body {
     font-family: var(--font-er-display), system-ui, sans-serif;
+    /* The night edition's faint red ember in the top corner; --er-ember is
+       transparent by day so this is invisible there. */
+    background-image: radial-gradient(760px 420px at 85% -6%, var(--er-ember), transparent 60%);
+    transition:
+      background-color 0.35s ease,
+      color 0.35s ease;
+  }
+
+  ::selection {
+    background: var(--er-accent);
+    color: var(--er-bg);
   }
 
   a {
     color: inherit;
     text-decoration: none;
   }
+
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--er-accent);
+    outline-offset: 3px;
+  }
 }
 
 /* ---------------------------------------------------------------------------
-   Keyframes — ported from docs/design/hero-preview.html
+   Keyframes
    --------------------------------------------------------------------------- */
 
-@keyframes er-flicker {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 0.8;
-  }
-}
 @keyframes er-rise {
   from {
     opacity: 0;
@@ -128,423 +126,315 @@
     transform: translateY(0);
   }
 }
-@keyframes er-spin {
+@keyframes er-fade {
   to {
-    transform: rotate(360deg);
+    opacity: 1;
   }
 }
-@keyframes er-spin-rev {
+@keyframes er-line-rise {
   to {
-    transform: rotate(-360deg);
+    transform: translateY(0);
   }
 }
-@keyframes er-steam {
-  0% {
-    transform: translateY(20px) scale(0.7);
-    opacity: 0;
-  }
-  25% {
-    opacity: var(--er-steam-op);
-  }
-  100% {
-    transform: translateY(-130px) scale(1.5);
-    opacity: 0;
+@keyframes er-cell-in {
+  to {
+    transform: scale(1);
   }
 }
-@keyframes er-needle {
+@keyframes er-pulse {
   0%,
   100% {
-    transform: rotate(-52deg);
+    opacity: 1;
   }
-  40% {
-    transform: rotate(38deg);
-  }
-  55% {
-    transform: rotate(22deg);
-  }
-  70% {
-    transform: rotate(44deg);
+  50% {
+    opacity: 0.25;
   }
 }
-@keyframes er-ticker {
+@keyframes er-flicker {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+@keyframes er-slide {
   to {
     transform: translateX(-50%);
   }
 }
-@keyframes er-sheen {
+@keyframes er-sq-turn {
   0%,
-  72% {
-    transform: translateX(-130%) skewX(-18deg);
+  42% {
+    transform: rotate(0deg);
   }
-  92%,
-  100% {
-    transform: translateX(230%) skewX(-18deg);
-  }
-}
-@keyframes er-square {
-  0%,
-  100% {
-    box-shadow:
-      inset 0 0 0 2px rgba(201, 151, 74, 0.75),
-      inset 0 0 18px rgba(201, 151, 74, 0.32);
-  }
-  50% {
-    box-shadow:
-      inset 0 0 0 2px rgba(201, 151, 74, 0.2),
-      inset 0 0 6px rgba(201, 151, 74, 0.1);
-  }
-}
-@keyframes er-draw {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-@keyframes er-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-@keyframes er-arrow {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  50% {
-    transform: translateX(5px);
-  }
-}
-@keyframes er-train {
-  0% {
-    transform: translateX(-110px);
+  50%,
+  92% {
+    transform: rotate(90deg);
   }
   100% {
-    transform: translateX(320px);
-  }
-}
-@keyframes er-puff {
-  0% {
-    transform: translate(0, 0) scale(0.4);
-    opacity: 0;
-  }
-  15% {
-    opacity: var(--er-puff-op);
-  }
-  100% {
-    transform: translate(14px, -30px) scale(1.6);
-    opacity: 0;
+    transform: rotate(180deg);
   }
 }
 
 /* ---------------------------------------------------------------------------
-   Ornamental pieces. These carry gradients, masks and conic-gradients that
-   read far better as CSS than as long Tailwind arbitrary values; layout stays
-   in the JSX as utilities.
+   Components. Layout stays in the JSX as utilities; anything with hover
+   inversions, theme-conditional glows, or entry choreography lives here.
    --------------------------------------------------------------------------- */
 
 .er-rise {
   animation: er-rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
-/* Ambient background ------------------------------------------------------ */
+/* Header ------------------------------------------------------------------ */
 
-.er-glows {
-  background:
-    radial-gradient(900px 500px at 72% 18%, var(--er-glow), transparent 65%),
-    radial-gradient(700px 600px at 8% 90%, var(--er-glow-copper), transparent 60%),
-    radial-gradient(600px 400px at 92% 78%, var(--er-glow-verd), transparent 60%);
-}
-
-.er-grain {
-  opacity: var(--er-tex);
-  background: repeating-linear-gradient(
-    90deg,
-    transparent 0px,
-    transparent 3px,
-    rgba(255, 255, 255, 0.35) 3px,
-    rgba(255, 255, 255, 0.35) 4px
-  );
-  mix-blend-mode: overlay;
-}
-
-.er-flywheel {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-}
-.er-flywheel--outer {
-  top: -160px;
-  left: -160px;
-  width: 480px;
-  height: 480px;
-  border: 1.5px dashed var(--er-line);
-  animation: er-spin 90s linear infinite;
-}
-.er-flywheel--spokes {
-  top: -110px;
-  left: -110px;
-  width: 380px;
-  height: 380px;
-  border: 1px solid var(--er-line);
-  animation: er-spin-rev 140s linear infinite;
-  background: repeating-conic-gradient(var(--er-line) 0deg 1.4deg, transparent 1.4deg 30deg);
-}
-.er-flywheel--far {
-  bottom: -200px;
-  right: -140px;
-  width: 520px;
-  height: 520px;
-  border: 1.5px dashed var(--er-line);
-  animation: er-spin-rev 120s linear infinite;
-}
-
-/* Header logo mark -------------------------------------------------------- */
-
-.er-mark {
-  background: linear-gradient(
-    160deg,
-    var(--er-accent),
-    var(--er-copper) 70%,
-    var(--er-accent-deep)
-  );
-  color: #17130d;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 2px 8px rgba(0, 0, 0, 0.4);
-}
-
-.er-puff {
-  position: absolute;
-  border-radius: 50%;
-  background: var(--er-steam);
-  opacity: 0;
-  pointer-events: none;
-  animation: er-puff 3.2s ease-out infinite;
-}
-
-/* Each of these declares its own background-clip AFTER its background. Don't
-   factor the clip out into a shared rule: `background` is a shorthand that
-   resets background-clip to border-box, so a later `background:` override
-   silently un-clips the text and paints the whole box as a solid block. */
-.er-wordmark {
-  background: linear-gradient(100deg, var(--er-text), var(--er-accent));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.er-headline-accent {
-  background: linear-gradient(100deg, var(--er-accent), var(--er-copper));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  padding-right: 0.08em;
-}
-
-.er-underline {
-  position: absolute;
-  left: 2px;
-  right: 6px;
-  bottom: 6px;
-  height: 3px;
-  background: linear-gradient(90deg, var(--er-accent), var(--er-copper) 60%, transparent);
-  transform-origin: left;
-  animation: er-draw 0.9s 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-
-/* Train ------------------------------------------------------------------- */
-
-.er-trackbox {
-  -webkit-mask-image: linear-gradient(90deg, black 82%, transparent);
-  mask-image: linear-gradient(90deg, black 82%, transparent);
-}
-.er-rail {
-  background: var(--er-line);
-}
-.er-sleepers {
-  background: repeating-linear-gradient(90deg, var(--er-line) 0 5px, transparent 5px 12px);
-}
-.er-train {
-  animation: er-train 9s linear infinite;
-}
-.er-loco {
-  background: linear-gradient(180deg, var(--er-copper), var(--er-accent-deep));
-  border-radius: 3px 5px 1px 1px;
-}
-.er-carriage {
-  background: var(--er-surface);
-  border: 1px solid var(--er-accent-line);
-}
-
-/* Mini board plate -------------------------------------------------------- */
-
-.er-plate {
-  background: linear-gradient(155deg, var(--er-plate), var(--er-plate2));
-  border: 1px solid var(--er-line);
-  box-shadow:
-    0 24px 60px rgba(0, 0, 0, var(--er-shadow)),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  animation: er-bob 7s 1.4s ease-in-out infinite;
-}
-
-.er-rivet {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #e0b878, #6d5124 70%);
-}
-
-.er-steamwisp {
-  position: absolute;
-  border-radius: 50%;
-  background: var(--er-steam);
-  opacity: 0;
-  pointer-events: none;
-}
-
-.er-board {
-  border: 1px solid var(--er-accent-line);
-}
-
-.er-square--hi {
-  animation: er-square 2.6s ease-in-out infinite;
-}
-
-/* Ticker ------------------------------------------------------------------ */
-
-.er-tickerbox {
-  -webkit-mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
-  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
-}
-.er-tickerrow {
-  animation: er-ticker 34s linear infinite;
-}
-
-/* Mode cards -------------------------------------------------------------- */
-
-.er-card {
-  background: linear-gradient(165deg, var(--er-surface), var(--er-surface2));
-  border: 1px solid var(--er-line);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, var(--er-shadow2));
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
-}
-.er-card:hover {
-  transform: translateY(-4px);
-}
-.er-card--brass:hover {
-  border-color: var(--er-accent);
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, var(--er-shadow)),
-    0 0 0 1px var(--er-accent);
-}
-.er-card--copper:hover {
-  border-color: var(--er-copper);
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, var(--er-shadow)),
-    0 0 0 1px var(--er-copper);
-}
-
-.er-sheen {
-  background: linear-gradient(105deg, transparent, var(--er-sheen), transparent);
-  animation: er-sheen 7s 1.6s ease-in-out infinite;
-}
-
-.er-badge-brass {
-  color: var(--er-accent);
-  border: 1px solid var(--er-accent-line);
-}
-.er-badge-copper {
-  color: var(--er-copper);
-  border: 1px solid var(--er-copper-line);
-}
-
-/* Gauge ------------------------------------------------------------------- */
-
-.er-gauge-arc {
-  border-radius: 44px 44px 0 0;
-  background: conic-gradient(
-    from 270deg at 50% 100%,
-    var(--er-verd) 0deg,
-    var(--er-accent) 90deg,
-    var(--er-copper) 150deg,
-    transparent 180deg
-  );
-  opacity: 0.5;
-}
-.er-gauge-face {
-  border-radius: 44px 44px 0 0;
-  background: var(--er-surface);
-}
-.er-needle {
+.er-brand-square {
+  width: 16px;
+  height: 16px;
   background: var(--er-text);
-  transform-origin: bottom center;
-  animation: er-needle 5.5s ease-in-out infinite;
+  animation: er-sq-turn 6s cubic-bezier(0.7, 0, 0.2, 1) infinite;
+  transition:
+    background 0.35s,
+    box-shadow 0.35s;
+}
+:root[data-theme="dark"] .er-brand-square {
+  background: var(--er-accent);
+  box-shadow: 0 0 14px var(--er-accent-glow);
 }
 
-.er-arrow {
-  animation: er-arrow 2.4s ease-in-out infinite;
+.er-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--er-accent);
+  box-shadow: 0 0 10px var(--er-accent-glow);
+  animation: er-pulse 1.6s ease-in-out infinite;
 }
 
 .er-lamp {
   background: var(--er-accent);
-  box-shadow: 0 0 8px var(--er-accent);
+  box-shadow: 0 0 8px var(--er-accent-glow);
   animation: er-flicker 3.2s ease-in-out infinite;
-}
-.er-lamp--verd {
-  background: var(--er-verd);
-  box-shadow: 0 0 8px var(--er-verd);
-  animation: er-flicker 2.1s ease-in-out infinite;
-}
-
-.er-history-link {
-  border-bottom: 1px solid var(--er-line);
-  transition:
-    color 0.2s,
-    border-color 0.2s;
-}
-.er-history-link:hover {
-  color: var(--er-verd);
-  border-bottom-color: var(--er-verd);
 }
 
 .er-toggle {
   border: 1px solid var(--er-line);
   transition:
-    border-color 0.2s,
-    color 0.2s;
+    border-color 0.25s,
+    color 0.25s,
+    box-shadow 0.25s;
 }
 .er-toggle:hover {
   border-color: var(--er-accent);
   color: var(--er-accent);
+  box-shadow: 0 0 16px var(--er-accent-glow);
 }
 
-/* Lets the toggle label be right from first paint without any JS state. */
-.er-when-light {
+/* Lets the toggle label be right from first paint without any JS state.
+   Day is the default edition, so .er-when-dark content hides unless the
+   night attribute is set. */
+.er-when-dark {
   display: none;
 }
-:root[data-theme="light"] .er-when-dark {
-  display: none;
-}
-:root[data-theme="light"] .er-when-light {
+:root[data-theme="dark"] .er-when-dark {
   display: inline;
 }
+:root[data-theme="dark"] .er-when-light {
+  display: none;
+}
 
-/* The hero leans hard on motion; honour a reduced-motion preference. */
+/* Headline ---------------------------------------------------------------- */
+
+.er-line {
+  display: block;
+  overflow: hidden;
+}
+.er-line > span {
+  display: inline-block;
+  transform: translateY(115%);
+  animation: er-line-rise 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+}
+.er-line:nth-child(1) > span {
+  animation-delay: 0.08s;
+}
+.er-line:nth-child(2) > span {
+  animation-delay: 0.2s;
+}
+.er-line:nth-child(3) > span {
+  animation-delay: 0.32s;
+}
+
+.er-hollow {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--er-stroke);
+  transition:
+    color 0.35s ease,
+    -webkit-text-stroke-color 0.35s ease,
+    text-shadow 0.35s ease;
+}
+:root[data-theme="dark"] .er-hollow {
+  text-shadow: 0 0 34px var(--er-accent-glow);
+}
+.er-headline:hover .er-hollow {
+  color: var(--er-accent);
+  -webkit-text-stroke-color: var(--er-accent);
+}
+
+/* Replay board ------------------------------------------------------------ */
+
+.er-board-frame {
+  border: 1px solid var(--er-frame);
+  padding: 10px;
+  transition:
+    border-color 0.35s,
+    box-shadow 0.35s;
+}
+:root[data-theme="dark"] .er-board-frame {
+  box-shadow: 0 0 34px rgba(255, 79, 53, 0.08);
+}
+
+.er-cell {
+  position: absolute;
+  width: var(--sq);
+  height: var(--sq);
+  transform: scale(0);
+  animation: er-cell-in 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+  transition: background 0.35s;
+}
+
+.er-hl {
+  position: absolute;
+  width: var(--sq);
+  height: var(--sq);
+  box-shadow: inset 0 0 0 2px var(--er-accent);
+  opacity: 0;
+  transition:
+    transform 0.45s cubic-bezier(0.3, 0.8, 0.3, 1),
+    opacity 0.3s;
+  pointer-events: none;
+}
+:root[data-theme="dark"] .er-hl {
+  box-shadow:
+    inset 0 0 0 2px var(--er-accent),
+    inset 0 0 14px rgba(255, 79, 53, 0.25);
+}
+
+.er-piece {
+  position: absolute;
+  width: var(--sq);
+  height: var(--sq);
+  display: grid;
+  place-items: center;
+  font-size: calc(var(--sq) * 0.74);
+  line-height: 1;
+  transition:
+    transform 0.45s cubic-bezier(0.3, 0.8, 0.3, 1),
+    opacity 0.35s,
+    scale 0.35s;
+  will-change: transform;
+  user-select: none;
+  pointer-events: none;
+}
+.er-piece--w {
+  color: var(--er-sq-white-piece);
+  text-shadow: var(--er-piece-w-shadow);
+}
+.er-piece--b {
+  color: var(--er-sq-black-piece);
+  text-shadow: var(--er-piece-b-shadow);
+}
+.er-piece--captured {
+  opacity: 0;
+  scale: 0.4;
+}
+
+/* Marquee ------------------------------------------------------------------ */
+
+.er-marquee {
+  border-block: 1px solid var(--er-marquee-line);
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 12px 0;
+  transition: border-color 0.35s;
+}
+.er-marquee-row {
+  animation: er-slide 26s linear infinite;
+}
+.er-tick-dot {
+  color: var(--er-accent);
+  text-shadow: 0 0 10px var(--er-accent-glow);
+}
+
+/* Mode index --------------------------------------------------------------- */
+
+.er-index-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 1.1fr auto;
+  align-items: center;
+  gap: 28px;
+  padding: 34px 18px;
+  border-bottom: 1px solid var(--er-line);
+  transition:
+    background 0.25s ease,
+    color 0.25s ease,
+    padding-left 0.25s ease;
+  opacity: 0;
+  animation: er-fade 0.7s ease forwards;
+}
+.er-index-row:first-of-type {
+  border-top: 1px solid var(--er-line);
+  animation-delay: 0.7s;
+}
+.er-index-row:nth-of-type(2) {
+  animation-delay: 0.82s;
+}
+.er-index-row:nth-of-type(3) {
+  animation-delay: 0.94s;
+}
+.er-index-row:hover {
+  background: var(--er-invert-bg);
+  color: var(--er-invert-fg);
+  padding-left: 30px;
+}
+.er-row-tag {
+  color: var(--er-accent);
+}
+.er-index-row:hover .er-row-tag {
+  text-shadow: 0 0 10px var(--er-accent-glow);
+}
+.er-row-desc {
+  color: var(--er-dim);
+  transition: color 0.25s;
+}
+.er-index-row:hover .er-row-desc {
+  color: var(--er-invert-dim);
+}
+.er-row-arrow {
+  transition: transform 0.25s cubic-bezier(0.3, 0.9, 0.3, 1.4);
+}
+.er-index-row:hover .er-row-arrow {
+  transform: translateX(10px);
+  color: var(--er-accent);
+}
+
+@media (max-width: 720px) {
+  .er-index-row {
+    grid-template-columns: 1fr auto;
+  }
+  .er-row-tag,
+  .er-row-desc {
+    display: none;
+  }
+}
+
+/* The design leans on motion; honour a reduced-motion preference. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.001ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
