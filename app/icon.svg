@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- The ER monogram, "bare" cut — same geometry as components/BrandMark.tsx
+       (cap height 13 on its 100-unit grid, so scale 0.13). Kept in sync by hand:
+       this file has to be a static asset for Next's app/icon.svg convention, and
+       a favicon has no webfont, which is why the letters are paths.
+
+       Ink on light browser chrome, paper on dark. The red tick is the one accent
+       and stays red in both, hotter at night to match --er-accent. -->
+  <style>
+    .ink { fill: #16151a }
+    .tick { fill: #e0331f }
+    @media (prefers-color-scheme: dark) {
+      .ink { fill: #ece9df }
+      .tick { fill: #ff4f35 }
+    }
+  </style>
+  <g class="ink" fill-rule="evenodd">
+    <path d="M0 0H74V20H26V40H66V60H26V80H74V100H0Z" transform="translate(0.5 3.6) scale(0.13)" />
+    <path d="M0 0H78V62H52L82 100H48L26 66V100H0ZM26 20H56V42H26Z" transform="translate(11.16 3.6) scale(0.13)" />
+  </g>
+  <rect class="tick" x="20.4" y="19.4" width="3.1" height="3.1" />
+</svg>
