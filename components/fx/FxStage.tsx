@@ -143,6 +143,13 @@ interface FxStageProps {
   ref?: Ref<FxHandle>;
   /** Master off switch — reduced motion, or `?fx=off` for the CDP harnesses. */
   disabled?: boolean;
+  /**
+   * Which colour is at the bottom of the board — must match the Board's own
+   * `orientation`. The side-anchored effects (HP rails, the ki-charge half) read
+   * it: on a flipped board User 1v1 would otherwise label White's rail Black and
+   * light up the wrong half while the engine thinks.
+   */
+  orientation?: "white" | "black";
 }
 
 /* ------------------------------------------------------------------ generators */
@@ -201,7 +208,12 @@ function makeCracks(origin: SquareGeom, w: number, h: number): CrackPath[] {
 
 /* ------------------------------------------------------------------ component */
 
-export function FxStage({ children, ref, disabled = false }: FxStageProps) {
+export function FxStage({
+  children,
+  ref,
+  disabled = false,
+  orientation = "white",
+}: FxStageProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -586,6 +598,9 @@ export function FxStage({ children, ref, disabled = false }: FxStageProps) {
 
   /* ---------------------------------------------------------------- render */
 
+  const bottomSide: "w" | "b" = orientation === "white" ? "w" : "b";
+  const topSide: "w" | "b" = bottomSide === "w" ? "b" : "w";
+
   return (
     <div ref={stageRef} className="er-fx-stage">
       <div ref={bodyRef} className="er-fx-body">
@@ -598,14 +613,16 @@ export function FxStage({ children, ref, disabled = false }: FxStageProps) {
             <div
               className="er-fx-charge"
               style={{
-                // White searches from the bottom half, black from the top.
-                ["--fx-charge-top" as string]: charge.side === "w" ? "50%" : "0%",
-                ["--fx-charge-dir" as string]: charge.side === "w" ? "to top" : "to bottom",
+                // The searching side's own half lights up, so which half that is
+                // depends on which way the board is facing.
+                ["--fx-charge-top" as string]: charge.side === bottomSide ? "50%" : "0%",
+                ["--fx-charge-dir" as string]:
+                  charge.side === bottomSide ? "to top" : "to bottom",
               }}
             />
             <div
               className="er-fx-charge-rail"
-              style={{ ["--fx-rail-top" as string]: charge.side === "w" ? "100%" : "0%" }}
+              style={{ ["--fx-rail-top" as string]: charge.side === bottomSide ? "100%" : "0%" }}
             >
               <div
                 className="er-fx-charge-fill"
@@ -618,20 +635,24 @@ export function FxStage({ children, ref, disabled = false }: FxStageProps) {
         {hp && (
           <>
             <div className="er-fx-hp" style={{ ["--fx-hp-top" as string]: "-26px" }}>
-              <span>Black</span>
+              <span>{topSide === "w" ? "White" : "Black"}</span>
               <span className="er-fx-hp-rail">
                 <span
-                  className={`er-fx-hp-fill${hp.hit === "b" ? " is-hit" : ""}`}
-                  style={{ ["--fx-hp-pct" as string]: `${hp.black}%` }}
+                  className={`er-fx-hp-fill${hp.hit === topSide ? " is-hit" : ""}`}
+                  style={{
+                    ["--fx-hp-pct" as string]: `${topSide === "w" ? hp.white : hp.black}%`,
+                  }}
                 />
               </span>
             </div>
             <div className="er-fx-hp" style={{ ["--fx-hp-top" as string]: "calc(100% + 12px)" }}>
-              <span>White</span>
+              <span>{bottomSide === "w" ? "White" : "Black"}</span>
               <span className="er-fx-hp-rail">
                 <span
-                  className={`er-fx-hp-fill${hp.hit === "w" ? " is-hit" : ""}`}
-                  style={{ ["--fx-hp-pct" as string]: `${hp.white}%` }}
+                  className={`er-fx-hp-fill${hp.hit === bottomSide ? " is-hit" : ""}`}
+                  style={{
+                    ["--fx-hp-pct" as string]: `${bottomSide === "w" ? hp.white : hp.black}%`,
+                  }}
                 />
               </span>
             </div>

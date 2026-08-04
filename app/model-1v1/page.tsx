@@ -5,17 +5,44 @@ import { useEffect, useRef, useState } from "react";
 
 import { Board } from "@/components/Board";
 import { EngineConfigPicker } from "@/components/EngineConfigPicker";
+import { FxStage, type FxHandle } from "@/components/fx/FxStage";
 import { MaiaLoadNotice } from "@/components/MaiaLoadNotice";
 import { ResultScreen } from "@/components/ResultScreen";
 import { publishBoardFrame } from "@/lib/boardFeed";
 import { ALL_ENGINE_PRESETS, STOCKFISH_PRESETS } from "@/lib/chess/engines";
 import { GameAbortedError, runModelGame, type ModelGameResult } from "@/lib/chess/gameLoop";
 import type { EngineConfig } from "@/lib/chess/types";
+import { beatDelay, classify } from "@/lib/fx/classify";
+import { ALL_FX_IDS } from "@/lib/fx/effects";
+import { depthToPct, INDETERMINATE_CHARGE_PCT, materialHp, useFxEnabled } from "@/lib/fx/runtime";
+import { freshFxContext } from "@/lib/fx/types";
 // Task 8 left this pointing at app/actions/games; Task 9 put an adapter facade
 // in front (localStorage today, KV once provisioned), so the import moved.
 import { saveGame } from "@/lib/games/store";
 
 const START_FEN = new Chess().fen();
+
+/** How long the VS card holds before the first search starts. */
+const VS_CARD_MS = 1700;
+
+/**
+ * Must match `animationDurationInMs` in components/Board.tsx. The effect for a
+ * ply fires after the piece has finished sliding — hitting a square the piece
+ * hasn't reached yet reads as the effect missing.
+ */
+const BOARD_SLIDE_MS = 220;
+
+/** Every effect is on here — Model 1v1 is a spectator sport, so full ceiling. */
+const FX_SET = new Set(ALL_FX_IDS);
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** "ELO 2800" / "Tier 1500" — the VS card's power-level line. */
+function eloLabel(config: EngineConfig): string {
+  if (config.elo) return `ELO ${config.elo}`;
+  if (config.ratingTier) return `Tier ${config.ratingTier}`;
+  return config.type;
+}
 
 /** Pairs the SAN list into numbered rows: 1. e4 e5 / 2. Nf3 Nc6 / ... */
 function toMovePairs(moves: string[]) {
@@ -39,6 +66,15 @@ export default function Model1v1Page() {
   const [error, setError] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+
+  // Fight FX. The stage handle is imperative on purpose: effects are fire-and-
+  // forget animations, not state, and routing them through React state would
+  // re-render the board mid-game for something the board doesn't care about.
+  const fx = useRef<FxHandle>(null);
+  const fxOn = useFxEnabled();
+  // Recapture and combo detection span plies, so the classifier needs somewhere
+  // to keep score across a whole game. Reset per game in start().
+  const fxCtx = useRef(freshFxContext());
 
   // Leaving the page mid-game would otherwise leave the loop running and the
   // engine worker busy.
@@ -74,17 +110,85 @@ export default function Model1v1Page() {
     setFen(START_FEN);
     setPlaying(true);
 
+    // Clear anything still animating from the previous game before resetting the
+    // cross-ply tallies, or a rematch inherits the last game's combo count.
+    fx.current?.clear();
+    fxCtx.current = freshFxContext();
+
+    if (fxOn) {
+      fx.current?.hp({ white: 100, black: 100, hit: null });
+      fx.current?.vs({
+        whiteLabel: white.label,
+        blackLabel: black.label,
+        whiteElo: eloLabel(white),
+        blackElo: eloLabel(black),
+      });
+      await sleep(VS_CARD_MS);
+      // A rematch or a navigation during the card should not then start a game.
+      if (controller.signal.aborted) return;
+      fx.current?.vs(null);
+    }
+
     try {
       const outcome = await runModelGame(
         white,
         black,
-        (nextFen, san) => {
+        (nextFen, san, played) => {
           setFen(nextFen);
           setMoves((prev) => [...prev, san]);
+
+          if (!fxOn) return;
+
+          // The engine has answered, so the charge is spent.
+          fx.current?.charge(null);
+
+          const beat = classify(
+            {
+              move: played.move,
+              isCheck: played.isCheck,
+              isCheckmate: played.isCheckmate,
+              sanHistory: played.history,
+            },
+            fxCtx.current,
+            "spectate",
+          );
+
+          // The board takes ~220ms to slide the piece (Board's own
+          // animationDurationInMs). Firing on the same tick would land the hit
+          // before the piece arrives, so the effect waits for the landing.
+          const hp = materialHp(new Chess(played.fen));
+          window.setTimeout(() => {
+            if (controller.signal.aborted) return;
+            fx.current?.fire(beat, FX_SET);
+            fx.current?.hp({
+              ...hp,
+              hit: beat.victim ? (beat.color === "w" ? "b" : "w") : null,
+            });
+          }, BOARD_SLIDE_MS);
+
+          // The hit-stop. Tier decides how long the game holds on this ply, plus
+          // the slide we just waited out so the pause is *after* the effect.
+          return beatDelay(beat) + BOARD_SLIDE_MS;
         },
-        { signal: controller.signal },
+        {
+          signal: controller.signal,
+          onThinkStart: (side, engine) => {
+            if (!fxOn) return;
+            // Maia has no search, so nothing will report depth — show an
+            // indeterminate charge rather than a bar stuck at zero.
+            fx.current?.charge({
+              side,
+              pct: engine.type === "maia" ? INDETERMINATE_CHARGE_PCT : 0,
+            });
+          },
+          onSearchDepth: (side, depth) => {
+            if (!fxOn) return;
+            fx.current?.charge({ side, pct: depthToPct(depth) });
+          },
+        },
       );
       setEnd(outcome);
+      fx.current?.charge(null);
 
       // Log the finished game (Task 9). saveGame never throws — a failed write
       // (quota, private browsing, KV outage) costs one history entry, not the
@@ -98,6 +202,7 @@ export default function Model1v1Page() {
         endReason: outcome.endReason,
       });
     } catch (err) {
+      fx.current?.charge(null);
       // A superseded or unmounted game isn't an error worth showing.
       if (err instanceof GameAbortedError) return;
       setError(err instanceof Error ? err.message : String(err));
@@ -199,7 +304,14 @@ export default function Model1v1Page() {
             <span className="text-er-text">{black?.label ?? "—"}</span>
           </div>
 
-          <Board fen={fen} />
+          {/* The HP rails sit just outside the board, so the stage needs vertical
+              room for them — mt/mb rather than padding, which would stretch the
+              stage box the effects measure against. */}
+          <div className="my-8">
+            <FxStage ref={fx} disabled={!fxOn}>
+              <Board fen={fen} />
+            </FxStage>
+          </div>
 
           <div className="text-er-dim mt-2 flex items-center justify-between font-mono text-[11px] tracking-[0.18em] uppercase">
             <span>White</span>
