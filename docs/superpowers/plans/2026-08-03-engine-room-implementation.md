@@ -33,51 +33,94 @@ The repo already has `.git`, `AGENTS.md`, `.githooks/`, `.claude/`, `docs/`, and
 - Create: everything a standard `create-next-app` TypeScript/App Router/Tailwind project generates (`package.json`, `tsconfig.json`, `next.config.ts`, `app/layout.tsx`, `app/page.tsx`, `app/globals.css`, `public/`, `.eslintrc`, `.gitignore`)
 - Preserve: `README.md` (existing content, not the generated boilerplate)
 
-- [ ] **Step 1: Back up the existing README**
+**Done — commit `55755e0`.** Built with create-next-app **16.3.0** (Next 16.3.0,
+React 19.2.8, Tailwind 4). The steps below are what actually ran; see "What
+differed from the original plan" at the end of this task for why.
+
+- [x] **Step 1: Scaffold into a sibling temp directory**
 
 ```bash
-cd "C:\Users\superCookie\Desktop\The Engine Room"
-cp README.md README.md.bak
+cd "C:\Users\juanm\Desktop"
+npx create-next-app@latest ./engine-room-scaffold --yes \
+  --typescript --tailwind --eslint --app --import-alias "@/*" \
+  --use-npm --skip-install --disable-git --no-agents-md
 ```
 
-- [ ] **Step 2: Scaffold into a sibling temp directory**
+`--disable-git` and `--skip-install` mean there's no nested `.git` or
+`node_modules` to strip afterwards. `--yes` suppresses prompts. Omitting
+`--src-dir` is what gets you no `src/` directory — it's opt-in.
+
+- [x] **Step 2: Merge the scaffold into the repo root**
+
+Delete the scaffold's own README first so it can't overwrite ours — cleaner than
+backing ours up and restoring it:
 
 ```bash
-npx create-next-app@latest ../engine-room-scaffold --typescript --tailwind --eslint --app --src-dir=false --import-alias "@/*" --use-npm
+rm engine-room-scaffold/README.md
+cp -r engine-room-scaffold/. "The Engine Room/"
+rm -rf engine-room-scaffold
 ```
 
-If the CLI prompts for anything not covered by these flags (e.g. Turbopack), answer with the default/No — keep it simple.
+Then confirm nothing of ours was clobbered: `README.md`, `AGENTS.md`,
+`.githooks/`, `.claude/`, `docs/`.
 
-- [ ] **Step 3: Strip the nested git repo and node_modules before merging**
+- [x] **Step 3: Rename the package**
 
-```bash
-rm -rf ../engine-room-scaffold/.git
-rm -rf ../engine-room-scaffold/node_modules
+`package.json` inherits the temp folder's name. Set `"name": "the-engine-room"`.
+
+- [x] **Step 4: Stop `next dev` from writing to AGENTS.md**
+
+Next 16's dev server appends a `<!-- BEGIN:nextjs-agent-rules -->` block to
+`AGENTS.md` on **every run** — the `--no-agents-md` scaffold flag does not
+prevent this, it's a separate runtime feature. Deleting the block just recreates
+it on the next `next dev`. With several agents on several branches, that's the
+same phantom diff on all of them and a guaranteed conflict. So in
+`next.config.ts`:
+
+```ts
+const nextConfig: NextConfig = {
+  agentRules: false,
+};
 ```
 
-- [ ] **Step 4: Merge the scaffold into the repo root**
-
-```bash
-cp -r ../engine-room-scaffold/. .
-mv README.md.bak README.md
-rm -rf ../engine-room-scaffold
-```
-
-- [ ] **Step 5: Install and verify**
+- [x] **Step 5: Install and verify**
 
 ```bash
 npm install
+npm run build     # what Vercel runs — catches TS/lint errors the dev server won't
 npm run dev
 ```
 
-Open `http://localhost:3000` — confirm the default Next.js starter page loads. Stop the server (Ctrl+C).
+`npm run build` succeeded (routes `/` and `/_not-found`, both static).
+`http://localhost:3000` returned HTTP 200 serving the starter page. After
+restarting `next dev` with `agentRules: false`, `git status` on `AGENTS.md` was
+clean — fix verified, not just assumed.
 
-- [ ] **Step 6: Commit**
+One npm warning is expected and harmless: `unrs-resolver` has an unapproved
+postinstall script (npm 11's allow-scripts gate). It's a transitive ESLint
+dependency; the build and dev server don't need it.
+
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
 git commit -m "scaffold the nextjs app into the repo"
 ```
+
+#### What differed from the original plan
+
+Worth knowing, since the same traps apply to later tasks:
+
+- The original Step 1 `cd` path was `C:\Users\superCookie\Desktop\...` — a
+  different machine. Real path is `C:\Users\juanm\Desktop\The Engine Room`.
+- `--src-dir=false` isn't valid on create-next-app 16; `--src-dir` is opt-in, so
+  you just omit it.
+- `--agents-md` is **default on** in v16 and generates an `AGENTS.md`. Without
+  `--no-agents-md` the copy step would have overwritten this repo's rules file.
+  The runtime version of the same feature needs the `agentRules: false` config
+  above — two separate switches for what looks like one feature.
+- The generated `.gitignore` ignores `.env*` (broader than the `.env*.local` the
+  plan's Task 9 assumes) and already includes `.vercel`. Nothing to add.
 
 ---
 

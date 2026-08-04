@@ -298,6 +298,13 @@ list. Add to that file:
 export const dynamic = "force-dynamic";
 ```
 
+**Don't let `next dev` edit AGENTS.md.** `next.config.ts` sets
+`agentRules: false` deliberately. Without it, Next 16's dev server appends a
+`<!-- BEGIN:nextjs-agent-rules -->` block to `AGENTS.md` on every single run, and
+deleting the block only makes it come back. Across parallel branches that's the
+same phantom diff on every one of them. If you ever see that block appear,
+someone removed the config option — put it back rather than committing the block.
+
 **Engines run client-side.** Both engine wrappers execute in the browser, so
 there's no serverless function timeout or cold-start risk on the engine path at
 all. The only server-side code in the whole app is the two KV Server Actions.
