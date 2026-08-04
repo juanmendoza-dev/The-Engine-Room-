@@ -328,8 +328,11 @@
   animation: er-puff 3.2s ease-out infinite;
 }
 
-.er-wordmark,
-.er-headline-accent {
+/* Each of these declares its own background-clip AFTER its background. Don't
+   factor the clip out into a shared rule: `background` is a shorthand that
+   resets background-clip to border-box, so a later `background:` override
+   silently un-clips the text and paints the whole box as a solid block. */
+.er-wordmark {
   background: linear-gradient(100deg, var(--er-text), var(--er-accent));
   -webkit-background-clip: text;
   background-clip: text;
@@ -338,6 +341,9 @@
 
 .er-headline-accent {
   background: linear-gradient(100deg, var(--er-accent), var(--er-copper));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   padding-right: 0.08em;
 }
 
