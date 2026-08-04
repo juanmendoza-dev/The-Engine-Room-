@@ -6,9 +6,13 @@ the archaeology.
 **Timebox:** started 12:03:48, CP1 concluded ~12:09 — **≈5 minutes, well inside the
 15-minute CP1 budget**, with ~84 minutes of the box still unspent.
 
-**Reached:** CP1 complete, and it made CP2–CP6 largely unnecessary. Stopped before
-implementing, because what CP1 found deviates materially from the approved spec.
-See "Why this stopped for a decision".
+**Outcome: Maia works.** `getMaiaMove(fen, config)` returns human-plausible legal
+moves in ~35 ms, using **Maia 2 "rapid" (MIT)** rather than Maia 3 (AGPL-3.0) —
+see "Licensing" and "Results" below. One residual question is flagged honestly
+under Results rather than glossed over.
+
+Sequence: CP1 made CP2–CP6 unnecessary; work then paused for a licensing decision
+(Maia 3's weights are AGPL-3.0), and resumed on Maia 2 once that was settled.
 
 ---
 
@@ -126,13 +130,152 @@ Proposed replacement, for approval — see the PR discussion:
   the encoder — but the same self-confirmation caution applies: build the mirrored
   FEN independently, not by calling the reference's own `mirrorFEN`.
 
+## Licensing — why Maia 2, not Maia 3
+
+| Component | Licence |
+| --- | --- |
+| `CSSLab/maia3` (Maia 3 code **and weights**) | **AGPL-3.0** |
+| `CSSLab/maia-platform-frontend` (reference encode/decode) | GPL-3.0 |
+| `CSSLab/maia2` | **MIT** |
+| Stockfish (already shipped on `main`) | GPL-3.0 |
+
+AGPL-3.0's network clause reaches software offered to users over a network, which
+is what a deployed Vercel app is. So Maia 3 would effectively make this project
+AGPL. Maia 2 is MIT and — as a bonus — has a *richer* input encoding than Maia 3
+(18 planes including castling rights and en passant, which Maia 3 lacks entirely),
+plus rating buckets that line up with the design doc's 1100/1500/1900 tiers.
+
+Maia 2 "rapid" as ONNX is at a pinned commit of the frontend repo:
+`.../maia-platform-frontend/e23a50e/public/maia2/maia_rapid.onnx` — 88.93 MB.
+
+**Nothing third-party is committed to this repo.** Both the weights and the move
+table are fetched at runtime from GitHub raw, which serves
+`Access-Control-Allow-Origin: *` (verified). That keeps ~89 MB out of the repo and
+off our Vercel bandwidth — the same reason CSSLab's own git log shows them moving
+these files off their hosting ("to eliminate Vercel bandwidth costs").
+
+Still outstanding: the repo has **no `LICENSE` file** despite already shipping
+GPL-3.0 Stockfish. That predates this task but should be fixed.
+
+## Results
+
+Verified against a production build in headless Chrome (`scripts/cdp-verify.mjs`).
+
+**Graph interface — confirmed, not assumed:**
+
+```
+inputs:  boards, elo_self, elo_oppo
+outputs: logits_maia, logits_side_info, logits_value
+```
+
+`boards` is float32 `[1, 18, 8, 8]`; `elo_self` / `elo_oppo` are **int64 bucket
+indices**, not raw ratings. `logits_side_info` is a third head we don't use.
+
+**Rating responsiveness (the primary check) — PASS.**
+
+```
+elo 1100  g8f6 31.9%  b8c6 23.8%  e7e5 6.8%
+elo 1500  g8f6 29.3%  b8c6 25.8%  e7e5 7.0%
+elo 1900  g8f6 32.6%  b8c6 25.8%  e7e5 8.3%
+```
+
+Same FEN, three ratings, measurably different distributions. This is the check
+that matters: if `elo_self` were being silently dropped (wrong tensor name, wrong
+dtype) the three rows would be **byte-identical**. They aren't, so the rating is
+genuinely consumed. Honest limit: the top move is the same at all three and the
+deltas are 1–3 points, so this proves the input is wired — not that it produces a
+large strength difference. Whole-game results remain the real test of that, same
+conclusion as Stockfish's ELO.
+
+**Move index table round-trip — PASS.** 1880 entries, 0 mismatches. (Note 1880,
+not lc0's 1858 — different move space.)
+
+**Mirror invariance — PASS, and the review's warning about it was exactly right.**
+
+```
+white-to-move : e3d3  value 0.2076
+black mirrored: e6d6  value 0.2076   value delta 0.0000
+```
+
+The spec claimed that hand-writing the mirrored FEN, rather than generating it with
+the encoder's own `mirrorFen`, would stop this check being self-confirming. **That
+was wrong, and this output proves it.** Mirroring is an involution, so for a
+black-to-move position the encoder's internal mirror undoes the test's mirror and
+produces a byte-identical tensor no matter how the test FEN was authored — which is
+why the value delta is exactly `0.0000` rather than merely close. The tautology is
+in the maths, not in the test construction.
+
+What it does establish, which is narrow but real: `mirrorFen` is a correct
+involution here, and `mirrorMove` maps the output back to true board coordinates
+correctly (`e3d3` → `e6d6`). Perspective handling exists and is applied. It says
+nothing about whether the plane layout is right.
+
+**Value head — PASS.** Start position `-0.1813`; White up a queen `+0.4583`.
+Direction is right. Reported as the raw scalar with no transform applied; note the
+start position is not ~0, so don't read this as a centipawn-like eval.
+
+**Legality — PASS** (necessary, not sufficient): all three FENs produced
+chess.js-legal moves.
+
+**Speed: ~35 ms per move**, versus Stockfish's ~500 ms. Task 6 should know these
+are an order of magnitude apart — a Maia-vs-Maia game will feel very different in
+pace from Stockfish-vs-Stockfish, and the inter-move delay probably wants to be
+per-engine rather than global.
+
+### The one residual question
+
+Policy plausibility passed against the band I set, but the specific moves give me
+pause and I'd rather flag it than declare victory:
+
+- Start position top move: `g1f3` (Nf3)
+- Top reply to 1.e4: `g8f6` (Nf6) at ~32%, with `e7e5` only 6.8–8.3%
+
+For human play at 1100–1900, `e4`/`e5`/`c5` dominate, and Nf6 as *the* most common
+reply to 1.e4 is not what real human data looks like. Both top moves being knight
+developments is the kind of pattern that could indicate a systematic encoding
+issue — and per this task's central trap, such a bug would still yield legal,
+plausible-looking moves.
+
+Evidence against a bug: **my encoder's index arithmetic matches the reference
+implementation line-for-line** — same `row = 7 - rank`, same
+`piece * 64 + row * 8 + file`, same turn plane at 12, same castling planes 13–16,
+same en-passant plane 17. That was checked directly, not assumed.
+
+How to settle it cheaply: run the same FENs through the reference app's own
+`preprocess` + `processOutputs` and diff the policy distributions. If they match,
+this is simply how `maia_rapid` behaves and the band was too loose; if they don't,
+the difference localises the bug. That's the first thing to do if Maia's play looks
+off in Model 1v1.
+
+## Gotchas worth knowing (both cost me a build cycle)
+
+- **Next 16 snapshots `public/` at build time.** Files added to `public/` *after*
+  `next build` return 404 from `next start` until you rebuild. Adding ORT's assets
+  and re-running without a rebuild produced a confusing "no available backend
+  found" error that looked like an ORT problem and wasn't.
+- **`onnxruntime-web` needs its `.mjs` glue, not just the `.wasm`.**
+  `docs/deployment.md` §4 says to copy its wasm assets into `public/`; that's
+  necessary but insufficient. It dynamically imports
+  `ort-wasm-simd-threaded.jsep.mjs` alongside the `.wasm`, and a missing `.mjs`
+  surfaces as `no available backend found` with every backend reporting
+  `previous call to 'initWasm()' failed` — which points at the wrong thing.
+- **`ort.env.wasm.numThreads = 1`** keeps this single-threaded, so no
+  `SharedArrayBuffer` and therefore no COOP/COEP headers — consistent with the
+  single-threaded Stockfish decision.
+
 ## Still unchecked
 
-- **Licence terms for the model file** before committing 43.57 MB of it. The Maia
-  source repos are GPL-3.0; the model artefact's terms need reading.
-- Whether to commit the `.onnx` to `public/` or fetch it at runtime. Committing is
-  simplest and stays inside GitHub's 100 MB hard limit (though above the 50 MB
-  warning). Fetching cross-origin from `maiachess.com` would depend on their CORS
-  headers and add a third-party runtime dependency to the demo.
-- `onnxruntime-web`'s own wasm assets need to be served locally
-  (`ort.env.wasm.wasmPaths`), exactly as `docs/deployment.md` §4 predicted.
+- **The move table is fetched from `main`, unpinned.** The model is pinned to
+  commit `e23a50e`, but I couldn't find the move table at that commit (the repo
+  layout differed then) and chose not to spend more timebox hunting. If upstream
+  reorders that table, Maia's move decoding silently changes. Pinning it to a
+  resolved SHA is a small, worthwhile follow-up.
+- **`public/ort/` is ~38 MB of vendored ORT assets**, because I copied both the
+  jsep and non-jsep wasm variants for safety. The run only appeared to need the
+  jsep pair, so this could likely be halved. MIT-licensed, so committing is
+  unproblematic — just larger than it needs to be.
+- **No IndexedDB caching of the 89 MB model.** The reference app caches it and
+  shows a progress bar; we rely on the browser HTTP cache. First Maia move on a
+  cold cache is a long wait, and Model 1v1 needs a loading state for it.
+- **No `LICENSE` file in the repo**, despite already shipping GPL-3.0 Stockfish.
+- The residual policy-plausibility question above.

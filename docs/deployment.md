@@ -323,6 +323,21 @@ files at runtime and doesn't always resolve them correctly under a bundler.
 If it 404s on Vercel, the fix is copying its wasm assets into `public/` and
 setting `ort.env.wasm.wasmPaths` to that path.
 
+Confirmed while doing Task 3, with one correction: copying the `.wasm` is
+necessary but **not sufficient**. ORT also dynamically imports a matching `.mjs`
+glue module — `ort-wasm-simd-threaded.jsep.mjs` alongside
+`ort-wasm-simd-threaded.jsep.wasm` — so copy both. A missing `.mjs` surfaces as
+`no available backend found` with every backend reporting
+`previous call to 'initWasm()' failed`, which reads like an ORT/browser problem
+and is really just a 404. Also set `ort.env.wasm.numThreads = 1` to stay
+single-threaded and keep the no-COOP/COEP decision intact.
+
+**Next 16 snapshots `public/` at build time.** Files added to `public/` *after*
+`next build` return 404 from `next start` until you rebuild. This bites whenever
+you copy engine assets in as a separate step from the build — the app looks
+broken at runtime for a reason that has nothing to do with your code. Rebuild
+after adding anything to `public/`.
+
 **The history page and prerendering (Task 11).** An earlier version of this
 note said `app/history/page.tsx` must set `export const dynamic =
 "force-dynamic"`. That advice was written for the original design (an async
