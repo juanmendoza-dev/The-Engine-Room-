@@ -17,10 +17,23 @@ these rules exactly so our git history stays clean and progress is visible.
    sit on changes waiting for a "big" milestone. Commit even small,
    incremental changes (a function, a fix, a config tweak) and push
    immediately after committing so progress is always visible upstream.
+4. **Write commit messages like a human, not an AI.** Casual phrasing,
+   contractions, the occasional typo or grammar slip — all fine. Don't
+   write polished, robotic changelog-speak ("Refactored the
+   authentication module to improve maintainability and scalability").
+   Write it the way you'd actually describe the change out loud.
+
+## Documentation Rules
+
+1. **Expand the docs whenever you can.** When you learn something about
+   the project, add it to the relevant doc (README, AGENTS.md, code
+   comments, etc.) instead of letting it live only in your own context.
+   Other agents working on this project don't share your conversation
+   history — the docs are how they catch up.
 
 ## Enforcement
 
-Rules 1 and 2 are enforced technically, not just by convention:
+Git rules 1 and 2 are enforced technically, not just by convention:
 
 - **`.githooks/commit-msg`** rejects any commit whose message contains an
   AI co-author trailer (rule 2). Applies to every tool/agent using git in
@@ -41,3 +54,8 @@ git config core.hooksPath .githooks
 Without this, the `.githooks/` scripts exist in the repo but git won't
 actually run them — `core.hooksPath` is a local, per-clone config setting
 that is never itself tracked by git.
+
+Rules 3, 4, and the documentation rule are judgment calls, not things a
+hook can check — there's no reliable way to script "did this commit
+message sound human enough" or "should this have been documented." They
+rely on agents actually following AGENTS.md, not tooling.
