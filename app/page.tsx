@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { TransitionLink } from "@/components/PageTransition";
 import { ReplayBoard } from "@/components/ReplayBoard";
 
 // Atmospheric flavour text, not live data. Wiring this to real KV records
@@ -81,7 +80,7 @@ export default function MenuPage() {
 
       <nav className="mx-auto w-full max-w-[1280px] px-10 pb-24 max-md:px-5" aria-label="Modes">
         {MODES.map((mode) => (
-          <Link key={mode.href} href={mode.href} className="er-index-row">
+          <TransitionLink key={mode.href} href={mode.href} className="er-index-row">
             <span className="er-row-tag font-mono text-[10px] tracking-[0.24em] uppercase">
               {mode.tag}
             </span>
@@ -92,7 +91,7 @@ export default function MenuPage() {
             <span className="er-row-arrow text-[26px]" aria-hidden>
               →
             </span>
-          </Link>
+          </TransitionLink>
         ))}
       </nav>
     </main>

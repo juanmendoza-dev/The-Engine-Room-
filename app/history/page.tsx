@@ -6,9 +6,9 @@
 // `export const dynamic = "force-dynamic"`: the prerendered shell contains no
 // game data to go stale (deployment.md §4 has the longer story).
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { TransitionLink } from "@/components/PageTransition";
 import { KV_ENABLED, listGames } from "@/lib/games/store";
 import type { GameRecord } from "@/lib/games/types";
 
@@ -76,12 +76,12 @@ export default function HistoryPage() {
           <p className="text-er-dim mt-2 mb-5 text-[15px]">
             Finished games land here automatically. Set two engines loose and come back.
           </p>
-          <Link
+          <TransitionLink
             href="/model-1v1"
             className="border-er-accent text-er-accent hover:bg-er-accent hover:text-er-bg inline-block border px-6 py-2.5 font-mono text-[12px] tracking-[0.16em] uppercase transition-colors"
           >
             Run a Model 1v1 game
-          </Link>
+          </TransitionLink>
         </div>
       )}
 

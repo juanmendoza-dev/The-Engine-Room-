@@ -398,6 +398,25 @@ time when driving the app with the `scripts/cdp-*.mjs`-style harnesses:
   Cost this the first production run of /user-1v1: ~100 identical rejected
   drags in a position where only two legal moves existed. Fix is one evaluate
   returning both centres.
+- **Don't assert on animation state sampled from Node on a wall-clock delay.**
+  `await sleep(140)` then `Runtime.evaluate` does *not* read the page at 140ms:
+  the round trip against a busy headless Chrome can land hundreds of ms late, so
+  a probe aimed at the middle of a ~1.2s transition reads one that has already
+  finished and reports a broken feature that isn't broken. The fix is to invert
+  it — inject a `requestAnimationFrame` sampler that timestamps itself with
+  `performance.now()` into an array on `window` *before* triggering the thing,
+  then read the whole array back afterwards in one evaluate. Slow CDP then only
+  delays when you read the log, never what's in it. `scripts/cdp-press.mjs`
+  splits its two passes (`measureCase` asserts off the log, `captureCase` only
+  screenshots) for exactly this reason. Bonus: the sampler survives
+  `router.push`, since client-side navigation keeps the same JS context — so one
+  recording covers before, during, and after the route swap.
+- **Two Chrome instances can both hold `--remote-debugging-port=9222`** (one on
+  IPv4, one on IPv6) when agents work in parallel, and `/json/list` over
+  `127.0.0.1` hands you whichever bound IPv4 — possibly another agent's browser.
+  Symptom: console errors from an origin your script never visited (a run on
+  `:3100` reporting a CORS failure from `127.0.0.1:3000`). Pick a per-run port
+  and a fresh profile dir rather than assuming 9222 is yours.
 - None of this works against a **preview** deployment as long as Deployment
   Protection (§2) is on: every preview URL 302s to Vercel SSO for anonymous
   fetchers, and there are no Vercel credentials on this machine (`~/.vercel`,

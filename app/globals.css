@@ -164,6 +164,61 @@
     transform: translateX(-50%);
   }
 }
+@keyframes er-press-close {
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes er-press-open {
+  to {
+    transform: scaleY(0);
+  }
+}
+@keyframes er-press-ink {
+  0% {
+    transform: scale(0.04);
+    opacity: 1;
+  }
+  /* Holds most of its opacity through the expansion, then drops — a linear fade
+     made the ring almost invisible by the time it was big enough to read. */
+  60% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+@keyframes er-press-ink-core {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+@keyframes er-press-rule {
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes er-press-type {
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes er-press-lift {
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
 @keyframes er-sq-turn {
   0%,
   42% {
@@ -375,10 +430,14 @@
   gap: 28px;
   padding: 34px 18px;
   border-bottom: 1px solid var(--er-line);
+  /* `transform` is in the list for .er-stamp. Safe despite the forwards-fill
+     trap in the design notes: er-fade only keyframes `opacity`, so its fill
+     never holds a transform hostage on this element. */
   transition:
     background 0.25s ease,
     color 0.25s ease,
-    padding-left 0.25s ease;
+    padding-left 0.25s ease,
+    transform 0.18s cubic-bezier(0.3, 0.9, 0.3, 1);
   opacity: 0;
   animation: er-fade 0.7s ease forwards;
 }
@@ -426,6 +485,189 @@
   .er-row-desc {
     display: none;
   }
+}
+
+/* Page transition — "the press" -------------------------------------------- */
+/* Choreography (band count, stagger, when the router is actually called) lives
+   in components/PageTransition.tsx; this is only what it looks like. The
+   durations below and the *_MS constants there have to stay in step. */
+
+.er-press {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  /* Owns the screen for ~1.1s, so an impatient second click can't stack another
+     transition behind this one. */
+  pointer-events: auto;
+}
+
+/* The platen: vertical slats in the inverted ground — ink by day, paper by
+   night, same as the index-row hover flood. */
+.er-press-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--er-invert-bg);
+  transform: scaleY(0);
+  will-change: transform;
+}
+.er-press--down .er-press-band {
+  transform-origin: top center;
+  animation: er-press-close 0.32s cubic-bezier(0.62, 0, 0.2, 1) forwards;
+}
+.er-press--up .er-press-band {
+  /* Lifts away downward rather than retracting back up the way it came. */
+  transform-origin: bottom center;
+  transform: scaleY(1);
+  animation: er-press-open 0.4s cubic-bezier(0.62, 0, 0.2, 1) forwards;
+}
+
+/* Ink hitting paper at the click point: a hard dot, plus a ring of impact
+   spreading off it. Sits above the platen bands on purpose, so the impression
+   reads as struck onto the platen face.
+
+   Deliberately NOT a flood. The first pass scaled a filled disc to 150x and it
+   just washed the whole viewport red — you lost the platen, the page, and any
+   sense of where you'd clicked. Contained beats big here. */
+.er-press-ink,
+.er-press-ink-core {
+  position: absolute;
+  border-radius: 50%;
+}
+.er-press-ink {
+  width: 380px;
+  height: 380px;
+  margin: -190px 0 0 -190px;
+  border: 2px solid var(--er-accent);
+  transform: scale(0.04);
+  animation: er-press-ink 0.55s cubic-bezier(0.16, 0.9, 0.28, 1) forwards;
+}
+.er-press-ink-core {
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  background: var(--er-accent);
+  box-shadow: 0 0 20px var(--er-accent-glow);
+  transform: scale(0);
+  animation: er-press-ink-core 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.er-press-plate {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 clamp(20px, 6vw, 80px);
+}
+.er-press--up .er-press-plate {
+  animation: er-press-lift 0.2s ease forwards;
+}
+
+.er-press-slug {
+  display: flex;
+  width: 100%;
+  max-width: 900px;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.er-press-kicker {
+  color: var(--er-accent);
+  text-shadow: 0 0 12px var(--er-accent-glow);
+  opacity: 0;
+  animation: er-fade 0.4s ease 0.12s forwards;
+}
+
+.er-press-rule {
+  width: 100%;
+  height: 1px;
+  background: var(--er-accent);
+  box-shadow: 0 0 14px var(--er-accent-glow);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: er-press-rule 0.5s cubic-bezier(0.62, 0, 0.2, 1) 0.1s forwards;
+}
+/* The lower rule draws the other way, so the pair closes in on the title. */
+.er-press-rule--b {
+  transform-origin: right center;
+  animation-delay: 0.18s;
+}
+
+.er-press-mask {
+  display: block;
+  overflow: hidden;
+  color: var(--er-invert-fg);
+  line-height: 1;
+  /* Only bites on narrow viewports. The mask is a flex item under
+     `align-items: center`, so it shrink-wraps a single-line title and centring
+     is moot — but "The Engine Room" wraps to two lines on a phone, and the
+     second line would otherwise sit left while the rules and kicker centre. */
+  text-align: center;
+}
+.er-press-mask > span {
+  display: block;
+  transform: translateY(115%);
+  animation: er-press-type 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.18s forwards;
+}
+
+/* Printer's registration marks in the corners. */
+.er-press-reg {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--er-accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: er-fade 0.34s ease forwards;
+}
+.er-press-reg::before,
+.er-press-reg::after {
+  content: "";
+  position: absolute;
+  background: var(--er-accent);
+}
+.er-press-reg::before {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  margin-left: -0.5px;
+}
+.er-press-reg::after {
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 1px;
+  margin-top: -0.5px;
+}
+.er-press-reg--tl {
+  top: 30px;
+  left: 30px;
+  animation-delay: 0.14s;
+}
+.er-press-reg--tr {
+  top: 30px;
+  right: 30px;
+  animation-delay: 0.18s;
+}
+.er-press-reg--bl {
+  bottom: 30px;
+  left: 30px;
+  animation-delay: 0.22s;
+}
+.er-press-reg--br {
+  right: 30px;
+  bottom: 30px;
+  animation-delay: 0.26s;
+}
+
+/* The clicked control depresses under the platen and stays down until the new
+   page has it. A transition, not an animation — see the .er-index-row note. */
+.er-stamp {
+  transform: translateY(3px);
+  transition: transform 0.18s cubic-bezier(0.3, 0.9, 0.3, 1);
 }
 
 /* The design leans on motion; honour a reduced-motion preference. */

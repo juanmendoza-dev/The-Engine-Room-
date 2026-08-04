@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { TransitionLink } from "./PageTransition";
 import { ThemeToggle } from "./ThemeToggle";
 
 /**
@@ -10,10 +9,10 @@ import { ThemeToggle } from "./ThemeToggle";
 export function SiteHeader() {
   return (
     <header className="border-er-line er-rise relative z-2 flex items-center justify-between gap-4 border-b px-10 py-[18px] max-md:px-5">
-      <Link href="/" className="flex items-center gap-[14px]">
+      <TransitionLink href="/" className="flex items-center gap-[14px]">
         <span className="er-brand-square" aria-hidden />
         <span className="font-mono text-[11px] tracking-[0.22em] uppercase">The Engine Room</span>
-      </Link>
+      </TransitionLink>
       <div className="flex items-center gap-[26px]">
         <div className="text-er-dim flex items-center gap-[10px] font-mono text-[11px] tracking-[0.22em] uppercase max-sm:hidden">
           <span className="er-live-dot" aria-hidden />
