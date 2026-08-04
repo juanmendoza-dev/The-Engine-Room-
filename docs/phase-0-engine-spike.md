@@ -51,6 +51,11 @@ haven't done it because it's outside my two tasks.
 - `app/dev/stockfish-test/page.tsx` — throwaway verification page, deleted later by Task 8
 - `.gitattributes` — appending `*.wasm` / `*.onnx` / `*.nnue` binary rules (see below)
 - `package.json` / `package-lock.json` — adds `chess.js`, `stockfish`
+- `scripts/cdp-verify.mjs` — **added mid-task, not in the original list.** A
+  dependency-free headless-Chrome driver, because `chromium-cli` and Playwright
+  turned out not to be installed on this machine and client-side engine code
+  can't be verified any other way. Committed rather than left in a temp folder
+  so the verification is reproducible by a reviewer.
 
 **Task 3 — Maia**
 
@@ -209,6 +214,10 @@ me.
   carrying forward: the build we use is the **lite** single-threaded one, because
   the plain single-threaded wasm is 107.8 MB and GitHub rejects anything over
   100 MB. Task 2's "What differed" section in the build plan has the full list.
+  **Held unmerged pending agent review** — see
+  [`task-02-stockfish-review.md`](task-02-stockfish-review.md) for the review
+  brief: every decision and why, how to reproduce the verification, and the soft
+  spots worth attacking.
 - **Task 3 — not started.**
 
 Updated as each lands.
