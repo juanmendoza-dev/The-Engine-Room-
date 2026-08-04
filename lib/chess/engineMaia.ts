@@ -19,11 +19,13 @@ import type { EngineConfig, EngineMove } from "./types";
 const MODEL_URL =
   "https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/maia2/maia_rapid.onnx";
 
-// The 1858-entry move index the policy head is ordered by. Fetched unpinned from
-// main - noted as a known fragility in maia-notes.md. The reversed direction is
+// The move index the policy head is ordered by, pinned to the SAME commit as the
+// model so the two can't drift apart. The file has since moved twice upstream
+// (hooks/ -> providers/ -> lib/), but both moves were pure renames: the blob SHA
+// at this commit and on main are identical, verified. The reversed direction is
 // derived by inversion rather than fetched separately.
 const MOVE_TABLE_URL =
-  "https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/main/src/lib/engine/data/all_moves.json";
+  "https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/src/hooks/useMaiaEngine/data/all_moves.json";
 
 /** Rating buckets the model was trained with: <1100, then 100-wide, then >=2000. */
 const ELO_MIN = 1100;

@@ -9,7 +9,27 @@
 
 import { useEffect, useState } from "react";
 import { Chess } from "chess.js";
-import { evaluateMaia, mirrorMove } from "@/lib/chess/engineMaia";
+import { boardToTensor, evaluateMaia, mirrorMove } from "@/lib/chess/engineMaia";
+
+// Hand-derived expectations for the start position, computed from the plane layout
+// on paper rather than by running the encoder. This is the check that actually
+// validates the encoding: index = pieceIndex * 64 + row * 8 + file, row = 7 - rank,
+// piece order P N B R Q K p n b r q k.
+//
+// Worth having because every other check in this file tolerates a wrong encoder -
+// legality is enforced by chess.js, and the mirror test is tautological.
+const ENCODER_EXPECTATIONS: { label: string; index: number }[] = [
+  { label: "white rook a1  (R=3, row 0, file 0)", index: 3 * 64 + 0 * 8 + 0 },
+  { label: "white queen d1 (Q=4, row 0, file 3)", index: 4 * 64 + 0 * 8 + 3 },
+  { label: "white king e1  (K=5, row 0, file 4)", index: 5 * 64 + 0 * 8 + 4 },
+  { label: "white pawn a2  (P=0, row 1, file 0)", index: 0 * 64 + 1 * 8 + 0 },
+  { label: "black pawn a7  (p=6, row 6, file 0)", index: 6 * 64 + 6 * 8 + 0 },
+  { label: "black rook a8  (r=9, row 7, file 0)", index: 9 * 64 + 7 * 8 + 0 },
+  { label: "black king e8  (k=11, row 7, file 4)", index: 11 * 64 + 7 * 8 + 4 },
+];
+
+// 32 piece bits + 64 side-to-move bits + 4 castling planes x 64, no en passant.
+const EXPECTED_ONES = 32 + 64 + 4 * 64;
 
 const START = new Chess().fen();
 const AFTER_E4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
@@ -49,6 +69,34 @@ export default function MaiaTestPage() {
 
     (async () => {
       try {
+        // ── encoder vs hand-computed ground truth ──
+        // Runs first because if this fails, nothing below is worth reading.
+        log("== encoder vs hand-computed plane indices ==");
+        const tensor = boardToTensor(START);
+        log(
+          `${tensor.length === 18 * 64 ? "PASS" : "FAIL"}  tensor length ${tensor.length} (want ${18 * 64})`
+        );
+        let encoderOk = true;
+        for (const expectation of ENCODER_EXPECTATIONS) {
+          const got = tensor[expectation.index];
+          if (got !== 1) encoderOk = false;
+          log(`${got === 1 ? "PASS" : "FAIL"}  ${expectation.label} -> idx ${expectation.index} = ${got}`);
+        }
+        const ones = tensor.reduce((n, v) => n + (v === 1 ? 1 : 0), 0);
+        if (ones !== EXPECTED_ONES) encoderOk = false;
+        log(
+          `${ones === EXPECTED_ONES ? "PASS" : "FAIL"}  ${ones} bits set (want ${EXPECTED_ONES}: ` +
+            `32 pieces + 64 turn + 256 castling, 0 en passant)`
+        );
+        // Empty castling rights must clear those planes; catches a plane that's
+        // unconditionally filled.
+        const noCastling = boardToTensor("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1");
+        const castlingBits = noCastling.slice(13 * 64, 17 * 64).reduce((n, v) => n + v, 0);
+        if (castlingBits !== 0) encoderOk = false;
+        log(`${castlingBits === 0 ? "PASS" : "FAIL"}  castling planes empty when FEN has no rights`);
+        log(encoderOk ? "encoder: verified against ground truth" : "encoder: BROKEN - fix before reading below");
+        log("");
+
         // ── graph interface (CP4, done empirically rather than assumed) ──
         log("== graph: what the ONNX file actually exposes ==");
         const first = await evaluateMaia(START, {
@@ -94,7 +142,7 @@ export default function MaiaTestPage() {
         log("== move index table round-trip ==");
         const table: Record<string, number> = await (
           await fetch(
-            "https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/main/src/lib/engine/data/all_moves.json"
+            "https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/src/hooks/useMaiaEngine/data/all_moves.json"
           )
         ).json();
         const reversed: string[] = [];
@@ -147,6 +195,29 @@ export default function MaiaTestPage() {
         log(
           `${HUMAN_REPLIES.includes(replyTop) ? "PASS" : "FAIL"}  ` +
             `reply to 1.e4 top move ${replyTop} (want one of ${HUMAN_REPLIES.join("/")})`
+        );
+        log("");
+
+        // ── policy index alignment ──
+        // The last gap the other checks leave open: does logits_maia[i] really mean
+        // all_moves.json's move i? A scrambled mapping would still yield legal moves
+        // with plausible-looking probabilities, so this needs a position with an
+        // unambiguous answer. Black's queen on d4 is undefended and exd4 wins it for
+        // nothing - a player of any rating plays that, so heavy mass anywhere else
+        // means the index mapping is wrong.
+        log("== policy index alignment (free queen capture) ==");
+        const freeQueen = "rnb1kbnr/pppppppp/8/8/3q4/4P3/PPPP1PPP/RNBQKBNR w KQkq - 0 1";
+        const grab = await evaluateMaia(freeQueen, { type: "maia", label: "m", ratingTier: 1500 });
+        const grabTop = grab.policy[0];
+        log(
+          grab.policy
+            .slice(0, 3)
+            .map((p) => `${p.uci} ${pct(p.probability)}`)
+            .join("  ")
+        );
+        log(
+          `${grabTop.uci === "e3d4" ? "PASS" : "FAIL"}  expected e3d4 (exd4) to dominate; ` +
+            `got ${grabTop.uci} at ${pct(grabTop.probability)}`
         );
         log("");
 

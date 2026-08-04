@@ -222,30 +222,71 @@ are an order of magnitude apart — a Maia-vs-Maia game will feel very different
 pace from Stockfish-vs-Stockfish, and the inter-move delay probably wants to be
 per-engine rather than global.
 
-### The one residual question
+**Encoder vs hand-computed ground truth — PASS.** This is the check that actually
+validates the encoding, and the first version of these notes didn't have it. Plane
+indices were derived on paper from the layout (`piece * 64 + row * 8 + file`,
+`row = 7 - rank`, order `P N B R Q K p n b r q k`) and asserted directly:
 
-Policy plausibility passed against the band I set, but the specific moves give me
-pause and I'd rather flag it than declare victory:
+```
+PASS  white rook a1  -> idx 192 = 1      PASS  black pawn a7 -> idx 432 = 1
+PASS  white queen d1 -> idx 259 = 1      PASS  black rook a8 -> idx 632 = 1
+PASS  white king e1  -> idx 324 = 1      PASS  black king e8 -> idx 764 = 1
+PASS  white pawn a2  -> idx   8 = 1
+PASS  352 bits set (32 pieces + 64 turn + 256 castling, 0 en passant)
+PASS  castling planes empty when the FEN carries no rights
+```
 
-- Start position top move: `g1f3` (Nf3)
-- Top reply to 1.e4: `g8f6` (Nf6) at ~32%, with `e7e5` only 6.8–8.3%
+Independent of the reference implementation, so it can actually fail.
 
-For human play at 1100–1900, `e4`/`e5`/`c5` dominate, and Nf6 as *the* most common
-reply to 1.e4 is not what real human data looks like. Both top moves being knight
-developments is the kind of pattern that could indicate a systematic encoding
-issue — and per this task's central trap, such a bug would still yield legal,
-plausible-looking moves.
+**Policy index alignment — PASS, and decisive.** The remaining gap all the other
+checks left open was whether `logits_maia[i]` really means `all_moves.json`'s move
+`i`. A scrambled mapping would still produce legal moves with plausible-looking
+probabilities, so it needs a position with an unambiguous answer: black's queen on
+d4, undefended, capturable by `exd4` for nothing.
 
-Evidence against a bug: **my encoder's index arithmetic matches the reference
-implementation line-for-line** — same `row = 7 - rank`, same
-`piece * 64 + row * 8 + file`, same turn plane at 12, same castling planes 13–16,
-same en-passant plane 17. That was checked directly, not assumed.
+```
+e3d4 93.9%   g1f3 1.1%   c2c3 1.1%
+```
 
-How to settle it cheaply: run the same FENs through the reference app's own
-`preprocess` + `processOutputs` and diff the policy distributions. If they match,
-this is simply how `maia_rapid` behaves and the band was too loose; if they don't,
-the difference localises the bug. That's the first thing to do if Maia's play looks
-off in Model 1v1.
+93.9% of the mass on exactly that capture. A wrong mapping cannot do that.
+
+### The residual question — resolved
+
+Earlier drafts of these notes flagged a worry: the top move from the start position
+is `g1f3` and the top reply to 1.e4 is `g8f6` (~32%) with `e7e5` down at 6.8–8.3%.
+For human play at 1100–1900 that's odd — `e4`/`e5`/`c5` dominate real data — and per
+this task's central trap, a systematically wrong encoder would produce exactly that
+kind of legal-but-off output.
+
+**It is not a bug in our integration.** The encoder is verified against hand-computed
+ground truth, the move table is pinned to the model's own commit and round-trips
+cleanly, and the index mapping puts 93.9% on a free queen capture. Also corroborating:
+the mid-opening test position returns `Bb5`, which is the main line (Ruy Lopez) in
+that exact position — precisely what a human-imitation model should say.
+
+So this is how `maia_rapid` behaves, and my plausibility band was simply too loose to
+be interesting. Recorded rather than deleted, because "the model's opening preferences
+look mildly unusual" is worth knowing when watching Model 1v1, and because the
+reasoning chain that ruled out a bug is the useful part.
+
+### A hypothesis I had, and disproved
+
+Worth recording because it was wrong for an instructive reason. I suspected the move
+table was drifting from the model: the model was pinned to commit `e23a50e` but the
+table was fetched unpinned from `main`, months of commits later. Misaligned policy
+indices would give exactly the observed symptom, and it neatly explained why the value
+head looked correct while the policy looked off — the value head doesn't use the table.
+
+It's false. The table has moved paths twice upstream
+(`hooks/useMaiaEngine/data/` → `providers/MaiaEngineContextProvider/data/` →
+`lib/engine/data/`) but both moves were **pure renames**: GitHub reports
+`additions: 0, deletions: 0`, and the git blob SHA at `e23a50e` and on `main` is the
+same object, `1698c229…`, 25298 bytes. Confirmed independently by the fact that
+pinning the table changed the policy output not at all — the numbers came back
+byte-identical.
+
+The table is now pinned to `e23a50e` anyway, so model and table cannot drift apart in
+future.
 
 ## Gotchas worth knowing (both cost me a build cycle)
 
@@ -265,11 +306,9 @@ off in Model 1v1.
 
 ## Still unchecked
 
-- **The move table is fetched from `main`, unpinned.** The model is pinned to
-  commit `e23a50e`, but I couldn't find the move table at that commit (the repo
-  layout differed then) and chose not to spend more timebox hunting. If upstream
-  reorders that table, Maia's move decoding silently changes. Pinning it to a
-  resolved SHA is a small, worthwhile follow-up.
+- ~~The move table is fetched unpinned.~~ **Fixed.** Both the model and the table
+  are now pinned to `e23a50e`
+  (`src/hooks/useMaiaEngine/data/all_moves.json`), so they cannot drift apart.
 - **`public/ort/` is ~38 MB of vendored ORT assets**, because I copied both the
   jsep and non-jsep wasm variants for safety. The run only appeared to need the
   jsep pair, so this could likely be halved. MIT-licensed, so committing is
@@ -278,4 +317,5 @@ off in Model 1v1.
   shows a progress bar; we rely on the browser HTTP cache. First Maia move on a
   cold cache is a long wait, and Model 1v1 needs a loading state for it.
 - **No `LICENSE` file in the repo**, despite already shipping GPL-3.0 Stockfish.
-- The residual policy-plausibility question above.
+- The `logits_side_info` output head is unused. Unexamined — it may be Maia 2's
+  auxiliary prediction target and might be interesting for a future feature.
