@@ -19,9 +19,9 @@ export function ResultScreen({ result, endReason, whiteLabel, blackLabel, onRema
     result === "1/2-1/2" ? "Draw" : result === "1-0" ? `${whiteLabel} wins` : `${blackLabel} wins`;
 
   return (
-    <div className="border-er-line bg-er-surface flex flex-wrap items-center justify-between gap-4 rounded-[10px] border px-6 py-5">
+    <div className="border-er-line bg-er-surface flex flex-wrap items-center justify-between gap-4 border px-6 py-5">
       <div>
-        <h2 className="text-[24px] font-semibold tracking-[-0.01em]">{summary}</h2>
+        <h2 className="font-display-black text-[24px] tracking-[-0.01em] uppercase">{summary}</h2>
         <p className="text-er-dim mt-1 font-mono text-[11px] tracking-[0.18em] uppercase">
           {result} · {REASON_COPY[endReason] ?? endReason}
         </p>
@@ -29,7 +29,7 @@ export function ResultScreen({ result, endReason, whiteLabel, blackLabel, onRema
       {onRematch && (
         <button
           onClick={onRematch}
-          className="border-er-accent text-er-accent hover:bg-er-accent cursor-pointer rounded-full border px-5 py-2 font-mono text-[12px] tracking-[0.16em] uppercase transition-colors hover:text-black"
+          className="border-er-accent text-er-accent hover:bg-er-accent hover:text-er-bg cursor-pointer border px-5 py-2 font-mono text-[12px] tracking-[0.16em] uppercase transition-colors"
         >
           Run it again
         </button>

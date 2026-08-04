@@ -92,7 +92,7 @@ export default function Model1v1Page() {
 
   return (
     <main className="relative z-1 mx-auto w-full max-w-[1180px] px-8 pt-10 pb-16">
-      <h1 className="mb-1 text-[clamp(32px,4vw,44px)] leading-tight font-bold tracking-[-0.02em]">
+      <h1 className="font-display-black mb-1 text-[clamp(32px,4vw,44px)] leading-tight tracking-[-0.02em] uppercase">
         Model 1v1
       </h1>
       <p className="text-er-dim mb-8 text-[17px]">
@@ -122,7 +122,7 @@ export default function Model1v1Page() {
           <button
             onClick={start}
             disabled={playing || !configured}
-            className="border-er-accent text-er-accent hover:bg-er-accent mb-6 cursor-pointer rounded-full border px-6 py-2.5 font-mono text-[12px] tracking-[0.16em] uppercase transition-colors hover:text-black disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            className="border-er-accent text-er-accent hover:bg-er-accent hover:text-er-bg mb-6 cursor-pointer border px-6 py-2.5 font-mono text-[12px] tracking-[0.16em] uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-er-accent"
           >
             {playing ? "Running…" : end ? "Run it again" : "Start game"}
           </button>
@@ -137,7 +137,7 @@ export default function Model1v1Page() {
           {error && (
             <div
               role="alert"
-              className="border-er-copper text-er-copper mb-6 rounded-[6px] border px-4 py-3 text-[14px]"
+              className="border-er-accent text-er-accent mb-6 border px-4 py-3 text-[14px]"
             >
               <strong className="font-semibold">Engine failed.</strong> {error}
               <br />
@@ -149,7 +149,7 @@ export default function Model1v1Page() {
             <h2 className="text-er-dim mb-2 font-mono text-[11px] tracking-[0.2em] uppercase">
               Moves · {moves.length} plies
             </h2>
-            <div className="border-er-line bg-er-surface2 h-[240px] overflow-y-auto rounded-[6px] border p-3 font-mono text-[13px]">
+            <div className="border-er-line bg-er-surface2 h-[240px] overflow-y-auto border p-3 font-mono text-[13px]">
               {moves.length === 0 ? (
                 <p className="text-er-dim">No moves yet.</p>
               ) : (
