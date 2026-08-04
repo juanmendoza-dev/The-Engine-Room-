@@ -138,26 +138,50 @@ UCI is a stable, well-documented text protocol — this task can be written with
 **Interfaces:**
 - Produces: `EngineConfig`, `EngineMove` types (used by every later chess task). `getStockfishMove(fen: string, config: EngineConfig) => Promise<EngineMove>`.
 
-- [ ] **Step 1: Install dependencies**
+**Done — commit `54f050d`.** Built against `stockfish@18.0.8`, using the **lite
+single-threaded** build. The steps below are what actually ran; see "What
+differed from the original plan" at the end of this task for why the build
+choice changed.
+
+- [x] **Step 1: Install dependencies**
 
 ```bash
 npm install chess.js stockfish
 ```
 
-- [ ] **Step 2: Find and copy the single-threaded build**
+- [x] **Step 2: Find and copy the single-threaded build**
 
-```bash
-ls node_modules/stockfish
-```
+The files live in `node_modules/stockfish/bin/`, not `src/`. v18 ships five
+flavours; the sizes are the whole story:
 
-Look for the single-threaded browser build (filename varies by version — it will NOT have "multi" or require `SharedArrayBuffer`; e.g. something like `stockfish-nnue-16-single.js` plus a matching `.wasm`, possibly a `.worker.js`). Copy the single-threaded `.js` and `.wasm` (and worker file, if separate) into `public/stockfish/`, keeping the original filenames.
+| File | Size | Verdict |
+| --- | --- | --- |
+| `stockfish-18.wasm` (multi-threaded) | 107.8 MB | needs COOP/COEP, and too big |
+| `stockfish-18-single.wasm` | 107.8 MB | **GitHub hard-rejects >100 MB** |
+| `stockfish-18-lite.wasm` (multi) | 6.8 MB | needs COOP/COEP |
+| `stockfish-18-lite-single.wasm` | 7.0 MB | ✅ what we use |
+| `stockfish-18-asm.js` | 10.0 MB | JS fallback, very slow |
 
 ```bash
 mkdir -p public/stockfish
-cp node_modules/stockfish/src/<the-single-threaded-files-you-found> public/stockfish/
+cp node_modules/stockfish/bin/stockfish-18-lite-single.js public/stockfish/
+cp node_modules/stockfish/bin/stockfish-18-lite-single.wasm public/stockfish/
 ```
 
-- [ ] **Step 3: Write the shared types**
+Both files must sit in the same directory — Emscripten resolves the `.wasm`
+relative to the `.js`. No separate `.nnue` file is needed; the net is embedded.
+
+Add the binary rules to `.gitattributes` **before** `git add`-ing the wasm, per
+`docs/deployment.md` §4 — on Windows git will otherwise rewrite line endings
+inside the binary and silently corrupt it:
+
+```
+*.wasm binary
+*.onnx binary
+*.nnue binary
+```
+
+- [x] **Step 3: Write the shared types**
 
 ```typescript
 // lib/chess/types.ts
@@ -177,7 +201,12 @@ export interface EngineMove {
 }
 ```
 
-- [ ] **Step 4: Write the Stockfish wrapper**
+- [x] **Step 4: Write the Stockfish wrapper**
+
+> **Read `lib/chess/engineStockfish.ts`, not the snippet below.** The snippet
+> was the plan's first draft and four things in it needed changing — the worker
+> path, the handshake, request serialization, and error/timeout handling. All
+> four are listed under "What differed" at the end of this task.
 
 ```typescript
 // lib/chess/engineStockfish.ts
@@ -241,7 +270,19 @@ export async function getStockfishMove(fen: string, config: EngineConfig): Promi
 }
 ```
 
-- [ ] **Step 5: Write a scratch verification page**
+- [x] **Step 5: Write a scratch verification page**
+
+The shipped page does three things rather than the one position the snippet
+below checks:
+
+1. Prints the `option name UCI_LimitStrength` / `option name UCI_Elo` lines from
+   the UCI handshake. A UCI engine **silently ignores `setoption` for a name it
+   doesn't know**, so this is the only way to tell a working option from a typo.
+2. Runs three positions at three ELOs — one position can pass by luck.
+3. Reports the **search depth** reached per move, from the engine's `info depth`
+   stream. Depth is the evidence that a real search happened; wall-clock time
+   isn't, because a stub that slept for `movetime` and returned a random legal
+   move would time identically.
 
 ```tsx
 // app/dev/stockfish-test/page.tsx
@@ -265,20 +306,96 @@ export default function StockfishTestPage() {
 }
 ```
 
-- [ ] **Step 6: Manual verification**
+- [x] **Step 6: Manual verification**
 
-```bash
-npm run dev
+`npm run build` first — it's what Vercel runs and it catches TS/lint the dev
+server won't. Clean, with `/dev/stockfish-test` prerendering as static.
+
+Then `npm run start` (production build — closer to Vercel than `npm run dev`) and
+visit `http://localhost:3000/dev/stockfish-test`. Result:
+
+```
+option name UCI_LimitStrength type check default false
+option name UCI_Elo type spin default 1320 min 1320 max 3190
+
+LEGAL    elo 1320  start position        e2e3 (e3)   depth 16  508ms
+LEGAL    elo 1800  mid-opening           d2d4 (d4)   depth 13  506ms
+LEGAL    elo 2800  king + pawn endgame   e3f3 (Kf3)  depth 45  506ms
+
+elo 1320  run 1  depth 13    played a3   507ms
+elo 1320  run 2  depth 13    played a3   506ms
+elo 2800  run 1  depth 13    played Nc3  508ms
+elo 2800  run 2  depth 13    played d4   508ms
 ```
 
-Visit `http://localhost:3000/dev/stockfish-test`. Confirm the page shows `legal move: {...}` within a couple seconds, not an error and not `ILLEGAL move returned`. If the worker fails to load, double check the path in Step 4 matches the actual filename copied in Step 2.
+No console errors. Two things later tasks should take from this:
 
-- [ ] **Step 7: Commit**
+- **`UCI_Elo`'s real range on this build is 1320–3190.** 1320 is the floor, which
+  is why it's the lowest preset. Task 4 shouldn't invent presets outside that —
+  Stockfish clamps silently, so a bad value looks like it worked.
+- **Depth does not vary with ELO** (13 at both 1320 and 2800). Stockfish limits
+  strength by choosing a weaker move from the multi-PV candidates, not by
+  searching shallower. So this spike proves the options are accepted and the
+  engine searches; it does **not** prove the ELO settings change playing
+  strength. That only becomes measurable in Task 6, over several complete games
+  between a low and a high preset, scored by results.
+
+Verified in headless Chrome over the DevTools Protocol rather than by eye —
+`chromium-cli` and Playwright aren't installed on this machine, but Chrome is,
+so a throwaway CDP script (`--headless=new --remote-debugging-port`) navigated
+the page, polled `document.body.innerText` until it printed `done`, and dumped
+`Runtime.exceptionThrown` / console errors. Worth reusing for later tasks;
+it needs no dependencies, since Node 22+ has `fetch` and `WebSocket` built in.
+
+If the worker fails to load, check the path in `ENGINE_URL` against what's
+actually in `public/stockfish/`.
+
+- [x] **Step 7: Commit**
 
 ```bash
-git add lib/chess/types.ts lib/chess/engineStockfish.ts public/stockfish app/dev/stockfish-test package.json package-lock.json
+git add .gitattributes lib/chess/types.ts lib/chess/engineStockfish.ts public/stockfish app/dev/stockfish-test package.json package-lock.json
 git commit -m "get stockfish talking over uci in a web worker"
 ```
+
+#### What differed from the original plan
+
+- **The build.** The plan said "single-threaded"; the correct choice is
+  **lite** single-threaded. Plain `stockfish-18-single.wasm` is 107.8 MB and
+  GitHub hard-rejects files over 100 MB, so it cannot be committed here at all —
+  and Git LFS is not a way out, because Vercel doesn't fetch LFS objects during
+  a build (the asset would arrive as pointer text and break at runtime while
+  working fine locally). The lite net is weaker but we cap at `UCI_Elo` 2800
+  anyway, and the package's own README recommends lite-single as the default.
+- **Where the files live.** `node_modules/stockfish/bin/`, not `src/`.
+- **`stockfish@18.0.8` has a postinstall script that npm 11 blocks** (the
+  allow-scripts gate, same warning as Task 1's `unrs-resolver`). It's harmless
+  to leave blocked: all it does is create a `bin/stockfish.js` symlink to the
+  full build. Copy the versioned filenames directly and you never need it —
+  which also avoids committing a symlink, which would be its own mess on
+  Windows.
+- **No `{ type: "module" }`.** The build is a classic worker script — it uses
+  `importScripts` and has no `export`, so plain `new Worker(url)` is right.
+- **No separate `.nnue` file** and no `SharedArrayBuffer`/`Atomics` anywhere in
+  the build, which reconfirms the spec's "no COOP/COEP headers" call.
+- **`isready`/`readyok` before `go`.** The plan only waited for `uciok` at
+  startup. Note the reason carefully, because the obvious one is wrong: a
+  single-threaded UCI engine reads stdin **in order**, so a later `go` cannot
+  overtake an earlier `setoption`. The handshake is worth having because it's the
+  protocol's specified way to confirm processing is complete, because
+  `ucinewgame` triggers a state reset the spec says may be slow and should be
+  waited on, and because it stays correct on engine builds we haven't tested.
+  Costs one round-trip against a 500 ms search.
+- **Calls are serialized through a promise queue.** There's one shared worker
+  and replies are matched by listening for the next matching line, so two
+  overlapping `go` commands would resolve each other's promises and hand back
+  the wrong move. The game loop awaits each move so it wouldn't trigger today,
+  but it's four lines to make the module safe for any caller.
+- **Timeouts and `error` handling.** A worker that fails to load, or an engine
+  that goes silent, now rejects with a real message instead of leaving the
+  promise pending forever. That's what makes the spec's "Engine failed to load,
+  refresh" inline error possible.
+- **`.gitattributes`** needed the binary rules added; it only had `eol=lf` rules
+  for the hook directories.
 
 ---
 
