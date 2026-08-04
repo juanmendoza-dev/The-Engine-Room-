@@ -34,8 +34,9 @@ sooner. What actually happened and why:
 | 2 — Stockfish spike | done, `#6` |
 | **7, 4, 6, 8 — Board, registry, game loop, Model 1v1 screen** | **in progress — this is the demo** |
 | 3 — Maia ONNX spike | decoupled, spec-only in `#7`, may not land at all |
-| 9 — KV persistence | deferred behind the demo |
-| 10, 11 — User 1v1, history | unchanged, after the demo |
+| 9 — KV persistence | done, `#11` — adapter shape, KV itself still unprovisioned (see task notes) |
+| 10 — User 1v1 | unchanged, after the demo |
+| 11 — History page | done, `#11` (same PR as Task 9) |
 
 **Maia is no longer sequenced ahead of anything.** It's a 90-minute timeboxed
 investigation with a documented "may end with nothing" outcome, and Model 1v1
@@ -964,15 +965,25 @@ git commit -m "build the model 1v1 screen"
 
 ### Task 9: KV storage + saveGame
 
-**Files:**
-- Create: `app/actions/games.ts`
-- Modify: `app/model-1v1/page.tsx` (uncomment the `saveGame` call from Task 8)
+**Done — `#11`, with a deliberate structural deviation.** No KV store was ever
+provisioned (Step 1 is dashboard work under the owner's login, owner away), so
+storage shipped behind an adapter facade instead of KV-only: localStorage works
+today, the KV adapter is written and dormant until `NEXT_PUBLIC_KV_ENABLED=1`.
+See "What differed from the original plan" below — the KV half is
+**untested against a real store** and the plan's Step 1 remains the owner's.
+
+**Files (as actually built):**
+- Create: `lib/games/types.ts` (`GameRecord` and friends — client-safe)
+- Create: `lib/games/localStore.ts` (localStorage adapter, 50-record cap)
+- Create: `lib/games/store.ts` (`saveGame`/`listGames` facade both screens call)
+- Create: `app/actions/games.ts` (`"use server"`, the KV adapter)
+- Modify: `app/model-1v1/page.tsx` (wire the `saveGame` call from Task 8)
 - Modify: `package.json` (add `@vercel/kv`)
 
 **Interfaces:**
 - Produces: `GameRecord` type, `saveGame(game: Omit<GameRecord, "id" | "timestamp">) => Promise<void>`
 
-- [ ] **Step 1: Provision KV storage**
+- [ ] **Step 1: Provision KV storage** *(still open — owner-only dashboard work; the runbook, including the `NEXT_PUBLIC_KV_ENABLED=1` flip, is docs/deployment.md §3)*
 
 In the Vercel dashboard, create a KV storage integration for this project and link it (this may now be under "Marketplace Database Integrations" / Upstash for Redis rather than a standalone "Vercel KV" product — same functionality, just check current naming). Then pull the generated env vars locally:
 
@@ -983,13 +994,13 @@ npx vercel env pull .env.local
 
 If `vercel link`/`env pull` isn't set up yet, manually copy `KV_REST_API_URL` and `KV_REST_API_TOKEN` from the dashboard into `.env.local`. Confirm `.env.local` is covered by `.gitignore` (the scaffolded one from Task 1 already includes `.env*.local` — verify, don't duplicate).
 
-- [ ] **Step 2: Install the client**
+- [x] **Step 2: Install the client**
 
 ```bash
 npm install @vercel/kv
 ```
 
-- [ ] **Step 3: Write the Server Action**
+- [x] **Step 3: Write the Server Action**
 
 ```typescript
 // app/actions/games.ts
@@ -1018,20 +1029,66 @@ export async function saveGame(game: Omit<GameRecord, "id" | "timestamp">): Prom
 }
 ```
 
-- [ ] **Step 4: Wire it into the Model 1v1 page**
+- [x] **Step 4: Wire it into the Model 1v1 page**
 
-In `app/model-1v1/page.tsx`, uncomment the `import { saveGame }` line and the `await saveGame({...})` block from Task 8.
+In `app/model-1v1/page.tsx`, uncomment the `import { saveGame }` line and the `await saveGame({...})` block from Task 8. *(Done, with one change: the import comes from `@/lib/games/store` — the facade — not `@/app/actions/games` directly. Task 10 should do the same.)*
 
-- [ ] **Step 5: Manual verification**
+- [x] **Step 5: Manual verification**
 
-`npm run dev`, play a Model 1v1 game to completion, then check the Vercel KV dashboard (or `npx vercel kv` CLI tooling, or a quick scratch script calling `kv.get`) for a new `game:<uuid>` key with the expected shape and a corresponding entry in `games:index`.
+`npm run dev`, play a Model 1v1 game to completion, then check the Vercel KV dashboard (or `npx vercel kv` CLI tooling, or a quick scratch script calling `kv.get`) for a new `game:<uuid>` key with the expected shape and a corresponding entry in `games:index`. *(Ran against the localStorage adapter instead — no store exists to check a dashboard for. Verified via headless-Chrome CDP on the production build: full game, record present in `localStorage["er:games"]` with the right shape, and on /history. The KV dashboard check above is still owed the first time the flag flips.)*
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/actions/games.ts app/model-1v1/page.tsx package.json package-lock.json
 git commit -m "log finished games to kv"
 ```
+
+#### What differed from the original plan
+
+The one-line version: **the spec called for KV-only storage, and KV cannot be
+turned on from a terminal.** Provisioning the store is Vercel dashboard work
+under the owner's GitHub login; there was no `.vercel` dir, no `.env.local`,
+and no `KV_REST_API_*` vars anywhere when this task started. Writing the
+KV-only version as specced would have shipped a /history page that errors (or
+shows nothing) on the live site until someone clicks through the dashboard.
+
+So the storage went behind an adapter interface, decided deliberately (not
+relitigating the spec's schema — the KV side implements it exactly):
+
+- **`lib/games/types.ts`** owns `GameRecord`/`NewGameRecord`. The plan had the
+  type exported from `app/actions/games.ts` — that can't work once you need it
+  in client components: a `"use server"` module may only export async
+  functions. Any future code wanting these shapes imports them from here.
+- **`lib/games/localStore.ts`** — localStorage adapter, works with nothing
+  provisioned. Per-browser records, capped at 50, pruned oldest-first (an
+  unbounded key in a store you never trim is a slow-motion bug). Handles
+  corrupt JSON by starting over rather than crashing the page.
+- **`app/actions/games.ts`** — the KV adapter, still `"use server"`, still
+  `game:{id}` + `games:index` ZADD / ZRANGE-REV + MGET per the design doc. Two
+  robustness changes from the snippet: the client is built lazily via
+  `createClient` (accepting `KV_REST_API_*` **or** `UPSTASH_REDIS_REST_*`,
+  since the marketplace integration names vary by flow), and the action does a
+  cheap shape-check before writing, because a Server Action is a public POST
+  endpoint on the live site.
+- **`lib/games/store.ts`** — the `saveGame`/`listGames` facade screens call.
+  Branches on `NEXT_PUBLIC_KV_ENABLED === "1"` — it must be `NEXT_PUBLIC_`
+  because the branch runs in the browser where server env vars don't exist,
+  and Next inlines those at build time (so flipping it means redeploying).
+  `saveGame` never throws: quota, private browsing, or a KV outage costs one
+  log entry and a console warning, never the result screen (spec's own error
+  handling rule, made structural).
+
+**The KV adapter is untested against a real store, because none exists.** It
+compiles, it's reachable, it follows the documented API — that's all that can
+honestly be claimed. The switch-on runbook (provision → env vars →
+`NEXT_PUBLIC_KV_ENABLED=1` → redeploy → play one game and check) is
+docs/deployment.md §3, written to be followable without reading the code.
+
+Also: `@vercel/kv@3.0.0` went in as planned, and the whole flow was verified
+on the production build with the same headless-Chrome CDP approach as Tasks 2
+and 8 (empty state → game → /history row → reload persistence → second game →
+ordering, all green, no console errors).
 
 ---
 
@@ -1191,15 +1248,22 @@ git commit -m "build the user vs engine screen"
 
 ### Task 11: List past games
 
-**Files:**
-- Modify: `app/actions/games.ts` (add `listGames`)
+**Done — `#11`, same PR as Task 9** (they were built together — Task 9's
+adapter decision reshapes this page, and /history being a 404 from the live
+landing page was the visible problem both tasks exist to fix). Done out of
+order versus Task 10 with the owner's explicit go-ahead; the snippets below
+show the original server-component shape, superseded by "What differed" at the
+end of this task.
+
+**Files (as actually built):**
+- Modify: `app/actions/games.ts` (add `listGamesKv`) + `lib/games/store.ts`/`localStore.ts` (the `listGames` facade + local read)
 - Create: `app/history/page.tsx`
 
 **Interfaces:**
 - Consumes: `GameRecord` (Task 9)
 - Produces: `listGames(limit?: number) => Promise<GameRecord[]>`
 
-- [ ] **Step 1: Add `listGames` to the Server Action file**
+- [x] **Step 1: Add `listGames` to the Server Action file**
 
 ```typescript
 // app/actions/games.ts (append to the existing file from Task 9)
@@ -1211,7 +1275,7 @@ export async function listGames(limit = 20): Promise<GameRecord[]> {
 }
 ```
 
-- [ ] **Step 2: History page**
+- [x] **Step 2: History page**
 
 ```tsx
 // app/history/page.tsx
@@ -1237,16 +1301,44 @@ export default async function HistoryPage() {
 }
 ```
 
-- [ ] **Step 3: Manual verification**
+- [x] **Step 3: Manual verification**
 
-Having already played a few games in Phase 1/2, visit `/history` and confirm entries appear newest-first with correct labels, results, and timestamps.
+Having already played a few games in Phase 1/2, visit `/history` and confirm entries appear newest-first with correct labels, results, and timestamps. *(Done via headless-Chrome CDP against the production build: empty state on a fresh profile, then one game → correct row, reload → still there, second game → 2 records newest-first, matching localStorage order exactly. No console errors.)*
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/actions/games.ts app/history
 git commit -m "add the game history page"
 ```
+
+#### What differed from the original plan
+
+- **The page is a `"use client"` component, not an async server component.**
+  Task 9's storage runs on localStorage until KV is provisioned, and
+  localStorage only exists in the browser — a server component can't read it.
+  The page fetches through the `listGames` facade in a `useEffect` and renders
+  loading / empty / list states client-side. When the KV flag flips, the same
+  RPC-stub import reaches the Server Action; the page doesn't change.
+- **No `export const dynamic = "force-dynamic"`.** deployment.md §4 used to
+  demand it for this page; that advice targeted the server-component shape.
+  A client page prerenders as an empty shell with no data baked in, so there's
+  nothing to go stale. The §4 note has been corrected rather than left
+  misleading (it still applies if anyone rebuilds this as a KV-reading server
+  component).
+- **The page says what it's showing.** localStorage history is per-browser —
+  presenting it as a global ledger would lie to a judge opening the demo
+  fresh. The header reads "Local ledger · games played in this browser only",
+  and flips to "Shared archive · logged from every visitor" when
+  `NEXT_PUBLIC_KV_ENABLED=1`.
+- **`listGames` reads 50, not 20** (matching the localStorage cap), still
+  ZRANGE-REV + one MGET on the KV side per the design doc, and it never throws
+  — a broken store renders as an empty history with the error in the console,
+  not a crashed page.
+- Follow-up owed by whoever lands Task 10: wire `saveGame` from
+  `@/lib/games/store` into `app/user-1v1/page.tsx`, mirroring the call in
+  `app/model-1v1/page.tsx`. (If that page landed before this PR merged, it was
+  wired here instead — check the PR body.)
 
 ---
 
