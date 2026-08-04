@@ -9,7 +9,7 @@ import { ResultScreen } from "@/components/ResultScreen";
 import { ALL_ENGINE_PRESETS, STOCKFISH_PRESETS, getMoveFor } from "@/lib/chess/engines";
 import { describeEnd, type GameEndInfo } from "@/lib/chess/gameLoop";
 import type { EngineConfig } from "@/lib/chess/types";
-// import { saveGame } from "@/app/actions/games"; // uncomment once app/actions/games.ts lands (Task 9)
+import { saveGame } from "@/lib/games/store";
 
 const START_FEN = new Chess().fen();
 
@@ -76,16 +76,18 @@ export default function User1v1Page() {
     const outcome = describeEnd(game);
     setEnd(outcome);
 
-    // const you = { type: "human" as const, label: "You" };
-    // const opp = { type: engine!.type, label: engine!.label };
-    // void saveGame({
-    //   mode: "user-1v1",
-    //   white: userColor === "white" ? you : opp,
-    //   black: userColor === "black" ? you : opp,
-    //   moves: game.history(),
-    //   result: outcome.result,
-    //   endReason: outcome.endReason,
-    // }); // uncomment once app/actions/games.ts lands (Task 9)
+    // saveGame never throws — a failed write (quota, private browsing, KV
+    // outage) costs one history entry, not the result screen (Task 9).
+    const you = { type: "human" as const, label: "You" };
+    const opp = { type: engine!.type, label: engine!.label };
+    void saveGame({
+      mode: "user-1v1",
+      white: userColor === "white" ? you : opp,
+      black: userColor === "black" ? you : opp,
+      moves: game.history(),
+      result: outcome.result,
+      endReason: outcome.endReason,
+    });
   }
 
   async function engineReply() {
