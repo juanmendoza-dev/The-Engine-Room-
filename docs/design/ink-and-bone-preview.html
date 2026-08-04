@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Option 1 — Ink &amp; Bone (day / night editions)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  /* ------------------------------------------------------------------
+     Tokens. Light = "day edition" (printed paper). Dark = "night edition"
+     (the print shop after hours: ink ground, paper type, red as lit
+     signage instead of printed ink). Everything styles through tokens.
+     ------------------------------------------------------------------ */
+  :root {
+    --bg: #f2f0ea;
+    --fg: #16151a;
+    --fg-60: rgba(22, 21, 26, 0.6);
+    --fg-12: rgba(22, 21, 26, 0.14);
+    --red: #e0331f;
+    --red-glow: transparent;            /* no glow on paper */
+    --stroke: var(--fg);                /* hollow headline stroke */
+    --sq-a: #e9e6dd;
+    --sq-b: #dcd8cb;
+    --frame: var(--fg);                 /* board frame */
+    --piece-w: #fdfcf8;
+    --piece-w-shadow: 0 0 1.5px #16151a, 0 1.5px 2px rgba(22, 21, 26, 0.55);
+    --piece-b: #16151a;
+    --piece-b-shadow: none;
+    --invert-bg: #16151a;               /* row hover flood */
+    --invert-fg: #f2f0ea;
+    --invert-dim: rgba(242, 240, 234, 0.72);
+    --ember: transparent;               /* ambient glow, night only */
+    --sq: min(11.5vw, 58px);
+  }
+  [data-theme="dark"] {
+    --bg: #131217;
+    --fg: #ece9df;
+    --fg-60: rgba(236, 233, 223, 0.55);
+    --fg-12: rgba(236, 233, 223, 0.15);
+    --red: #ff4f35;
+    --red-glow: rgba(255, 79, 53, 0.45);
+    --stroke: var(--red);               /* ENGINE strokes in lit red at night */
+    --sq-a: #1c1b22;
+    --sq-b: #26242e;
+    --frame: rgba(255, 79, 53, 0.55);   /* safelight hairline around the board */
+    --piece-w: #f4f1e8;
+    --piece-w-shadow: 0 2px 3px rgba(0, 0, 0, 0.6);
+    --piece-b: #0b0a0e;
+    --piece-b-shadow: 0 0 2px rgba(236, 233, 223, 0.5);
+    --invert-bg: #ece9df;               /* night hover floods PAPER, not ink */
+    --invert-fg: #16151a;
+    --invert-dim: rgba(22, 21, 26, 0.65);
+    --ember: rgba(255, 79, 53, 0.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  ::selection { background: var(--red); color: var(--bg); }
+  html, body { background: var(--bg); color: var(--fg); }
+  body {
+    font-family: "Archivo", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    min-height: 100vh;
+    background-image: radial-gradient(760px 420px at 85% -6%, var(--ember), transparent 60%);
+    transition: background-color 0.35s ease, color 0.35s ease;
+  }
+  .mono { font-family: "Spline Sans Mono", monospace; }
+
+  /* ---------- header ---------- */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 40px;
+    border-bottom: 1px solid var(--fg-12);
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand-square {
+    width: 16px; height: 16px; background: var(--fg);
+    animation: sq-turn 6s cubic-bezier(0.7, 0, 0.2, 1) infinite;
+    transition: background 0.35s, box-shadow 0.35s;
+  }
+  [data-theme="dark"] .brand-square {
+    background: var(--red);
+    box-shadow: 0 0 14px var(--red-glow);
+  }
+  @keyframes sq-turn {
+    0%, 42%  { transform: rotate(0deg); }
+    50%, 92% { transform: rotate(90deg); }
+    100%     { transform: rotate(180deg); }
+  }
+  .brand span, .live { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; }
+  .head-right { display: flex; align-items: center; gap: 26px; }
+  .live { display: flex; align-items: center; gap: 10px; color: var(--fg-60); }
+  .live b { color: var(--red); font-weight: 500; }
+  .live-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--red);
+    box-shadow: 0 0 10px var(--red-glow);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .edition {
+    font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+    background: none; color: var(--fg-60);
+    border: 1px solid var(--fg-12);
+    padding: 8px 16px; cursor: pointer;
+    transition: color 0.25s, border-color 0.25s, box-shadow 0.25s;
+  }
+  .edition:hover { color: var(--red); border-color: var(--red); box-shadow: 0 0 16px var(--red-glow); }
+  .when-night { display: none; }
+  [data-theme="dark"] .when-day { display: none; }
+  [data-theme="dark"] .when-night { display: inline; }
+
+  /* ---------- hero ---------- */
+  .hero {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 48px;
+    padding: clamp(40px, 7vh, 84px) 40px 56px;
+    max-width: 1280px; margin: 0 auto;
+  }
+  .hero-text { flex: 1 1 480px; min-width: 320px; }
+  h1 {
+    font-family: "Archivo Black", sans-serif;
+    font-size: clamp(58px, 10.5vw, 148px);
+    line-height: 0.9;
+    letter-spacing: -0.035em;
+    text-transform: uppercase;
+  }
+  .line { display: block; overflow: hidden; }
+  .line > span {
+    display: inline-block;
+    transform: translateY(115%);
+    animation: rise 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+  }
+  .line:nth-child(1) > span { animation-delay: 0.08s; }
+  .line:nth-child(2) > span { animation-delay: 0.20s; }
+  .line:nth-child(3) > span { animation-delay: 0.32s; }
+  @keyframes rise { to { transform: translateY(0); } }
+  .hollow {
+    color: transparent;
+    -webkit-text-stroke: 2px var(--stroke);
+    transition: color 0.35s ease, -webkit-text-stroke-color 0.35s ease, text-shadow 0.35s ease;
+  }
+  [data-theme="dark"] .hollow { text-shadow: 0 0 34px var(--red-glow); }
+  h1:hover .hollow { color: var(--red); -webkit-text-stroke-color: var(--red); }
+  .tagline {
+    margin-top: 28px;
+    max-width: 46ch;
+    font-size: 15px; line-height: 1.65; color: var(--fg-60);
+    opacity: 0; animation: fade 0.8s ease 0.55s forwards;
+  }
+  .tagline em { font-style: normal; color: var(--fg); font-weight: 600; }
+  @keyframes fade { to { opacity: 1; } }
+
+  /* ---------- board ---------- */
+  .board-wrap { flex: 0 1 auto; margin-inline: auto; }
+  .board-frame {
+    border: 1px solid var(--frame);
+    padding: 10px; position: relative;
+    transition: border-color 0.35s, box-shadow 0.35s;
+  }
+  [data-theme="dark"] .board-frame { box-shadow: 0 0 34px rgba(255, 79, 53, 0.08); }
+  .board-caption {
+    display: flex; justify-content: space-between; gap: 20px;
+    margin-top: 10px; font-size: 10px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--fg-60);
+  }
+  .board {
+    position: relative;
+    width: calc(var(--sq) * 8); height: calc(var(--sq) * 8);
+  }
+  .cell {
+    position: absolute; width: var(--sq); height: var(--sq);
+    transform: scale(0);
+    animation: cell-in 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+    transition: background 0.35s;
+  }
+  @keyframes cell-in { to { transform: scale(1); } }
+  .cell.a { background: var(--sq-a); }
+  .cell.b { background: var(--sq-b); }
+  .hl {
+    position: absolute; width: var(--sq); height: var(--sq);
+    box-shadow: inset 0 0 0 2px var(--red);
+    opacity: 0; transition: transform 0.45s cubic-bezier(0.3, 0.8, 0.3, 1), opacity 0.3s;
+    pointer-events: none;
+  }
+  [data-theme="dark"] .hl { box-shadow: inset 0 0 0 2px var(--red), inset 0 0 14px rgba(255, 79, 53, 0.25); }
+  .piece {
+    position: absolute; width: var(--sq); height: var(--sq);
+    display: grid; place-items: center;
+    font-size: calc(var(--sq) * 0.74);
+    line-height: 1;
+    transition: transform 0.45s cubic-bezier(0.3, 0.8, 0.3, 1), opacity 0.35s, scale 0.35s;
+    will-change: transform;
+    user-select: none;
+  }
+  .piece.w { color: var(--piece-w); text-shadow: var(--piece-w-shadow); }
+  .piece.b { color: var(--piece-b); text-shadow: var(--piece-b-shadow); }
+  .piece.captured { opacity: 0; scale: 0.4; }
+
+  /* ---------- marquee ---------- */
+  .marquee {
+    border-block: 1px solid var(--fg);
+    overflow: hidden; white-space: nowrap;
+    padding: 12px 0;
+    transition: border-color 0.35s;
+  }
+  [data-theme="dark"] .marquee { border-color: var(--fg-12); }
+  .marquee-row { display: inline-flex; animation: slide 26s linear infinite; }
+  .marquee span {
+    font-family: "Spline Sans Mono", monospace;
+    font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+    padding: 0 34px; color: var(--fg);
+  }
+  .marquee span i {
+    font-style: normal; color: var(--red); padding-right: 34px;
+    text-shadow: 0 0 10px var(--red-glow);
+  }
+  @keyframes slide { to { transform: translateX(-50%); } }
+
+  /* ---------- mode index ---------- */
+  .modes { max-width: 1280px; margin: 0 auto; padding: 0 40px 90px; }
+  .row {
+    display: grid;
+    grid-template-columns: 110px 1fr 1.1fr auto;
+    align-items: center; gap: 28px;
+    padding: 34px 18px;
+    border-bottom: 1px solid var(--fg-12);
+    text-decoration: none; color: inherit;
+    position: relative;
+    transition: background 0.25s ease, color 0.25s ease, padding-left 0.25s ease;
+    opacity: 0; animation: fade 0.7s ease forwards;
+  }
+  .row:nth-of-type(1) { border-top: 1px solid var(--fg-12); animation-delay: 0.7s; }
+  .row:nth-of-type(2) { animation-delay: 0.82s; }
+  .row:nth-of-type(3) { animation-delay: 0.94s; }
+  .row:hover { background: var(--invert-bg); color: var(--invert-fg); padding-left: 30px; }
+  .row-tag { font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--red); }
+  .row:hover .row-tag { text-shadow: 0 0 10px var(--red-glow); }
+  .row-title {
+    font-family: "Archivo Black", sans-serif;
+    font-size: clamp(24px, 3.4vw, 42px);
+    letter-spacing: -0.02em; text-transform: uppercase;
+  }
+  .row-desc { font-size: 14px; line-height: 1.55; color: var(--fg-60); transition: color 0.25s; }
+  .row:hover .row-desc { color: var(--invert-dim); }
+  .row-arrow { font-size: 26px; transition: transform 0.25s cubic-bezier(0.3, 0.9, 0.3, 1.4); }
+  .row:hover .row-arrow { transform: translateX(10px); color: var(--red); }
+
+  footer {
+    padding: 0 40px 40px; max-width: 1280px; margin: 0 auto;
+    font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fg-60);
+  }
+
+  a:focus-visible, .row:focus-visible, .edition:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
+
+  @media (max-width: 720px) {
+    header, .hero, .modes, footer { padding-inline: 20px; }
+    .row { grid-template-columns: 1fr auto; }
+    .row-tag, .row-desc { display: none; }
+    .head-right { gap: 12px; }
+    .live { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-delay: 0s !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+    .line > span { transform: none; }
+    .cell { transform: scale(1); }
+    .tagline, .row { opacity: 1; }
+  }
+</style>
+<script>
+  // Set the theme before first paint: saved choice wins, then OS preference.
+  document.documentElement.dataset.theme =
+    localStorage.getItem("er-theme") ||
+    (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+</script>
+</head>
+<body>
+
+<header>
+  <div class="brand mono">
+    <div class="brand-square" aria-hidden="true"></div>
+    <span>The Engine Room</span>
+  </div>
+  <div class="head-right">
+    <div class="live mono">
+      <span class="live-dot" aria-hidden="true"></span>
+      <span><b>Live</b> — engines coupled</span>
+    </div>
+    <button class="edition mono" id="edition-toggle" type="button">
+      <span class="when-day">Night edition ↗</span>
+      <span class="when-night">Day edition ↗</span>
+    </button>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-text">
+    <h1>
+      <span class="line"><span>The</span></span>
+      <span class="line"><span class="hollow">Engine</span></span>
+      <span class="line"><span>Room</span></span>
+    </h1>
+    <p class="tagline">
+      Two chess engines. Sixty-four squares. <em>No mercy.</em>
+      Watch machines fight it out move by move — or sit down at the board
+      and take one on yourself.
+    </p>
+  </div>
+
+  <div class="board-wrap">
+    <div class="board-frame">
+      <div class="board" id="board" aria-label="Chessboard replaying the Opera Game"></div>
+    </div>
+    <div class="board-caption mono">
+      <span>Morphy · Opera Game · 1858</span>
+      <span id="move-counter">Move 0</span>
+    </div>
+  </div>
+</section>
+
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-row" id="marquee-row">
+    <span><i>◆</i>Stockfish 17 — depth 42</span>
+    <span><i>◆</i>eval +0.4 — white ahead</span>
+    <span><i>◆</i>Sicilian Defence · B90</span>
+    <span><i>◆</i>84,000 nodes / second</span>
+    <span><i>◆</i>checkmate detected in 7</span>
+    <span><i>◆</i>all engines coupled</span>
+  </div>
+</div>
+
+<nav class="modes" aria-label="Modes">
+  <a class="row" href="#model-1v1">
+    <span class="row-tag mono">Spectate</span>
+    <span class="row-title">Model 1v1</span>
+    <span class="row-desc">Pick two engines and set them loose. Every move validated, every game scored.</span>
+    <span class="row-arrow" aria-hidden="true">→</span>
+  </a>
+  <a class="row" href="#user-1v1">
+    <span class="row-tag mono">Play</span>
+    <span class="row-title">User 1v1</span>
+    <span class="row-desc">Choose your opponent, choose your color, and see how long you last.</span>
+    <span class="row-arrow" aria-hidden="true">→</span>
+  </a>
+  <a class="row" href="#history">
+    <span class="row-tag mono">Archive</span>
+    <span class="row-title">History</span>
+    <span class="row-desc">Every finished game, on the record.</span>
+    <span class="row-arrow" aria-hidden="true">→</span>
+  </a>
+</nav>
+
+<footer class="mono">Option 1 / 3 — “Ink &amp; Bone” — day / night editions — disposable design mockup</footer>
+
+<script>
+  // ---------- theme toggle ----------
+  document.getElementById("edition-toggle").addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("er-theme", next);
+  });
+
+  // Double the marquee content so the 50% translate loops seamlessly.
+  const row = document.getElementById("marquee-row");
+  row.innerHTML += row.innerHTML;
+
+  // ---------- scripted board: Morphy's Opera Game ----------
+  const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+  const GAME = [
+    ["e2","e4"],["e7","e5"],["g1","f3"],["d7","d6"],["d2","d4"],["c8","g4"],
+    ["d4","e5"],["g4","f3"],["d1","f3"],["d6","e5"],["f1","c4"],["g8","f6"],
+    ["f3","b3"],["d8","e7"],["b1","c3"],["c7","c6"],["c1","g5"],["b7","b5"],
+    ["c3","b5"],["c6","b5"],["c4","b5"],["b8","d7"],
+    ["e1","c1",["a1","d1"]],["a8","d8"],["d1","d7"],["d8","d7"],
+    ["h1","d1"],["e7","e6"],["b5","d7"],["f6","d7"],["b3","b8"],["d7","b8"],
+    ["d1","d8"]
+  ];
+  const boardEl = document.getElementById("board");
+  const counter = document.getElementById("move-counter");
+  const fileOf = (sq) => sq.charCodeAt(0) - 97;
+  const rankOf = (sq) => 8 - +sq[1]; // row 0 = rank 8, white at bottom
+
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const c = document.createElement("div");
+    c.className = "cell " + ((r + f) % 2 ? "b" : "a");
+    c.style.left = `calc(${f} * var(--sq))`;
+    c.style.top = `calc(${r} * var(--sq))`;
+    c.style.animationDelay = (0.35 + (r + f) * 0.045) + "s";
+    boardEl.appendChild(c);
+  }
+  const hlFrom = document.createElement("div"); hlFrom.className = "hl";
+  const hlTo = document.createElement("div"); hlTo.className = "hl";
+  boardEl.append(hlFrom, hlTo);
+
+  let pieces = [];
+  function place(el, sq) {
+    el.style.transform = `translate(calc(${fileOf(sq)} * var(--sq)), calc(${rankOf(sq)} * var(--sq)))`;
+  }
+  function setup() {
+    pieces.forEach(p => p.el.remove());
+    pieces = [];
+    const back = ["r","n","b","q","k","b","n","r"];
+    for (let f = 0; f < 8; f++) {
+      const file = "abcdefgh"[f];
+      [[back[f], "b", file + "8"], ["p", "b", file + "7"],
+       ["p", "w", file + "2"], [back[f], "w", file + "1"]].forEach(([t, c, sq]) => {
+        const el = document.createElement("span");
+        el.className = "piece " + c;
+        el.textContent = GLYPH[t];
+        place(el, sq);
+        boardEl.appendChild(el);
+        pieces.push({ sq, el });
+      });
+    }
+    hlFrom.style.opacity = hlTo.style.opacity = 0;
+  }
+  function applyMove(from, to) {
+    const victim = pieces.find(p => p.sq === to);
+    if (victim) {
+      victim.el.classList.add("captured");
+      setTimeout(() => victim.el.remove(), 400);
+      pieces = pieces.filter(p => p !== victim);
+    }
+    const mover = pieces.find(p => p.sq === from);
+    if (!mover) return;
+    mover.sq = to;
+    place(mover.el, to);
+  }
+  function highlight(el, sq) {
+    el.style.opacity = 1;
+    el.style.transform = `translate(calc(${fileOf(sq)} * var(--sq)), calc(${rankOf(sq)} * var(--sq)))`;
+  }
+
+  let ply = 0;
+  setup();
+  setInterval(() => {
+    if (ply >= GAME.length) { ply = 0; setup(); counter.textContent = "Move 0"; return; }
+    const [from, to, extra] = GAME[ply];
+    applyMove(from, to);
+    if (extra) applyMove(extra[0], extra[1]);
+    highlight(hlFrom, from);
+    highlight(hlTo, to);
+    ply++;
+    counter.textContent = ply >= GAME.length ? "17. Rd8# 1-0" : "Move " + Math.ceil(ply / 2);
+  }, 1150);
+</script>
+</body>
+</html>

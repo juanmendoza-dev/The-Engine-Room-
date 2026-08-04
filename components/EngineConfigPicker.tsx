@@ -21,7 +21,7 @@ export function EngineConfigPicker({ presets, value, onChange, label, disabled }
           const found = presets.find((p) => p.label === e.target.value);
           if (found) onChange(found);
         }}
-        className="border-er-line bg-er-surface text-er-text focus:border-er-accent cursor-pointer rounded-[4px] border px-3 py-2 text-[15px] outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        className="border-er-line bg-er-surface text-er-text focus:border-er-accent cursor-pointer border px-3 py-2 text-[15px] outline-none disabled:cursor-not-allowed disabled:opacity-50"
       >
         <option value="" disabled>
           Choose an engine

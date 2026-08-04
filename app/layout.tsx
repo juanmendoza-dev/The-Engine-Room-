@@ -1,25 +1,26 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Martian_Mono, Schibsted_Grotesk } from "next/font/google";
+import { Archivo, Archivo_Black, Spline_Sans_Mono } from "next/font/google";
 
 import { SiteHeader } from "@/components/SiteHeader";
 
 import "./globals.css";
 
-const displayFont = Schibsted_Grotesk({
+const bodyFont = Archivo({
   variable: "--font-er-display",
   subsets: ["latin"],
 });
 
-const monoFont = Geist_Mono({
-  variable: "--font-er-mono",
+// Archivo Black is a single-weight display face — the giant editorial
+// headlines and index-row titles. Exposed as the `font-display-black` utility.
+const displayBlack = Archivo_Black({
+  variable: "--font-er-black",
+  weight: "400",
   subsets: ["latin"],
 });
 
-// Only used by the telemetry ticker, so a single weight is plenty.
-const martianFont = Martian_Mono({
-  variable: "--font-er-martian",
+const monoFont = Spline_Sans_Mono({
+  variable: "--font-er-mono",
   subsets: ["latin"],
-  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -27,15 +28,17 @@ export const metadata: Metadata = {
   description: "Watch two chess engines play each other, or take one on yourself.",
 };
 
-// Runs before first paint so a returning light-mode visitor never sees a dark
-// flash. Has to be inline for that — a component effect is already too late.
-const themeBootstrap = `try{if(localStorage.getItem('er-theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}`;
+// Runs before first paint so a returning night-edition visitor never sees a
+// bone-white flash. Day is the default; night comes from a stored choice or,
+// failing that, the OS preference. Has to be inline for that — a component
+// effect is already too late.
+const themeBootstrap = `try{var t=localStorage.getItem('er-theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.dataset.theme='dark'}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${displayFont.variable} ${monoFont.variable} ${martianFont.variable} h-full antialiased`}
+      className={`${bodyFont.variable} ${displayBlack.variable} ${monoFont.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />

@@ -2,7 +2,7 @@
 
 /**
  * Flips data-theme on <html>, which is what the --er-* overrides in globals.css
- * hang off.
+ * hang off. Day (bone paper) is the default; "dark" is the night edition.
  *
  * Deliberately stateless: both labels are rendered and CSS shows whichever
  * matches the current theme. That keeps the label correct from the very first
@@ -13,16 +13,16 @@
 export function ThemeToggle() {
   function toggle() {
     const root = document.documentElement;
-    const goingLight = root.dataset.theme !== "light";
+    const goingDark = root.dataset.theme !== "dark";
 
-    if (goingLight) {
-      root.dataset.theme = "light";
+    if (goingDark) {
+      root.dataset.theme = "dark";
     } else {
       delete root.dataset.theme;
     }
 
     try {
-      localStorage.setItem("er-theme", goingLight ? "light" : "dark");
+      localStorage.setItem("er-theme", goingDark ? "dark" : "light");
     } catch {
       // Private mode / storage disabled — still works for this visit.
     }
@@ -31,13 +31,12 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      title="Toggle light / dark"
-      aria-label="Toggle light or dark theme"
-      className="er-toggle text-er-dim flex cursor-pointer items-center gap-2 rounded-full bg-transparent px-3 py-[7px] font-mono text-[11px] tracking-[0.14em] whitespace-nowrap uppercase"
+      title="Switch edition"
+      aria-label="Switch between the day and night editions"
+      className="er-toggle text-er-dim cursor-pointer bg-transparent px-4 py-2 font-mono text-[11px] tracking-[0.22em] whitespace-nowrap uppercase"
     >
-      <span className="er-lamp h-2 w-2 rounded-full" />
-      <span className="er-when-dark">Lamps on</span>
-      <span className="er-when-light">Lamps off</span>
+      <span className="er-when-light">Night edition ↗</span>
+      <span className="er-when-dark">Day edition ↗</span>
     </button>
   );
 }

@@ -308,13 +308,14 @@ deleting the block only makes it come back. Across parallel branches that's the
 same phantom diff on every one of them. If you ever see that block appear,
 someone removed the config option — put it back rather than committing the block.
 
-**`background-clip: text` and the `background` shorthand.** The hero clips two
-gradients to text (the wordmark and "Engine" in the headline). Keep each
-element's `background-clip` in the *same* rule as its `background`, after it —
-`background` is a shorthand that resets `background-clip` to `border-box`, so
-factoring the clip into a shared rule and overriding the gradient later silently
-un-clips the text and paints the whole element as a solid block. Already been hit
-once; the comment in `globals.css` says the same thing at the site.
+**`background-clip: text` and the `background` shorthand.** No longer live —
+the 2026-08-04 "Ink & Bone" redesign removed all gradient-clipped text (the
+headline is hollow via `-webkit-text-stroke` now). Kept because the trap is
+real if gradient text ever returns: keep each element's `background-clip` in
+the *same* rule as its `background`, after it — `background` is a shorthand
+that resets `background-clip` to `border-box`, so factoring the clip into a
+shared rule and overriding the gradient later silently un-clips the text and
+paints the whole element as a solid block. Was hit once under the old design.
 
 **`next dev` can outlive whatever launched it.** On Windows, killing the shell or
 task that ran `npm run dev` doesn't reliably kill the node process — it keeps
