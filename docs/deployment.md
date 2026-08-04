@@ -308,6 +308,22 @@ deleting the block only makes it come back. Across parallel branches that's the
 same phantom diff on every one of them. If you ever see that block appear,
 someone removed the config option — put it back rather than committing the block.
 
+**`background-clip: text` and the `background` shorthand.** The hero clips two
+gradients to text (the wordmark and "Engine" in the headline). Keep each
+element's `background-clip` in the *same* rule as its `background`, after it —
+`background` is a shorthand that resets `background-clip` to `border-box`, so
+factoring the clip into a shared rule and overriding the gradient later silently
+un-clips the text and paints the whole element as a solid block. Already been hit
+once; the comment in `globals.css` says the same thing at the site.
+
+**`next dev` can outlive whatever launched it.** On Windows, killing the shell or
+task that ran `npm run dev` doesn't reliably kill the node process — it keeps
+holding port 3000 and the next `next dev` refuses to start with "Another next dev
+server is already running" (it helpfully prints the PID). Confirm with
+`netstat -ano | grep :3000`, then `taskkill //PID <pid> //F` from Git Bash. Worth
+knowing before you conclude a code change "didn't take": you may be reading a
+stale server.
+
 **Engines run client-side.** Both engine wrappers execute in the browser, so
 there's no serverless function timeout or cold-start risk on the engine path at
 all. The only server-side code in the whole app is the two KV Server Actions.
