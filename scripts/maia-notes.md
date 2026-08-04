@@ -3,8 +3,8 @@
 Findings from Task 3's timeboxed spike. Written so the next person doesn't repeat
 the archaeology.
 
-**Timebox:** started 12:03, CP1 concluded ~12:25 (≈21 min, over the 15 min CP1
-budget — justified, see below).
+**Timebox:** started 12:03:48, CP1 concluded ~12:09 — **≈5 minutes, well inside the
+15-minute CP1 budget**, with ~84 minutes of the box still unspent.
 
 **Reached:** CP1 complete, and it made CP2–CP6 largely unnecessary. Stopped before
 implementing, because what CP1 found deviates materially from the approved spec.
@@ -34,8 +34,10 @@ to integrate:
 | Value output | scalar / WDL | 3-dim loss/draw/win logits |
 
 So the whole conversion pipeline — CP2 (source `.pb.gz`), CP3 (lc0 + `leela2onnx`),
-and the history-plane question — simply evaporates. That's why CP1 was allowed to
-run over budget: it's exactly the payoff the checkpoint exists for.
+CP4 (graph archaeology), and the history-plane question — simply evaporates. Five
+minutes of searching removed the three riskiest checkpoints in the task. This is
+the entire argument for doing CP1 first rather than getting on with "the real
+work".
 
 ## Where everything lives
 
