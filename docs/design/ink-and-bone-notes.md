@@ -71,11 +71,14 @@ the new default. Anything theme-conditional hangs off
 
 ## Structure
 
-- **Header** (`components/SiteHeader.tsx`, all screens): rotating ink square
-  (red + glowing at night), letterspaced mono wordmark, live scoreboard, edition
-  toggle. No logo glyph, no gradient wordmark. Stays a *server* component —
-  only the scoreboard needs the client, and it's a separate component so the
-  rest of the header isn't dragged over the boundary with it.
+- **Header** (`components/SiteHeader.tsx`, all screens): ER monogram (see below),
+  letterspaced mono wordmark, live scoreboard, edition toggle. No gradient
+  wordmark. Stays a *server* component — only the scoreboard needs the client,
+  and it's a separate component so the rest of the header isn't dragged over the
+  boundary with it; the monogram is plain SVG with no hooks, so it doesn't cross
+  that boundary either. The rotating ink square the monogram replaced is gone,
+  along with the `er-sq-turn` keyframes it was the only user of — a monogram
+  can't rotate and stay readable.
 - **Hero** (`app/page.tsx`): three-line THE / ENGINE / ROOM headline, each
   line rising from an `overflow: hidden` mask (`.er-line`), "ENGINE" hollow
   via `-webkit-text-stroke` (`.er-hollow`; fills red on headline hover).
@@ -128,7 +131,40 @@ remove the readout, it was to connect it.
 - **Width is pinned** (`tabular-nums` + `min-w` on the number and the notation).
   A readout that resizes itself every ply is most of what makes a live element
   feel cheap; it was measured at a constant 153px across a whole game.
+## Brand mark — the ER monogram
 
+`components/BrandMark.tsx`. Two letters on a 100-unit cap-height grid (stem 26,
+horizontal bar 20), constructed rather than typeset: flat terminals, square
+corners, a rectilinear R bowl with a straight leg. Ink by day, paper by night
+(it inherits `color`, so it flips for free), plus one red plate-corner tick that
+stays red in both editions and lights up at night off `--er-accent-glow`.
+
+**Two cuts, and the reason matters.** A framed monogram *cannot* work at 16px:
+the hairline frame, the gap inside it, and the letter counters all land under
+1.5px and merge into a dark blob. So:
+
+| Cut | What it is | Used at |
+|---|---|---|
+| `plate` | hairline frame + letters + corner tick | 28px and up |
+| `bare` | same letters, no frame, scaled up to fill the box | under 28px |
+
+`<BrandMark size={n} />` picks the cut from the size, so callers can't
+accidentally ship the illegible one; pass `cut` to override. The header uses
+`size={18}` → bare.
+
+**The letters are paths, not `<text>` in Archivo Black.** `app/icon.svg` reuses
+the same geometry and a favicon renders with no webfont available — a text mark
+would silently fall back to a serif in the browser tab. The trade is that the
+numbers exist in two files; the SVG says so at the top, and `BrandMark.tsx` is
+the source of truth.
+
+**Icons** (all Next `app/` file conventions, no `metadata.icons` config needed):
+`icon.svg` is the bare cut, ink on light browser chrome and paper on dark via an
+inline `prefers-color-scheme` rule. `favicon.ico` (32px bare) and
+`apple-icon.png` (180px plate, inset 15% so iOS's rounded mask can't clip the
+frame) are raster, so they can't carry that media query — both sit on an opaque
+bone plate instead, because an ink monogram on transparency disappears entirely
+on a dark tab strip. Regenerate them with `scripts/make-icons.mjs`.
 ## Route transition — "the press"
 
 `components/PageTransition.tsx` + the `.er-press-*` rules in `globals.css`.

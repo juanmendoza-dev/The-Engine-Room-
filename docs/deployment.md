@@ -393,6 +393,18 @@ plain pair. The naive static `import … from "onnxruntime-web/wasm"` does **not
 work: it fails `next build` with `ERR_INVALID_URL` during prerender, because
 that bundle resolves its own URL at module scope.
 
+**`app/favicon.ico` must contain an RGBA PNG, or `next build` dies.** Turbopack
+decodes the ICO at build time and rejects anything else with `Processing image
+failed / unable to decode image data / Format error decoding Ico: The PNG is not
+in RGBA format!`. Nothing in that message points at the file you just replaced.
+The trap: Chrome's own PNG encoder (`Page.captureScreenshot`, `canvas.toDataURL`)
+drops the alpha channel when every pixel is opaque, so a screenshot-derived
+favicon with a solid background is RGB and fails, while the same icon with one
+transparent pixel would have passed. `scripts/make-icons.mjs` sidesteps it by
+reading raw RGBA off a canvas and encoding the PNG itself (~40 lines, zlib is in
+Node). Check any hand-made icon with `file app/favicon.ico` — you want
+`8-bit/color RGBA`, not `8-bit/color RGB`.
+
 **Next 16 snapshots `public/` at build time.** Files added to `public/` *after*
 `next build` return 404 from `next start` until you rebuild. This bites whenever
 you copy engine assets in as a separate step from the build — the app looks
