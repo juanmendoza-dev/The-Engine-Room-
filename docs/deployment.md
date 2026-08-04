@@ -364,7 +364,7 @@ stale server.
 there's no serverless function timeout or cold-start risk on the engine path at
 all. The only server-side code in the whole app is the two KV Server Actions.
 
-**Headless-Chrome (CDP) verification traps (Task 10).** Three things that cost
+**Headless-Chrome (CDP) verification traps (Task 10).** Things that cost
 time when driving the app with the `scripts/cdp-*.mjs`-style harnesses:
 
 - `Page.navigate` can return a normal-looking result and leave the tab parked
@@ -383,6 +383,21 @@ time when driving the app with the `scripts/cdp-*.mjs`-style harnesses:
   steps, mouseReleased — on the `[data-square="…"]` elements. And React
   ignores `.value =` on a controlled `<select>`; use the native value setter
   plus a bubbling `change` event.
+- **Measure both ends of a drag in one `Runtime.evaluate`, at one scroll
+  position.** A `squareCenter(sq)` helper that calls
+  `scrollIntoView({block:"center"})` before reading `getBoundingClientRect()`
+  gives you `from` and `to` measured at *different* scroll offsets, because
+  centring the destination scrolls the page a rank's worth after `from` was
+  read. The `mousePressed` then lands ~48px off — on an empty square — so no
+  drag starts and the move silently never happens. It looks like the app
+  rejecting a legal move, which sends you hunting a bug that isn't there.
+  What makes it nasty: early in a game the page is short enough that
+  `scrollIntoView` is clamped and both reads agree, so drags work; the move log
+  grows the page (1272px in a 485px headless viewport by ply 36), scrolling
+  becomes possible, and *then* every drag between two ranks starts missing.
+  Cost this the first production run of /user-1v1: ~100 identical rejected
+  drags in a position where only two legal moves existed. Fix is one evaluate
+  returning both centres.
 - None of this works against a **preview** deployment as long as Deployment
   Protection (§2) is on: every preview URL 302s to Vercel SSO for anonymous
   fetchers, and there are no Vercel credentials on this machine (`~/.vercel`,
