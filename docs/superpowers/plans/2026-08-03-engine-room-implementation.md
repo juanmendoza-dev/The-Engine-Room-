@@ -1200,7 +1200,12 @@ with real `Input.dispatchMouseEvent` drags — see the harness note below):
 - `describeEnd` additionally driven directly against six known terminal
   positions (both mate colours, stalemate, insufficient material, fifty-move,
   threefold) since one played game can only ever reach one `endReason`.
-- Zero console errors/warnings across all runs, and again on the Vercel preview.
+- Zero console errors/warnings across all runs.
+- **The Vercel preview could not be screen-verified**: preview deployments are
+  SSO-gated (Deployment Protection, see `deployment.md` §2), and this machine
+  holds no Vercel credentials — the same wall PR #8 documented. Vercel's build
+  for the branch is green; the rendered screen was only confirmed on the local
+  production build.
 
 - [x] **Step 3: Commit**
 

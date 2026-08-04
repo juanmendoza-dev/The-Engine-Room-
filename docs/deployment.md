@@ -348,6 +348,14 @@ time when driving the app with the `scripts/cdp-*.mjs`-style harnesses:
   steps, mouseReleased — on the `[data-square="…"]` elements. And React
   ignores `.value =` on a controlled `<select>`; use the native value setter
   plus a bubbling `change` event.
+- None of this works against a **preview** deployment as long as Deployment
+  Protection (§2) is on: every preview URL 302s to Vercel SSO for anonymous
+  fetchers, and there are no Vercel credentials on this machine (`~/.vercel`,
+  `AppData/Roaming/com.vercel.cli` — nothing). PR #8 hit the same wall. So
+  "verify the preview" is only possible after someone with dashboard access
+  turns preview protection off or shares a Protection Bypass for Automation
+  secret; until then the strongest available check is the local production
+  build plus Vercel's own green build status.
 
 ---
 
