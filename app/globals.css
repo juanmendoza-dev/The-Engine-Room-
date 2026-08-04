@@ -1,26 +1,551 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Design tokens — from docs/design/hero-notes.md. Dark is the default; the
+   theme toggle sets data-theme="light" on <html>. Every token is referenced
+   through @theme inline below so Tailwind utilities pick up the swap at
+   runtime instead of being baked in at build time.
+   --------------------------------------------------------------------------- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --er-bg: #14110d;
+  --er-surface: #1d1813;
+  --er-surface2: #171310;
+  --er-plate: #221c15;
+  --er-plate2: #181410;
+  --er-line: #2b241c;
+  --er-text: #ede4d4;
+  --er-dim: #9c8f7c;
+  --er-accent: #c9974a;
+  --er-accent-deep: #8a6320;
+  --er-accent-line: rgba(201, 151, 74, 0.35);
+  --er-copper: #c2703e;
+  --er-copper-line: rgba(194, 112, 62, 0.4);
+  --er-verd: #5e8f7f;
+  --er-glow: rgba(201, 151, 74, 0.1);
+  --er-glow-copper: rgba(194, 112, 62, 0.09);
+  --er-glow-verd: rgba(94, 143, 127, 0.07);
+  --er-steam: rgba(237, 228, 212, 1);
+  --er-steam-op: 0.14;
+  --er-puff-op: 0.5;
+  --er-sheen: rgba(237, 228, 212, 0.05);
+  --er-tex: 0.05;
+  --er-shadow: 0.55;
+  --er-shadow2: 0.35;
+  --er-sq-light: #3b332a;
+  --er-sq-dark: #241e17;
+  --er-sq-white-piece: #e9dcc2;
+  --er-sq-black-piece: #100d0a;
+}
+
+:root[data-theme="light"] {
+  --er-bg: #ece5d8;
+  --er-surface: #f6f1e6;
+  --er-surface2: #efe8da;
+  --er-plate: #f6f1e6;
+  --er-plate2: #e6ddcc;
+  --er-line: #d5c9b3;
+  --er-text: #241d12;
+  --er-dim: #6f6350;
+  --er-accent: #96700f;
+  --er-accent-deep: #7a5c1a;
+  --er-accent-line: rgba(150, 112, 15, 0.4);
+  --er-copper: #a4552a;
+  --er-copper-line: rgba(164, 85, 42, 0.4);
+  --er-verd: #3f7566;
+  --er-glow: rgba(201, 151, 74, 0.18);
+  --er-glow-copper: rgba(164, 85, 42, 0.1);
+  --er-glow-verd: rgba(63, 117, 102, 0.08);
+  --er-steam: rgba(60, 48, 30, 1);
+  --er-steam-op: 0.07;
+  --er-puff-op: 0.28;
+  --er-sheen: rgba(255, 255, 255, 0.35);
+  --er-tex: 0.03;
+  --er-shadow: 0.18;
+  --er-shadow2: 0.1;
+  --er-sq-light: #d9cdb5;
+  --er-sq-dark: #b09a78;
+  --er-sq-white-piece: #fffaf0;
+  --er-sq-black-piece: #241d12;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-er-bg: var(--er-bg);
+  --color-er-surface: var(--er-surface);
+  --color-er-surface2: var(--er-surface2);
+  --color-er-line: var(--er-line);
+  --color-er-text: var(--er-text);
+  --color-er-dim: var(--er-dim);
+  --color-er-accent: var(--er-accent);
+  --color-er-copper: var(--er-copper);
+  --color-er-verd: var(--er-verd);
+
+  --font-display: var(--font-er-display);
+  --font-mono: var(--font-er-mono);
+  --font-martian: var(--font-er-martian);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* These belong in `base` on purpose. Unlayered rules outrank every Tailwind
+   layer, so an unlayered `a { color: inherit }` would silently beat a
+   `text-er-*` utility on any <Link> — a trap for later screens. */
+@layer base {
+  html,
+  body {
+    background: var(--er-bg);
+    color: var(--er-text);
+  }
+
+  body {
+    font-family: var(--font-er-display), system-ui, sans-serif;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ---------------------------------------------------------------------------
+   Keyframes — ported from docs/design/hero-preview.html
+   --------------------------------------------------------------------------- */
+
+@keyframes er-flicker {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+@keyframes er-rise {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes er-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes er-spin-rev {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+@keyframes er-steam {
+  0% {
+    transform: translateY(20px) scale(0.7);
+    opacity: 0;
+  }
+  25% {
+    opacity: var(--er-steam-op);
+  }
+  100% {
+    transform: translateY(-130px) scale(1.5);
+    opacity: 0;
+  }
+}
+@keyframes er-needle {
+  0%,
+  100% {
+    transform: rotate(-52deg);
+  }
+  40% {
+    transform: rotate(38deg);
+  }
+  55% {
+    transform: rotate(22deg);
+  }
+  70% {
+    transform: rotate(44deg);
+  }
+}
+@keyframes er-ticker {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes er-sheen {
+  0%,
+  72% {
+    transform: translateX(-130%) skewX(-18deg);
+  }
+  92%,
+  100% {
+    transform: translateX(230%) skewX(-18deg);
+  }
+}
+@keyframes er-square {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 2px rgba(201, 151, 74, 0.75),
+      inset 0 0 18px rgba(201, 151, 74, 0.32);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 2px rgba(201, 151, 74, 0.2),
+      inset 0 0 6px rgba(201, 151, 74, 0.1);
+  }
+}
+@keyframes er-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes er-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes er-arrow {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+}
+@keyframes er-train {
+  0% {
+    transform: translateX(-110px);
+  }
+  100% {
+    transform: translateX(320px);
+  }
+}
+@keyframes er-puff {
+  0% {
+    transform: translate(0, 0) scale(0.4);
+    opacity: 0;
+  }
+  15% {
+    opacity: var(--er-puff-op);
+  }
+  100% {
+    transform: translate(14px, -30px) scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Ornamental pieces. These carry gradients, masks and conic-gradients that
+   read far better as CSS than as long Tailwind arbitrary values; layout stays
+   in the JSX as utilities.
+   --------------------------------------------------------------------------- */
+
+.er-rise {
+  animation: er-rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Ambient background ------------------------------------------------------ */
+
+.er-glows {
+  background:
+    radial-gradient(900px 500px at 72% 18%, var(--er-glow), transparent 65%),
+    radial-gradient(700px 600px at 8% 90%, var(--er-glow-copper), transparent 60%),
+    radial-gradient(600px 400px at 92% 78%, var(--er-glow-verd), transparent 60%);
+}
+
+.er-grain {
+  opacity: var(--er-tex);
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 3px,
+    rgba(255, 255, 255, 0.35) 3px,
+    rgba(255, 255, 255, 0.35) 4px
+  );
+  mix-blend-mode: overlay;
+}
+
+.er-flywheel {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.er-flywheel--outer {
+  top: -160px;
+  left: -160px;
+  width: 480px;
+  height: 480px;
+  border: 1.5px dashed var(--er-line);
+  animation: er-spin 90s linear infinite;
+}
+.er-flywheel--spokes {
+  top: -110px;
+  left: -110px;
+  width: 380px;
+  height: 380px;
+  border: 1px solid var(--er-line);
+  animation: er-spin-rev 140s linear infinite;
+  background: repeating-conic-gradient(var(--er-line) 0deg 1.4deg, transparent 1.4deg 30deg);
+}
+.er-flywheel--far {
+  bottom: -200px;
+  right: -140px;
+  width: 520px;
+  height: 520px;
+  border: 1.5px dashed var(--er-line);
+  animation: er-spin-rev 120s linear infinite;
+}
+
+/* Header logo mark -------------------------------------------------------- */
+
+.er-mark {
+  background: linear-gradient(
+    160deg,
+    var(--er-accent),
+    var(--er-copper) 70%,
+    var(--er-accent-deep)
+  );
+  color: #17130d;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.er-puff {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--er-steam);
+  opacity: 0;
+  pointer-events: none;
+  animation: er-puff 3.2s ease-out infinite;
+}
+
+/* Each of these declares its own background-clip AFTER its background. Don't
+   factor the clip out into a shared rule: `background` is a shorthand that
+   resets background-clip to border-box, so a later `background:` override
+   silently un-clips the text and paints the whole box as a solid block. */
+.er-wordmark {
+  background: linear-gradient(100deg, var(--er-text), var(--er-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.er-headline-accent {
+  background: linear-gradient(100deg, var(--er-accent), var(--er-copper));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  padding-right: 0.08em;
+}
+
+.er-underline {
+  position: absolute;
+  left: 2px;
+  right: 6px;
+  bottom: 6px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--er-accent), var(--er-copper) 60%, transparent);
+  transform-origin: left;
+  animation: er-draw 0.9s 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Train ------------------------------------------------------------------- */
+
+.er-trackbox {
+  -webkit-mask-image: linear-gradient(90deg, black 82%, transparent);
+  mask-image: linear-gradient(90deg, black 82%, transparent);
+}
+.er-rail {
+  background: var(--er-line);
+}
+.er-sleepers {
+  background: repeating-linear-gradient(90deg, var(--er-line) 0 5px, transparent 5px 12px);
+}
+.er-train {
+  animation: er-train 9s linear infinite;
+}
+.er-loco {
+  background: linear-gradient(180deg, var(--er-copper), var(--er-accent-deep));
+  border-radius: 3px 5px 1px 1px;
+}
+.er-carriage {
+  background: var(--er-surface);
+  border: 1px solid var(--er-accent-line);
+}
+
+/* Mini board plate -------------------------------------------------------- */
+
+.er-plate {
+  background: linear-gradient(155deg, var(--er-plate), var(--er-plate2));
+  border: 1px solid var(--er-line);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, var(--er-shadow)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: er-bob 7s 1.4s ease-in-out infinite;
+}
+
+.er-rivet {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e0b878, #6d5124 70%);
+}
+
+.er-steamwisp {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--er-steam);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.er-board {
+  border: 1px solid var(--er-accent-line);
+}
+
+.er-square--hi {
+  animation: er-square 2.6s ease-in-out infinite;
+}
+
+/* Ticker ------------------------------------------------------------------ */
+
+.er-tickerbox {
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+}
+.er-tickerrow {
+  animation: er-ticker 34s linear infinite;
+}
+
+/* Mode cards -------------------------------------------------------------- */
+
+.er-card {
+  background: linear-gradient(165deg, var(--er-surface), var(--er-surface2));
+  border: 1px solid var(--er-line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, var(--er-shadow2));
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.er-card:hover {
+  transform: translateY(-4px);
+}
+.er-card--brass:hover {
+  border-color: var(--er-accent);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, var(--er-shadow)),
+    0 0 0 1px var(--er-accent);
+}
+.er-card--copper:hover {
+  border-color: var(--er-copper);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, var(--er-shadow)),
+    0 0 0 1px var(--er-copper);
+}
+
+.er-sheen {
+  background: linear-gradient(105deg, transparent, var(--er-sheen), transparent);
+  animation: er-sheen 7s 1.6s ease-in-out infinite;
+}
+
+.er-badge-brass {
+  color: var(--er-accent);
+  border: 1px solid var(--er-accent-line);
+}
+.er-badge-copper {
+  color: var(--er-copper);
+  border: 1px solid var(--er-copper-line);
+}
+
+/* Gauge ------------------------------------------------------------------- */
+
+.er-gauge-arc {
+  border-radius: 44px 44px 0 0;
+  background: conic-gradient(
+    from 270deg at 50% 100%,
+    var(--er-verd) 0deg,
+    var(--er-accent) 90deg,
+    var(--er-copper) 150deg,
+    transparent 180deg
+  );
+  opacity: 0.5;
+}
+.er-gauge-face {
+  border-radius: 44px 44px 0 0;
+  background: var(--er-surface);
+}
+.er-needle {
+  background: var(--er-text);
+  transform-origin: bottom center;
+  animation: er-needle 5.5s ease-in-out infinite;
+}
+
+.er-arrow {
+  animation: er-arrow 2.4s ease-in-out infinite;
+}
+
+.er-lamp {
+  background: var(--er-accent);
+  box-shadow: 0 0 8px var(--er-accent);
+  animation: er-flicker 3.2s ease-in-out infinite;
+}
+.er-lamp--verd {
+  background: var(--er-verd);
+  box-shadow: 0 0 8px var(--er-verd);
+  animation: er-flicker 2.1s ease-in-out infinite;
+}
+
+.er-history-link {
+  border-bottom: 1px solid var(--er-line);
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+.er-history-link:hover {
+  color: var(--er-verd);
+  border-bottom-color: var(--er-verd);
+}
+
+.er-toggle {
+  border: 1px solid var(--er-line);
+  transition:
+    border-color 0.2s,
+    color 0.2s;
+}
+.er-toggle:hover {
+  border-color: var(--er-accent);
+  color: var(--er-accent);
+}
+
+/* Lets the toggle label be right from first paint without any JS state. */
+.er-when-light {
+  display: none;
+}
+:root[data-theme="light"] .er-when-dark {
+  display: none;
+}
+:root[data-theme="light"] .er-when-light {
+  display: inline;
+}
+
+/* The hero leans hard on motion; honour a reduced-motion preference. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
