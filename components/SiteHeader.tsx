@@ -1,10 +1,15 @@
+import { HeaderScoreboard } from "./HeaderScoreboard";
 import { TransitionLink } from "./PageTransition";
 import { ThemeToggle } from "./ThemeToggle";
 
 /**
  * The persistent minimal header — carries to every screen, not just the hero,
  * so it lives in the root layout. Treatment per docs/design/ink-and-bone-notes.md:
- * rotating ink square, letterspaced mono wordmark, live badge, edition toggle.
+ * rotating ink square, letterspaced mono wordmark, live scoreboard, edition
+ * toggle.
+ *
+ * Stays a server component: only the scoreboard needs the client, and it's its
+ * own component precisely so the rest of the header isn't dragged along.
  */
 export function SiteHeader() {
   return (
@@ -14,12 +19,7 @@ export function SiteHeader() {
         <span className="font-mono text-[11px] tracking-[0.22em] uppercase">The Engine Room</span>
       </TransitionLink>
       <div className="flex items-center gap-[26px]">
-        <div className="text-er-dim flex items-center gap-[10px] font-mono text-[11px] tracking-[0.22em] uppercase max-sm:hidden">
-          <span className="er-live-dot" aria-hidden />
-          <span>
-            <b className="text-er-accent font-medium">Live</b> — engines coupled
-          </span>
-        </div>
+        <HeaderScoreboard />
         <ThemeToggle />
       </div>
     </header>
