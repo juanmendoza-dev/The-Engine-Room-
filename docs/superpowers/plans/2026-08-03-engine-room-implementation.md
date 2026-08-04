@@ -32,28 +32,36 @@ sooner. What actually happened and why:
 | 1 — Scaffold | done, `#2` |
 | 5 — Menu / hero | done, `#4` |
 | 2 — Stockfish spike | done, `#6` |
-| **7, 4, 6, 8 — Board, registry, game loop, Model 1v1 screen** | **in progress — this is the demo** |
-| 3 — Maia ONNX spike | decoupled, spec-only in `#7`, may not land at all |
+| 7, 4, 6, 8 — Board, registry, game loop, Model 1v1 screen | done, `#8` — this was the demo |
+| 3 — Maia ONNX spike | **done, open in `#7`** — reviewed in `#12`, verdict "merge"; the last task not on `main` |
 | 9 — KV persistence | done, `#11` — adapter shape, KV itself still unprovisioned (see task notes) |
-| 10 — User 1v1 | unchanged, after the demo |
+| 10 — User 1v1 | done, `#10`; `saveGame` stitched in `#13` |
 | 11 — History page | done, `#11` (same PR as Task 9) |
 
-**Maia is no longer sequenced ahead of anything.** It's a 90-minute timeboxed
-investigation with a documented "may end with nothing" outcome, and Model 1v1
-doesn't need it — Stockfish 1320 vs 2800 is a watchable game today. Task 4 ships
-with `MAIA_PRESETS = []` and no import of `engineMaia`, which is both the plan's
-own fallback and, right now, simply the truth: that file doesn't exist. Maia
-becomes a three-line change in one file whenever it lands. If it never does, it
-joins the stretch goals and nothing else moves.
+**Every numbered task is now built.** Task 3 is the only one not merged to
+`main` — it lives in PR `#7` awaiting the owner's merge call, with its review in
+`#12`. Checkboxes below are unreliable (they were only ever maintained for
+Task 1); this table is the truth.
 
-**Task 9 (KV) is deferred, not dropped.** It needs Vercel dashboard provisioning,
-and watching two engines play needs no database. The `saveGame` call sits
-commented in `app/model-1v1/page.tsx` exactly where Task 8 says to leave it, so
-Task 9 stays a small, self-contained job.
+**Maia did land, so Task 4's fallback never fired.** `MAIA_PRESETS` is populated
+with the three verified tiers and `engines.ts` imports `engineMaia` for real —
+earlier revisions of this section said the file didn't exist, which stopped being
+true inside PR `#7`. Maia 2 takes the rating as a model *input*, so all three
+presets are one weight file. Details in `scripts/maia-notes.md`.
+
+(Branch-local commit SHAs are deliberately not cited anywhere in this doc: a
+rebase rewrites them, and the squash-merge rewrites them again, so they go stale
+twice before anyone reads them. PR numbers survive both.)
+
+**Task 9 (KV) is deferred, not dropped.** It needs Vercel dashboard provisioning;
+`/history` runs on the localStorage adapter today and flips to KV via
+`NEXT_PUBLIC_KV_ENABLED=1` after a redeploy. Runbook in `docs/deployment.md` §3.
+The `saveGame` calls are live on both game screens, not commented.
 
 **The phase check-in gate still stands** — the resequencing is about which task
-comes next, not about skipping the stop-and-report points. Task 3 remains the
-Phase 0 gate for whoever owns it.
+comes next, not about skipping the stop-and-report points. Task 3 is the Phase 0
+gate, and Phases 1–3 are all functionally live in production, so that check-in is
+due as well.
 
 Lane ownership, so parallel agents don't collide:
 [`phase-0-engine-spike.md`](../../phase-0-engine-spike.md) (Tasks 2, 3) and
@@ -454,7 +462,7 @@ This is fundamentally different from Task 2. Stockfish speaks a stable text prot
 - Produces (if successful): `getMaiaMove(fen: string, config: EngineConfig) => Promise<EngineMove>` — same signature as `getStockfishMove`.
 - Produces (if fallback taken): `getMaiaMove` still exists and has that signature, but its body throws `new Error("Maia not available")`.
 
-**Done — commit `1563b5c`. Maia works.** But the checkpoints below did *not* run as
+**Done — PR `#7`. Maia works.** But the checkpoints below did *not* run as
 written, so read **`scripts/maia-notes.md`** rather than following them — it's the
 authoritative record. In short:
 
@@ -466,18 +474,28 @@ authoritative record. In short:
 - Maia 3 exists and is newer, but its weights are **AGPL-3.0**, whose network
   clause reaches a deployed site. Maia 2 is **MIT** and encodes *more* (18 planes
   including castling and en passant; Maia 3 encodes piece placement only).
-- The weights (89 MB) and move table are **fetched at runtime** from GitHub raw,
-  not committed. Only MIT-licensed `onnxruntime-web` assets are vendored.
+- The weights (93 MB) and move table are **fetched at runtime** from GitHub raw,
+  not committed here. They're mirrored in our own
+  `juanmendoza-dev/engine-room-assets` rather than hotlinked from CSSLab, who have
+  since deleted the file from their `main`. Only MIT-licensed `onnxruntime-web`
+  assets are vendored, and only the two ORT files actually loaded.
 - ONNX interface: `boards` float32 `[1,18,8,8]`, `elo_self` / `elo_oppo` as
   **int64 bucket indices**; outputs `logits_maia`, `logits_side_info` (unused),
   `logits_value`. Read off the session, not assumed.
 - ~35 ms per move, versus Stockfish's ~500 ms. Task 6 should treat inter-move delay
   as per-engine, not global.
-- One open question is flagged in the notes rather than glossed: the top move from
-  the start position is `Nf3` and the top reply to 1.e4 is `Nf6`, which isn't what
-  human data at these ratings looks like. Encoder arithmetic was checked
-  line-for-line against the reference, so it may just be `maia_rapid`'s behaviour —
-  the notes say how to settle it.
+- The odd openings (`Nf3` from the start, `Nf6` in reply to 1.e4) were flagged as
+  an open question and are now **closed**: it's the released model's own behaviour,
+  not our encoder. The review in `#12` reproduced the browser pipeline's output
+  against CSSLab's *training-side* preprocessing in Python and got identical
+  numbers to a tenth of a percentage point.
+- **Post-review follow-ups, all done in this PR:** the ~25 s cold-load now streams
+  a byte/percent readout on both game screens with a heads-up line and a stall
+  timeout (it was a frozen board under a "thinking" lamp before); `public/ort/`
+  dropped 13.6 MB of variants that are never fetched; the model moved to our own
+  mirror. `docs/deployment.md` §4's stale COOP/COEP reasoning was corrected at the
+  same time. What's still open is the IndexedDB model cache — Chrome won't
+  disk-cache a body this size, so every full page load re-downloads it.
 
 - [ ] **Checkpoint 1: Check for a turnkey browser-runnable Maia package first**
 

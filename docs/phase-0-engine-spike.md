@@ -223,7 +223,7 @@ me.
   choosing a worse candidate move rather than searching shallower. That means
   Task 2 proved the options are accepted and the engine searches — not that the
   ELO settings change playing strength. Task 6 is where that becomes measurable.
-- **Task 3 — done**, commit `1563b5c`. **Maia works**: `getMaiaMove` returns
+- **Task 3 — done**, landed via PR `#7`. **Maia works**: `getMaiaMove` returns
   human-plausible legal moves in ~35 ms. Spec is
   [`task-03-maia-spec.md`](task-03-maia-spec.md); the authoritative record of what
   actually happened is [`../scripts/maia-notes.md`](../scripts/maia-notes.md),
