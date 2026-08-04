@@ -231,26 +231,57 @@ default. Only if a build errors on the Node version, set it explicitly under
 
 ---
 
-## 3. KV storage (needed for Task 9)
+## 3. KV storage (Task 9) — currently OFF, running on a localStorage fallback
 
-The design doc calls for Vercel's KV offering, which is now an Upstash Redis
-integration in the Vercel Marketplace rather than a standalone "Vercel KV"
-product. Same thing functionally.
+**State of the world (2026-08-04): no KV store has ever been provisioned for
+this project.** Task 9 shipped anyway, behind an adapter: game records go to
+the browser's localStorage (per-browser, capped at 50, newest pruned last), and
+`/history` reads whichever adapter is active. The site is fully demo-able with
+zero provisioning — a visitor just sees *their own* games, and the history page
+says so. The Vercel KV adapter is already written and wired
+(`app/actions/games.ts`); it's dormant until one env flag flips.
 
-1. Project → **Storage** → create/connect an Upstash Redis (Redis) store.
-2. Connect it to this project. Vercel injects `KV_REST_API_URL` /
-   `KV_REST_API_TOKEN` (names may differ slightly depending on which
-   integration flow you land in — read them off the dashboard, don't assume)
-   into Production, Preview, and Development.
-3. Pull them locally for `npm run dev`:
+How the switch works: `lib/games/store.ts` branches on
+`NEXT_PUBLIC_KV_ENABLED === "1"`. It has to be a `NEXT_PUBLIC_` var because the
+branch also runs in the browser, where server-only env vars don't exist —
+Next.js inlines `NEXT_PUBLIC_*` values **at build time**. Two consequences:
+setting the flag requires a **redeploy** (a rebuild, not a restart) to take
+effect, and the flag's value is baked separately into each environment's build.
+
+### Turning real KV on (owner checklist, no code changes)
+
+1. Vercel dashboard → this project → **Storage** → create/connect an **Upstash
+   for Redis** store (the Marketplace integration — "Vercel KV" as a standalone
+   product was folded into this; same thing functionally).
+2. Connect it to the project for Production, Preview, and Development. Vercel
+   injects REST credentials. Depending on which integration flow you land in
+   the names are `KV_REST_API_URL`/`KV_REST_API_TOKEN` **or**
+   `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` — read them off the
+   dashboard. **The code accepts either pair** (`app/actions/games.ts` checks
+   both), so no renaming is needed.
+3. Project → **Settings → Environment Variables** → add
+   `NEXT_PUBLIC_KV_ENABLED` = `1` for Production, Preview, and Development.
+4. **Redeploy** (any push, or dashboard → Redeploy). Build-time inlining means
+   the flag does nothing until a fresh build ships.
+5. Verify: play one Model 1v1 game to the end on the live site, open
+   `/history` — the page header should now read "Shared archive", not "Local
+   ledger", and the game should appear for a *different* browser too. The KV
+   adapter had never run against a real store before this moment, so treat
+   this check as mandatory, not paranoia.
+6. For local dev against the same store:
 
 ```sh
 npx vercel link
 npx vercel env pull .env.local
 ```
 
-`.env*.local` is gitignored by the Next scaffold — verify that's true before the
-first commit that touches env files, and never commit real tokens.
+   then make sure `.env.local` also contains `NEXT_PUBLIC_KV_ENABLED=1` (env
+   pull brings it once step 3 is done). `.env*` is gitignored by the Next
+   scaffold — verify that's true before the first commit that touches env
+   files, and never commit real tokens.
+
+Games logged to localStorage before the flip stay in whatever browser wrote
+them; there's no migration (deliberate — they're throwaway demo records).
 
 **One store or two?** Recommendation for this build: **one store shared across
 production and preview.** It's the least setup, and games logged from a preview
@@ -292,14 +323,18 @@ files at runtime and doesn't always resolve them correctly under a bundler.
 If it 404s on Vercel, the fix is copying its wasm assets into `public/` and
 setting `ort.env.wasm.wasmPaths` to that path.
 
-**The history page must not prerender (Task 11).** `app/history/page.tsx` is an
-async server component that reads KV. Next will try to prerender it at build
-time, which either fails (no KV access during build) or bakes in a stale empty
-list. Add to that file:
-
-```ts
-export const dynamic = "force-dynamic";
-```
+**The history page and prerendering (Task 11).** An earlier version of this
+note said `app/history/page.tsx` must set `export const dynamic =
+"force-dynamic"`. That advice was written for the original design (an async
+server component reading KV at request time) and **does not apply to the page
+as built**: it's a `"use client"` component that fetches through the storage
+facade in a `useEffect`, because the default localStorage adapter only exists
+in the browser. Next statically prerenders an empty shell with no game data in
+it, so there's nothing to go stale — do not add `force-dynamic` to it. The
+caveat comes back if anyone reshapes it into a server component (or server
+shell) that reads KV directly: *that* file would need `force-dynamic`, for
+exactly the reasons the old note gave (no KV during build / baked-in stale
+list).
 
 **Don't let `next dev` edit AGENTS.md.** `next.config.ts` sets
 `agentRules: false` deliberately. Without it, Next 16's dev server appends a
