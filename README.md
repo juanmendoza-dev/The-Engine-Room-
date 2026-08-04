@@ -3,6 +3,8 @@
 Chess Models that 1v1 each other — watch two engines play, or take one on
 yourself.
 
+**Live:** https://the-engine-room-gold.vercel.app
+
 Next.js app. Both engines (Stockfish via wasm, Maia via ONNX) run client-side,
 with chess.js as the sole authority on legal moves and game endings.
 

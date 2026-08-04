@@ -182,6 +182,9 @@ done, then pause at the phase end.
 
 ## 2. Vercel project setup
 
+**Live production URL: https://the-engine-room-gold.vercel.app** — deployed from
+`main`, confirmed serving `200` with `x-vercel-cache: PRERENDER` out of `iad1`.
+
 All of this is dashboard work on the account side.
 
 **Do this after Task 1 is merged**, not before. Vercel's import step sniffs the
