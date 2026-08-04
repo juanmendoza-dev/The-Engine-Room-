@@ -9,7 +9,9 @@ import { ResultScreen } from "@/components/ResultScreen";
 import { ALL_ENGINE_PRESETS, STOCKFISH_PRESETS } from "@/lib/chess/engines";
 import { GameAbortedError, runModelGame, type ModelGameResult } from "@/lib/chess/gameLoop";
 import type { EngineConfig } from "@/lib/chess/types";
-// import { saveGame } from "@/app/actions/games"; // uncomment in Task 9
+// Task 8 left this pointing at app/actions/games; Task 9 put an adapter facade
+// in front (localStorage today, KV once provisioned), so the import moved.
+import { saveGame } from "@/lib/games/store";
 
 const START_FEN = new Chess().fen();
 
@@ -67,14 +69,17 @@ export default function Model1v1Page() {
       );
       setEnd(outcome);
 
-      // await saveGame({
-      //   mode: "model-1v1",
-      //   white: { type: white.type, label: white.label },
-      //   black: { type: black.type, label: black.label },
-      //   moves: outcome.moves,
-      //   result: outcome.result,
-      //   endReason: outcome.endReason,
-      // }); // uncomment in Task 9
+      // Log the finished game (Task 9). saveGame never throws — a failed write
+      // (quota, private browsing, KV outage) costs one history entry, not the
+      // result screen the viewer just watched play out.
+      await saveGame({
+        mode: "model-1v1",
+        white: { type: white.type, label: white.label },
+        black: { type: black.type, label: black.label },
+        moves: outcome.moves,
+        result: outcome.result,
+        endReason: outcome.endReason,
+      });
     } catch (err) {
       // A superseded or unmounted game isn't an error worth showing.
       if (err instanceof GameAbortedError) return;
