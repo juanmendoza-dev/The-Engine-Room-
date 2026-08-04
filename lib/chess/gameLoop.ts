@@ -50,7 +50,12 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-function describeEnd(chess: Chess): GameEndInfo {
+/**
+ * Exported for the User 1v1 screen, which reaches game-over one half-move at a
+ * time instead of through runModelGame — one source of truth for how a finished
+ * position maps to a result/reason, not two copies.
+ */
+export function describeEnd(chess: Chess): GameEndInfo {
   if (chess.isCheckmate()) {
     // The side to move is the one that got mated.
     return { result: chess.turn() === "w" ? "0-1" : "1-0", endReason: "checkmate" };
