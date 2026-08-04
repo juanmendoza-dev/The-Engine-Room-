@@ -45,6 +45,47 @@ The alternative (clone fresh into a new folder and copy uncommitted work over)
 also works and is arguably simpler — but it means re-doing `core.hooksPath` and
 losing the local `.env.local` if one exists.
 
+### Signing key for this repo
+
+Also per-clone, and easy to get wrong. This repo signs with the
+`id_ed25519_polyquant` key, set as a **local** override:
+
+```sh
+git config user.signingkey C:/Users/juanm/.ssh/id_ed25519_polyquant.pub
+git config --show-origin --get user.signingkey   # must say file:.git/config
+```
+
+Why not just use the global default: the global `~/.gitconfig` points at
+`id_ed25519_sign.pub`, and that key is **not registered on the GitHub account**
+as a signing key. Commits signed with it verify perfectly on this machine but
+land on GitHub as "Unverified" with reason `unknown_key`. The polyquant key is
+registered *and* matches the `juanmendoza6159@gmail.com` commit email, which is
+what GitHub actually checks.
+
+(The key that signed commits `bf89441`–`0f6f7ef`, registered as "The Engine Room
+(claude)", no longer has a private half anywhere on disk. Don't go looking for
+it — it can't be reused.)
+
+### The pre-push hook does not guarantee a Verified badge
+
+Worth understanding, because it's a silent failure. `.githooks/pre-push` runs
+`git verify-commit`, which checks the signature against your local
+`~/.ssh/allowed_signers` file. GitHub checks something different: whether the
+signing key is registered on the account and the committer email is verified
+there. A key can be in `allowed_signers` but not on GitHub — the hook passes,
+the push succeeds, and the commit shows Unverified.
+
+So after your first push in a new clone, confirm it for real:
+
+```sh
+gh api repos/juanmendoza-dev/The-Engine-Room-/commits/<sha> \
+  --jq '.commit.verification'
+```
+
+Want `verified=true, reason=valid`. If you get `unknown_key`, fix
+`user.signingkey`, then `git commit --amend --no-edit` (re-signs with the new
+key) and `git push --force-with-lease`.
+
 ---
 
 ## 1. Branch workflow
