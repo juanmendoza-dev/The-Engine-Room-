@@ -90,6 +90,59 @@ the new default. Anything theme-conditional hangs off
   Hover floods the row (ink by day, paper by night) and slides it right.
   Tag + description columns hide under 720px.
 
+## Route transition — "the press"
+
+`components/PageTransition.tsx` + the `.er-press-*` rules in `globals.css`.
+Every link that navigates goes through it; nothing else in the app does.
+
+The print metaphor taken literally — a press taking an impression:
+
+1. Red ink strikes at the exact pixel you clicked (a hard core dot plus a ring
+   of impact spreading off it), and the clicked control depresses ~3px and stays
+   down. Fires at 0ms so the click feels instant.
+2. The platen drops as six vertical slats, staggered left→right, in the inverted
+   ground — the same ink-by-day / paper-by-night flip as the index-row hover.
+3. The destination's **plate name** types up out of a mask between two
+   registration rules that draw in from opposite ends, with printer's
+   registration marks in the four corners. Plate names/kickers live in the
+   `PLATES` map keyed by route; the kickers reuse the mode index's tags.
+4. The platen lifts *downward* — opposite direction to the way it came, so it
+   never looks like it's retracing its path — revealing the new page already
+   mid-entry-animation.
+
+Roughly 1.2s end to end (620ms to cover, then the route swap, then 540ms to
+lift). Verified frame by frame with `scripts/cdp-press.mjs`.
+
+Things worth knowing before you touch it:
+
+- **It's a provider, not CSS on the link.** The platen has to stay down *across*
+  the navigation, so one overlay lives above the router in `app/layout.tsx` and
+  links only ask it to run. It renders a fragment — wrapping the header and page
+  in a `<div>` there would break `<body>`'s flex column.
+- **The lift is triggered by the route committing, not a timer.** A slow RSC
+  fetch stays hidden behind the platen instead of flashing the old page. There's
+  a 3s cap so a route that never commits can't leave the screen covered.
+- **Links opt out in three cases**, all deliberate: modified clicks
+  (cmd/ctrl/shift/alt, middle-click — "open this elsewhere"), an href equal to
+  the current path, and `prefers-reduced-motion`. In all three the press never
+  mounts and the link behaves like a plain `<Link>`.
+- **Pressed-down state is derived, not stored.** `TransitionLink` computes it
+  from the provider's `active` href rather than holding local state, because the
+  header wordmark outlives the navigation it triggers and would otherwise stay
+  stuck down. (An effect syncing the two also trips
+  `react-hooks/set-state-in-effect`.)
+- **The stamp is a `transition`, not an `animation`.** `.er-index-row` already
+  runs `er-fade … forwards`, and a second animation on the same element would
+  replace it — snapping the row back to its `opacity: 0` base. Safe as written
+  because `er-fade` only keyframes `opacity`, so its fill never holds a
+  transform hostage; `transform` is just added to the row's transition list. This
+  is the "Traps" note at the bottom of this file, met in the wild.
+- **The ink is contained on purpose.** The first pass scaled a filled disc to
+  150x and it washed the entire viewport red — you lost the platen, the page, and
+  any sense of where you'd clicked. A ring reads as an impression; a flood reads
+  as a bug. Also why the ring carries no `box-shadow`: a blurred shadow scaled
+  that far is genuinely expensive to paint.
+
 ## Traps
 
 - The entry animations use `animation-fill-mode: forwards` on `transform` —
