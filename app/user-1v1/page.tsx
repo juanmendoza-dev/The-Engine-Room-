@@ -5,17 +5,39 @@ import { useEffect, useRef, useState } from "react";
 
 import { Board } from "@/components/Board";
 import { EngineConfigPicker } from "@/components/EngineConfigPicker";
+import { FxStage, type FxHandle } from "@/components/fx/FxStage";
 import { MaiaLoadNotice } from "@/components/MaiaLoadNotice";
 import { ResultScreen } from "@/components/ResultScreen";
 import { publishBoardFrame } from "@/lib/boardFeed";
-import { ALL_ENGINE_PRESETS, STOCKFISH_PRESETS, getMoveFor } from "@/lib/chess/engines";
+import {
+  ALL_ENGINE_PRESETS,
+  STOCKFISH_PRESETS,
+  getMoveFor,
+  parseSearchDepth,
+} from "@/lib/chess/engines";
 import { describeEnd, type GameEndInfo } from "@/lib/chess/gameLoop";
 import type { EngineConfig } from "@/lib/chess/types";
+import { classify } from "@/lib/fx/classify";
+import { ALL_FX_IDS } from "@/lib/fx/effects";
+import { depthToPct, INDETERMINATE_CHARGE_PCT, materialHp, useFxEnabled } from "@/lib/fx/runtime";
+import { freshFxContext } from "@/lib/fx/types";
 import { saveGame } from "@/lib/games/store";
 
 const START_FEN = new Chess().fen();
 
 type PlayerColor = "white" | "black";
+
+/** Must match `animationDurationInMs` in components/Board.tsx. */
+const BOARD_SLIDE_MS = 220;
+
+/**
+ * Every effect is on here too, but the "play" profile mutes the engine's own
+ * beats (see classify()) so the board you're playing on never gets buried while
+ * it's your turn to read it. There's no hit-stop on this screen: the pause in
+ * Model 1v1 is between two engines nobody is waiting on, whereas here it would be
+ * lag between your drag and the reply.
+ */
+const FX_SET = new Set(ALL_FX_IDS);
 
 /** Pairs the SAN list into numbered rows: 1. e4 e5 / 2. Nf3 Nc6 / ... */
 function toMovePairs(moves: string[]) {
@@ -50,6 +72,12 @@ export default function User1v1Page() {
   // on the next game (or on an unmounted component).
   const abortRef = useRef<AbortController | null>(null);
 
+  // Fight FX. Imperative handle, and a per-game classifier context for the
+  // cross-ply tallies (recapture, combo, opening announcements).
+  const fx = useRef<FxHandle>(null);
+  const fxOn = useFxEnabled();
+  const fxCtx = useRef(freshFxContext());
+
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
@@ -83,8 +111,47 @@ export default function User1v1Page() {
     setThinking(false);
     setStarted(true);
 
+    // Restart is allowed mid-game here, so this has to clear whatever is still
+    // animating as well as reset the cross-ply tallies.
+    fx.current?.clear();
+    fx.current?.charge(null);
+    fxCtx.current = freshFxContext();
+    if (fxOn) fx.current?.hp({ white: 100, black: 100, hit: null });
+
     // The engine opens when the user takes Black.
     if (userColor === "black") void engineReply();
+  }
+
+  /**
+   * Fire the beat for a ply that just landed. `mine` is what earns the human's
+   * moves full weight under the "play" profile — your captures should hit harder
+   * than the engine's, since you're the one who made them.
+   */
+  function runFx(game: Chess, mine: boolean) {
+    if (!fxOn) return;
+
+    const played = game.history({ verbose: true }).at(-1);
+    if (!played) return;
+
+    const beat = classify(
+      {
+        move: played,
+        isCheck: game.isCheck(),
+        isCheckmate: game.isCheckmate(),
+        sanHistory: game.history(),
+        mine,
+      },
+      fxCtx.current,
+      "play",
+    );
+
+    const hp = materialHp(game);
+    // Wait out the board's own piece slide — an effect on a square the piece
+    // hasn't arrived at yet just looks like it missed.
+    window.setTimeout(() => {
+      fx.current?.fire(beat, FX_SET);
+      fx.current?.hp({ ...hp, hit: beat.victim ? (beat.color === "w" ? "b" : "w") : null });
+    }, BOARD_SLIDE_MS);
   }
 
   function finishGame(game: Chess) {
@@ -111,11 +178,27 @@ export default function User1v1Page() {
     if (!game || !engine) return;
 
     setThinking(true);
+    if (fxOn) {
+      // Maia reports no depth (no search), so show an indeterminate charge rather
+      // than a bar pinned at zero for the whole reply.
+      fx.current?.charge({
+        side: userColor === "white" ? "b" : "w",
+        pct: engine.type === "maia" ? INDETERMINATE_CHARGE_PCT : 0,
+      });
+    }
+
     try {
-      const reply = await getMoveFor(game.fen(), engine);
+      const reply = await getMoveFor(game.fen(), engine, (line) => {
+        if (!fxOn || controller?.signal.aborted) return;
+        const depth = parseSearchDepth(line);
+        if (depth !== null) {
+          fx.current?.charge({ side: userColor === "white" ? "b" : "w", pct: depthToPct(depth) });
+        }
+      });
 
       // A reply we no longer want — the user restarted or left mid-search.
       if (controller?.signal.aborted) return;
+      fx.current?.charge(null);
 
       try {
         game.move({ from: reply.from, to: reply.to, promotion: reply.promotion });
@@ -131,8 +214,10 @@ export default function User1v1Page() {
 
       setFen(game.fen());
       setMoves(game.history());
+      runFx(game, false);
       if (game.isGameOver()) finishGame(game);
     } catch (err) {
+      fx.current?.charge(null);
       if (controller?.signal.aborted) return;
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -158,6 +243,7 @@ export default function User1v1Page() {
 
     setFen(game.fen());
     setMoves(game.history());
+    runFx(game, true);
 
     if (game.isGameOver()) {
       finishGame(game);
@@ -271,12 +357,19 @@ export default function User1v1Page() {
             <span className="text-er-text">{sideLabel(topSide)}</span>
           </div>
 
-          <Board
-            fen={fen}
-            interactive={inGame && !thinking && !error}
-            onPieceDrop={onPieceDrop}
-            orientation={userColor}
-          />
+          {/* FxStage's overlay is pointer-events: none, which is what keeps the
+              effects from eating the drags this board depends on — react-chessboard
+              v5 drives them through dnd-kit's PointerSensor. */}
+          <div className="my-8">
+            <FxStage ref={fx} disabled={!fxOn} orientation={userColor}>
+              <Board
+                fen={fen}
+                interactive={inGame && !thinking && !error}
+                onPieceDrop={onPieceDrop}
+                orientation={userColor}
+              />
+            </FxStage>
+          </div>
 
           <div className="text-er-dim mt-2 flex items-center justify-between font-mono text-[11px] tracking-[0.18em] uppercase">
             <span>{userColor}</span>

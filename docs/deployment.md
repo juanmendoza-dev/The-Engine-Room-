@@ -505,6 +505,31 @@ time when driving the app with the `scripts/cdp-*.mjs`-style harnesses:
   Symptom: console errors from an origin your script never visited (a run on
   `:3100` reporting a CORS failure from `127.0.0.1:3000`). Pick a per-run port
   and a fresh profile dir rather than assuming 9222 is yours.
+- **`localhost` and `127.0.0.1` are not interchangeable against `next dev`.**
+  Next 16 treats `127.0.0.1` as a cross-origin host and blocks its own
+  `/_next` dev resources, so the page server-renders perfectly — HTTP 200, all
+  64 `[data-square]` elements present — and then **never hydrates**. Every click
+  is a no-op and every interactive feature looks broken while the console stays
+  clean. The only tell is a `Blocked cross-origin request to Next.js dev
+  resource` line in the *server's* log, not the browser's. Use `localhost` (or
+  set `allowedDevOrigins`). Note this is the opposite of the `Page.navigate`
+  advice above, which is about Chrome, not Next — pass the URL as a launch arg
+  and use `localhost` in it.
+- **Squares in the DOM do not mean the page is interactive.** They're in the SSR
+  HTML. Wait for React to attach instead: `Object.keys(el).some(k =>
+  k.startsWith("__react"))` on a node inside the page's own tree. Half an hour
+  went into "the clicks don't work" before this.
+- **Connect CDP *before* the page loads, or reload once connected.** Chrome
+  loads its launch-arg URL before your websocket exists, so a hydration error or
+  early console message has already come and gone unheard. `Page.reload` after
+  `Runtime.enable` is the cheap fix.
+- **Two dev servers can't share one `.next`.** If another agent is running
+  `next start` out of the repo, starting `next dev` there rewrites the manifests
+  it's serving from and breaks it mid-run. Copy the source to a scratch dir and
+  junction `node_modules`/`public` in — but then you must use **`next dev
+  --webpack`**, because Turbopack rejects a junctioned `node_modules` outright
+  ("Symlink [project]/node_modules is invalid, it points out of the filesystem
+  root").
 - None of this works against a **preview** deployment as long as Deployment
   Protection (§2) is on: every preview URL 302s to Vercel SSO for anonymous
   fetchers, and there are no Vercel credentials on this machine (`~/.vercel`,

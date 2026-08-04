@@ -1464,6 +1464,33 @@ git commit -m "add the game history page"
 
 ---
 
+---
+
+## Task 12: Fight FX (added 2026-08-04, outside the original plan)
+
+Not in the original plan — asked for after Phase 3 landed. Anime-fight effects
+over both game boards, built as a tiered beat system rather than per-screen
+animation code. Full write-up: [`docs/design/fight-fx-notes.md`](../../design/fight-fx-notes.md).
+
+**Files:**
+- Create: `lib/fx/{types,classify,openings,effects,runtime}.ts`
+- Create: `components/fx/{FxStage.tsx,fx.css}`
+- Create: `app/dev/fx-lab/page.tsx` (disposable picker — safe to delete)
+- Modify: `lib/chess/gameLoop.ts` (verbose move in `onMove`, per-ply pause hook),
+  `lib/chess/engines.ts` (`onInfo` passthrough + `parseSearchDepth`),
+  `app/model-1v1/page.tsx`, `app/user-1v1/page.tsx`
+
+- [x] All 19 effects built and individually confirmed firing in the lab over CDP
+- [x] Tier ladder + hit-stop wired through `runModelGame`
+- [x] Both screens wired, two profiles (`spectate` full, `play` muted engine)
+- [x] `prefers-reduced-motion` and `?fx=off` opt-outs
+- [ ] **Browser verification of the two game screens** — cut for time on the
+      merge. `tsc`/`eslint`/production build are green, but the drag path on
+      `/user-1v1` was never exercised in a browser. First thing to check if
+      drags misbehave is the overlay's `pointer-events: none`.
+
+---
+
 ## After Phase 3
 
 Stop and check in with the user. Stretch goals (eval bar, blunder summary, adaptive-opponent heuristic, win-rate stats, expanding Maia to all 9 rating tiers) are explicitly not part of this plan — they get their own planning pass only after Phases 0–3 are confirmed working end to end.

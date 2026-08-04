@@ -1,0 +1,877 @@
+/**
+ * Fight FX — the manga-panel effect vocabulary.
+ *
+ * Kept out of globals.css on purpose: this is a self-contained layer imported by
+ * FxStage, so it can be deleted in one move and can't conflict with whatever
+ * else is editing the global sheet.
+ *
+ * House rules, all inherited from Ink & Bone (docs/design/ink-and-bone-notes.md):
+ * - Monochrome plus the one red accent. `--er-accent` and `--er-text` only.
+ * - Sharp corners. The single exception is ink droplets, which are organic blobs
+ *   because a square droplet reads as a UI element, not as spatter.
+ * - Only `transform`, `opacity`, `filter` and `clip-path` animate — never layout.
+ * - Everything positions off CSS custom properties set inline by FxStage, so the
+ *   geometry lives in one measuring pass in JS and the motion lives here.
+ *
+ * prefers-reduced-motion needs no handling here: globals.css collapses every
+ * animation in the document to 0.001ms, this file included.
+ */
+
+/* ---------------------------------------------------------------- scaffolding */
+
+.er-fx-stage {
+  position: relative;
+}
+
+/* The board lives inside this. Shake and the cinematic push-in transform it, so
+   it must be a separate element from the overlay — otherwise the effects shake
+   along with the thing they're supposed to be shaking. */
+.er-fx-body {
+  will-change: transform;
+}
+
+.er-fx-body.is-shaking {
+  animation: er-fx-shake var(--fx-shake-dur, 280ms) cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.er-fx-body.is-cinema {
+  animation: er-fx-cinema 2000ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* pointer-events: none is load-bearing, not hygiene — User 1v1 drags go through
+   dnd-kit's PointerSensor and an overlay that captures pointers silently breaks
+   the board. Never remove it. */
+/* container-type makes `cqw` inside resolve against the board's width, so callout
+   and combo type scales with the board rather than the viewport. It implies
+   `contain: layout inline-size` — note that's *not* `contain: paint`, so effects
+   can still spill outside the board, which several of them want to. */
+.er-fx-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 5;
+  container-type: inline-size;
+}
+
+.er-fx-overlay > * {
+  position: absolute;
+}
+
+@keyframes er-fx-shake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  15% {
+    transform: translate(calc(var(--fx-sx) * 1px), calc(var(--fx-sy) * 1px));
+  }
+  32% {
+    transform: translate(calc(var(--fx-sx) * -0.72px), calc(var(--fx-sy) * -0.72px));
+  }
+  48% {
+    transform: translate(calc(var(--fx-sx) * 0.48px), calc(var(--fx-sy) * 0.48px));
+  }
+  66% {
+    transform: translate(calc(var(--fx-sx) * -0.3px), calc(var(--fx-sy) * -0.3px));
+  }
+  84% {
+    transform: translate(calc(var(--fx-sx) * 0.14px), calc(var(--fx-sy) * 0.14px));
+  }
+}
+
+/* Slow-mo without a framerate change: desaturate and push in.
+   Contrast is only nudged, not crushed — the first pass ran contrast(1.32), which
+   on the night edition's already-dark ground took the board to nearly solid
+   black and you lost the position under the finisher. A touch of brightness
+   keeps the pieces readable while still reading as a drained, slowed frame. */
+@keyframes er-fx-cinema {
+  0% {
+    transform: scale(1);
+    filter: grayscale(0) contrast(1) brightness(1);
+  }
+  35% {
+    transform: scale(1.055);
+    filter: grayscale(1) contrast(1.1) brightness(1.06);
+  }
+  100% {
+    transform: scale(1.02);
+    filter: grayscale(0.45) contrast(1.04) brightness(1.02);
+  }
+}
+
+/* --------------------------------------------------------------- impact frame */
+
+/* The sakuga one-frame invert. `backdrop-filter: invert(1)` is a real inversion
+   of whatever's underneath rather than a white flash, which is why it reads as a
+   drawn frame instead of a blown exposure. Double-blips on purpose — one flash
+   is a glitch, two is a punch. */
+.er-fx-impact {
+  inset: 0;
+  backdrop-filter: invert(1);
+  -webkit-backdrop-filter: invert(1);
+  animation: er-fx-impact 130ms steps(1, end) both;
+}
+
+@keyframes er-fx-impact {
+  0% {
+    opacity: 1;
+  }
+  46% {
+    opacity: 0;
+  }
+  62% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ----------------------------------------------------------------- focus lines */
+
+/* Manga convergence lines as one element: a repeating conic gradient is the
+   starburst, and a radial mask punches out the middle so the lines taper toward
+   the impact point instead of piling into a solid disc. Scaling inward is what
+   makes them converge. */
+.er-fx-lines {
+  left: var(--fx-x);
+  top: var(--fx-y);
+  width: var(--fx-size);
+  height: var(--fx-size);
+  background: repeating-conic-gradient(
+    from var(--fx-rot, 0deg),
+    var(--er-text) 0deg 0.85deg,
+    transparent 0.85deg 7.2deg
+  );
+  -webkit-mask-image: radial-gradient(
+    circle,
+    transparent 9%,
+    #000 32%,
+    #000 60%,
+    transparent 76%
+  );
+  mask-image: radial-gradient(circle, transparent 9%, #000 32%, #000 60%, transparent 76%);
+  animation: er-fx-lines 320ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+@keyframes er-fx-lines {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.55) rotate(0deg);
+  }
+  22% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.62) rotate(6deg);
+  }
+}
+
+/* ------------------------------------------------------------------- ink blood */
+
+.er-fx-blot {
+  left: var(--fx-x);
+  top: var(--fx-y);
+  width: var(--fx-size);
+  height: var(--fx-size);
+  background: var(--er-accent);
+  border-radius: 58% 42% 52% 48% / 47% 58% 42% 53%;
+  animation: er-fx-blot 380ms cubic-bezier(0.15, 0.85, 0.25, 1) both;
+}
+
+@keyframes er-fx-blot {
+  0% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(0.1);
+  }
+  30% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.25);
+  }
+}
+
+/* One droplet. Angle and distance come in as inline vars so the scatter is
+   generated per-hit in JS and this rule stays a single keyframe. */
+.er-fx-drop {
+  left: var(--fx-x);
+  top: var(--fx-y);
+  width: var(--d-size);
+  height: var(--d-size);
+  background: var(--er-accent);
+  border-radius: 62% 38% 55% 45% / 50% 62% 38% 50%;
+  animation: er-fx-drop var(--d-dur, 460ms) cubic-bezier(0.12, 0.78, 0.28, 1) both;
+  animation-delay: var(--d-delay, 0ms);
+}
+
+@keyframes er-fx-drop {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.25);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--d-dx)), calc(-50% + var(--d-dy))) scale(1)
+      rotate(var(--d-rot, 40deg));
+  }
+}
+
+/* --------------------------------------------------------- smear & afterimage */
+
+/* The motion streak. transform-origin sits at the *start* of the vector so
+   scaleX growth draws the streak forward along the path rather than out from
+   its own middle. */
+.er-fx-streak {
+  left: var(--fx-x);
+  top: var(--fx-y);
+  width: var(--fx-len);
+  height: var(--fx-thick, 10px);
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, transparent, var(--er-text) 85%);
+  animation: er-fx-streak 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.er-fx-streak--beam {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--er-accent) 60%,
+    var(--er-accent) 85%,
+    transparent
+  );
+  box-shadow: 0 0 18px 4px var(--er-accent-glow);
+  mix-blend-mode: normal;
+}
+
+.er-fx-streak--heavy {
+  background: linear-gradient(90deg, transparent 10%, var(--er-text) 60%);
+}
+
+.er-fx-streak--slash {
+  background: linear-gradient(90deg, transparent, var(--er-text) 55%, transparent);
+}
+
+@keyframes er-fx-streak {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) rotate(var(--fx-angle)) scaleX(0.12);
+  }
+  26% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) rotate(var(--fx-angle)) scaleX(1);
+  }
+}
+
+/* Cloned piece art, dropped along the path behind the mover. Stagger via
+   --g-delay is what turns three static copies into one afterimage. */
+.er-fx-ghost {
+  left: var(--fx-x);
+  top: var(--fx-y);
+  width: var(--fx-size);
+  height: var(--fx-size);
+  animation: er-fx-ghost 340ms ease-out both;
+  animation-delay: var(--g-delay, 0ms);
+}
+
+.er-fx-ghost > * {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes er-fx-ghost {
+  0% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.86);
+  }
+}
+
+/* ------------------------------------------------------------------ endpoints */
+
+.er-fx-ring {
+  left: var(--fx-x);
+  top: var(--fx-y);
+  width: var(--fx-size);
+  height: var(--fx-size);
+  border: 2px solid var(--er-accent);
+  animation: er-fx-ring 460ms cubic-bezier(0.15, 0.85, 0.2, 1) both;
+  animation-delay: var(--r-delay, 0ms);
+}
+
+.er-fx-ring--ink {
+  border-color: var(--er-text);
+}
+
+@keyframes er-fx-ring {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.28) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.95) rotate(45deg);
+  }
+}
+
+/* A hard bar slammed across the landing square — the rook's pile-driver stop. */
+.er-fx-slam-bar {
+  left: var(--fx-x);
+  top: var(--fx-y);
+  width: var(--fx-size);
+  height: 4px;
+  background: var(--er-text);
+  animation: er-fx-slam-bar 300ms cubic-bezier(0.1, 0.9, 0.2, 1) both;
+}
+
+@keyframes er-fx-slam-bar {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--fx-angle)) scaleX(0.2);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--fx-angle)) scaleX(1.35);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--fx-angle)) scaleX(1.1);
+  }
+}
+
+/* ------------------------------------------------------------------- check/danger */
+
+.er-fx-vignette {
+  inset: 0;
+  box-shadow: inset 0 0 68px 8px var(--er-accent);
+  animation: er-fx-vignette 720ms ease-out both;
+}
+
+@keyframes er-fx-vignette {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.85;
+  }
+  48% {
+    opacity: 0.3;
+  }
+  68% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Square alarm outline on the exposed king, jittering in place. */
+.er-fx-alarm {
+  left: var(--fx-x);
+  top: var(--fx-y);
+  width: var(--fx-size);
+  height: var(--fx-size);
+  outline: 2px solid var(--er-accent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--er-accent) 22%, transparent);
+  animation: er-fx-alarm 640ms steps(1, end) both;
+}
+
+@keyframes er-fx-alarm {
+  0%,
+  22%,
+  44%,
+  66% {
+    opacity: 1;
+    transform: translate(calc(-50% + 2px), -50%);
+  }
+  11%,
+  33%,
+  55% {
+    opacity: 1;
+    transform: translate(calc(-50% - 2px), -50%);
+  }
+  88% {
+    opacity: 0.6;
+    transform: translate(-50%, -50%);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* ------------------------------------------------------------------- callouts */
+
+.er-fx-callout {
+  left: 50%;
+  top: var(--fx-cy, 44%);
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  animation: er-fx-callout-out 260ms ease-in both;
+  animation-delay: var(--fx-hold, 900ms);
+}
+
+/* Muted = the engine's own move under the play profile. Same beat, less ink. */
+.er-fx-callout.is-muted {
+  opacity: 0.62;
+  transform: translate(-50%, -50%) scale(0.72);
+}
+
+.er-fx-callout-kicker {
+  font-family: var(--font-er-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--er-text);
+  background: var(--er-bg);
+  padding: 3px 8px;
+  border: 1px solid var(--er-line);
+  animation: er-fx-kicker 300ms ease-out both;
+  animation-delay: 90ms;
+}
+
+.er-fx-callout-bar {
+  font-family: var(--font-er-black), system-ui, sans-serif;
+  font-size: clamp(26px, 6.5cqw, 54px);
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  color: var(--er-bg);
+  background: var(--er-accent);
+  padding: 0.08em 0.34em 0.14em;
+  transform: skewX(-9deg);
+  box-shadow: 0 0 30px 2px var(--er-accent-glow);
+  animation: er-fx-slam 280ms cubic-bezier(0.08, 0.9, 0.16, 1) both;
+}
+
+/* Ink-on-paper variant for anything that isn't a threat — opening title cards. */
+.er-fx-callout-bar--ink {
+  color: var(--er-bg);
+  background: var(--er-text);
+  box-shadow: none;
+}
+
+@keyframes er-fx-slam {
+  0% {
+    opacity: 0;
+    transform: skewX(-9deg) translateX(-38%) scale(1.55);
+  }
+  60% {
+    opacity: 1;
+    transform: skewX(-9deg) translateX(0) scale(1);
+  }
+  72% {
+    transform: skewX(-9deg) translateX(0) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: skewX(-9deg) translateX(0) scale(1);
+  }
+}
+
+@keyframes er-fx-kicker {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes er-fx-callout-out {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.04);
+  }
+}
+
+/* --------------------------------------------------------- damage & combo HUD */
+
+.er-fx-damage {
+  left: var(--fx-x);
+  top: var(--fx-y);
+  font-family: var(--font-er-black), system-ui, sans-serif;
+  font-size: clamp(20px, 4cqw, 34px);
+  letter-spacing: -0.03em;
+  color: var(--er-accent);
+  text-shadow:
+    0 0 12px var(--er-accent-glow),
+    0 2px 0 var(--er-bg);
+  animation: er-fx-damage 780ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes er-fx-damage {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -20%) scale(0.55);
+  }
+  22% {
+    opacity: 1;
+    transform: translate(-50%, -95%) scale(1.18);
+  }
+  40% {
+    transform: translate(-50%, -105%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -185%) scale(0.95);
+  }
+}
+
+.er-fx-combo {
+  right: 10px;
+  top: 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-family: var(--font-er-black), system-ui, sans-serif;
+  color: var(--er-accent);
+  text-shadow: 0 0 14px var(--er-accent-glow);
+  animation: er-fx-combo 1100ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.er-fx-combo b {
+  font-size: clamp(28px, 5cqw, 44px);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.er-fx-combo span {
+  font-family: var(--font-er-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+@keyframes er-fx-combo {
+  0% {
+    opacity: 0;
+    transform: scale(2.1) rotate(-9deg);
+  }
+  16% {
+    opacity: 1;
+    transform: scale(1) rotate(-4deg);
+  }
+  74% {
+    opacity: 1;
+    transform: scale(1) rotate(-4deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.94) rotate(-4deg);
+  }
+}
+
+/* ------------------------------------------------------------------ promotion */
+
+.er-fx-pillar {
+  left: var(--fx-x);
+  top: 0;
+  bottom: 0;
+  width: calc(var(--fx-size) * 1.05);
+  height: 100%;
+  background: linear-gradient(
+    to top,
+    var(--er-accent) 0%,
+    color-mix(in srgb, var(--er-accent) 35%, transparent) 45%,
+    transparent 100%
+  );
+  transform: translateX(-50%);
+  animation: er-fx-pillar 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes er-fx-pillar {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scaleY(0.1) scaleX(0.4);
+  }
+  30% {
+    opacity: 0.9;
+    transform: translateX(-50%) scaleY(1) scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scaleY(1) scaleX(1.5);
+  }
+}
+
+.er-fx-spark {
+  left: var(--fx-x);
+  top: var(--fx-y);
+  width: 3px;
+  height: var(--s-len, 16px);
+  background: var(--er-accent);
+  animation: er-fx-spark var(--s-dur, 620ms) ease-out both;
+  animation-delay: var(--s-delay, 0ms);
+}
+
+@keyframes er-fx-spark {
+  0% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--s-dx)), -50%) scaleY(0.3);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--s-dx)), calc(-50% - var(--s-rise, 90px))) scaleY(1);
+  }
+}
+
+/* ------------------------------------------------------------ charge / thinking */
+
+/* Ki charge on the searching side's half of the board. The bar underneath is fed
+   real Stockfish `info depth`, so the power level rising is not decorative. */
+.er-fx-charge {
+  left: 0;
+  right: 0;
+  height: 50%;
+  top: var(--fx-charge-top, 50%);
+  background: linear-gradient(
+    var(--fx-charge-dir, to top),
+    color-mix(in srgb, var(--er-accent) 26%, transparent),
+    transparent 72%
+  );
+  animation: er-fx-charge 1150ms ease-in-out infinite;
+}
+
+@keyframes er-fx-charge {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.78;
+  }
+}
+
+.er-fx-charge-rail {
+  left: 10px;
+  right: 10px;
+  top: var(--fx-rail-top, 50%);
+  height: 2px;
+  background: var(--er-line);
+}
+
+.er-fx-charge-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--fx-depth, 0%);
+  background: var(--er-accent);
+  box-shadow: 0 0 10px 1px var(--er-accent-glow);
+  transition: width 140ms linear;
+}
+
+/* --------------------------------------------------------------------- crack */
+
+/* overflow: hidden clips the fracture to the board. The overlay itself is
+   deliberately `overflow: visible` (spatter and focus lines want to spill), but
+   crack branches reach far enough that unclipped they draw up over the site
+   header, which reads as a rendering bug rather than as a broken screen. */
+.er-fx-crack {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.er-fx-crack path {
+  fill: none;
+  stroke: var(--er-text);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: var(--c-len, 900);
+  stroke-dashoffset: var(--c-len, 900);
+  animation: er-fx-crack 560ms cubic-bezier(0.1, 0.9, 0.2, 1) both;
+  animation-delay: var(--c-delay, 0ms);
+}
+
+@keyframes er-fx-crack {
+  0% {
+    stroke-dashoffset: var(--c-len, 900);
+    opacity: 1;
+  }
+  55% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------------------------- VS card */
+
+.er-fx-vs {
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  background: var(--er-bg);
+  grid-auto-flow: row;
+  animation: er-fx-vs-out 520ms cubic-bezier(0.7, 0, 0.3, 1) both;
+  animation-delay: var(--fx-hold, 1150ms);
+}
+
+.er-fx-vs-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.er-fx-vs-name {
+  font-family: var(--font-er-black), system-ui, sans-serif;
+  font-size: clamp(20px, 5.4cqw, 40px);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  color: var(--er-text);
+}
+
+.er-fx-vs-elo {
+  font-family: var(--font-er-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--er-dim);
+}
+
+.er-fx-vs-side--l {
+  animation: er-fx-vs-in-l 420ms cubic-bezier(0.08, 0.9, 0.16, 1) both;
+}
+
+.er-fx-vs-side--r {
+  animation: er-fx-vs-in-r 420ms cubic-bezier(0.08, 0.9, 0.16, 1) both;
+  animation-delay: 110ms;
+}
+
+.er-fx-vs-x {
+  font-family: var(--font-er-black), system-ui, sans-serif;
+  font-size: clamp(34px, 9cqw, 72px);
+  line-height: 1;
+  letter-spacing: -0.05em;
+  color: var(--er-bg);
+  background: var(--er-accent);
+  padding: 0.02em 0.22em 0.1em;
+  transform: skewX(-10deg);
+  box-shadow: 0 0 36px 3px var(--er-accent-glow);
+  animation: er-fx-vs-x 380ms cubic-bezier(0.1, 0.9, 0.2, 1) both;
+  animation-delay: 240ms;
+}
+
+@keyframes er-fx-vs-in-l {
+  0% {
+    opacity: 0;
+    transform: translateX(-70%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes er-fx-vs-in-r {
+  0% {
+    opacity: 0;
+    transform: translateX(70%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes er-fx-vs-x {
+  0% {
+    opacity: 0;
+    transform: skewX(-10deg) scale(2.4) rotate(-12deg);
+  }
+  100% {
+    opacity: 1;
+    transform: skewX(-10deg) scale(1) rotate(0deg);
+  }
+}
+
+/* Diagonal wipe rather than a fade — a fade would look like a loading state. */
+@keyframes er-fx-vs-out {
+  0% {
+    clip-path: polygon(0 0, 140% 0, 0 140%, 0 0);
+  }
+  100% {
+    clip-path: polygon(0 0, 0 0, 0 0, 0 0);
+  }
+}
+
+/* ------------------------------------------------------------------- HP bars */
+
+.er-fx-hp {
+  left: 0;
+  right: 0;
+  top: var(--fx-hp-top, 0);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-er-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--er-dim);
+}
+
+.er-fx-hp-rail {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background: var(--er-surface2);
+  border: 1px solid var(--er-line);
+  overflow: hidden;
+}
+
+.er-fx-hp-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--fx-hp-pct, 100%);
+  background: var(--er-text);
+  transition: width 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.er-fx-hp-fill.is-hit {
+  animation: er-fx-hp-hit 420ms steps(1, end) 2 both;
+}
+
+@keyframes er-fx-hp-hit {
+  0%,
+  49% {
+    background: var(--er-accent);
+  }
+  50%,
+  100% {
+    background: var(--er-text);
+  }
+}

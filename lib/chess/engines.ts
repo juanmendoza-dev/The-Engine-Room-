@@ -28,9 +28,25 @@ export const ALL_ENGINE_PRESETS: EngineConfig[] = [...STOCKFISH_PRESETS, ...MAIA
  * The single entry point every screen and the game loop use. Nothing downstream
  * imports an engine module directly, which is what makes adding or dropping an
  * engine a change to this file only.
+ *
+ * `onInfo` receives Stockfish's `info ...` search lines as they stream. It's what
+ * feeds the fight-FX "ki charge" bar a real search depth instead of a decorative
+ * ramp. Maia never calls it — it's a policy network doing one forward pass, so
+ * there is no search and no depth to report; callers should treat "no info" as
+ * indeterminate rather than as zero.
  */
-export async function getMoveFor(fen: string, config: EngineConfig): Promise<EngineMove> {
-  if (config.type === "stockfish") return getStockfishMove(fen, config);
+export async function getMoveFor(
+  fen: string,
+  config: EngineConfig,
+  onInfo?: (line: string) => void,
+): Promise<EngineMove> {
+  if (config.type === "stockfish") return getStockfishMove(fen, config, onInfo);
   if (config.type === "maia") return getMaiaMove(fen, config);
   throw new Error(`No engine available for config type: ${config.type}`);
+}
+
+/** `info depth 13 seldepth 18 ...` → 13. Null for lines without a depth field. */
+export function parseSearchDepth(infoLine: string): number | null {
+  const m = /\bdepth (\d+)/.exec(infoLine);
+  return m ? Number(m[1]) : null;
 }
