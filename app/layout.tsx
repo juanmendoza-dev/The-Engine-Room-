@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Archivo, Archivo_Black, Spline_Sans_Mono } from "next/font/google";
 
+import { PageTransitionProvider } from "@/components/PageTransition";
 import { SiteHeader } from "@/components/SiteHeader";
 
 import "./globals.css";
@@ -43,9 +44,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
+      {/* The provider renders a fragment, not a box — wrapping the header and
+          page in a div here would break body's flex column. */}
       <body className="flex min-h-full flex-col">
-        <SiteHeader />
-        {children}
+        <PageTransitionProvider>
+          <SiteHeader />
+          {children}
+        </PageTransitionProvider>
       </body>
     </html>
   );
