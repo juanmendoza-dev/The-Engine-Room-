@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored engine builds. public/stockfish/*.js is minified Emscripten
+    // output, not our source — linting it produced 7 no-require-imports errors
+    // that can't be fixed and drown out real ones.
+    "public/stockfish/**",
+    "public/maia/**",
   ]),
 ]);
 

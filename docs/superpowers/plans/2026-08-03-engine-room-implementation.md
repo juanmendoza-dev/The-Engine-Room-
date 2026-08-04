@@ -21,6 +21,45 @@
 
 ---
 
+## Current priority — resequenced 2026-08-04
+
+The original plan runs strictly Phase 0 → 1 → 2 → 3. **That order has been
+changed once, deliberately**, in favour of getting a working Model 1v1 demo
+sooner. What actually happened and why:
+
+| Task | State |
+| --- | --- |
+| 1 — Scaffold | done, `#2` |
+| 5 — Menu / hero | done, `#4` |
+| 2 — Stockfish spike | done, `#6` |
+| **7, 4, 6, 8 — Board, registry, game loop, Model 1v1 screen** | **in progress — this is the demo** |
+| 3 — Maia ONNX spike | decoupled, spec-only in `#7`, may not land at all |
+| 9 — KV persistence | deferred behind the demo |
+| 10, 11 — User 1v1, history | unchanged, after the demo |
+
+**Maia is no longer sequenced ahead of anything.** It's a 90-minute timeboxed
+investigation with a documented "may end with nothing" outcome, and Model 1v1
+doesn't need it — Stockfish 1320 vs 2800 is a watchable game today. Task 4 ships
+with `MAIA_PRESETS = []` and no import of `engineMaia`, which is both the plan's
+own fallback and, right now, simply the truth: that file doesn't exist. Maia
+becomes a three-line change in one file whenever it lands. If it never does, it
+joins the stretch goals and nothing else moves.
+
+**Task 9 (KV) is deferred, not dropped.** It needs Vercel dashboard provisioning,
+and watching two engines play needs no database. The `saveGame` call sits
+commented in `app/model-1v1/page.tsx` exactly where Task 8 says to leave it, so
+Task 9 stays a small, self-contained job.
+
+**The phase check-in gate still stands** — the resequencing is about which task
+comes next, not about skipping the stop-and-report points. Task 3 remains the
+Phase 0 gate for whoever owns it.
+
+Lane ownership, so parallel agents don't collide:
+[`phase-0-engine-spike.md`](../../phase-0-engine-spike.md) (Tasks 2, 3) and
+[`model-1v1-work-order.md`](../../model-1v1-work-order.md) (Tasks 7, 4, 6, 8).
+
+---
+
 ## Phase 0 — Engine Integration Spike
 
 No UI in this phase. The goal is to prove the two riskiest integrations work in isolation, so integration risk can't surface halfway through Phase 1 with no time left to recover.
@@ -497,6 +536,12 @@ git commit -m "maia onnx spike, got to checkpoint N - notes in scripts"
 
 ### Task 4: Engine preset registry
 
+**Done — `lib/chess/engines.ts`.** One deviation: `MAIA_PRESETS` is `[]` and
+`engineMaia` is deliberately **not** imported. A static import of a module that
+does not exist fails the build, so the snippet below cannot compile until Task 3
+lands. Adding Maia later is three lines, all inside this one file — the insertion
+point is commented at the site.
+
 **Files:**
 - Create: `lib/chess/engines.ts`
 
@@ -504,7 +549,7 @@ git commit -m "maia onnx spike, got to checkpoint N - notes in scripts"
 - Consumes: `EngineConfig`, `EngineMove` (Task 2), `getStockfishMove` (Task 2), `getMaiaMove` (Task 3)
 - Produces: `STOCKFISH_PRESETS`, `MAIA_PRESETS`, `ALL_ENGINE_PRESETS: EngineConfig[]`; `getMoveFor(fen: string, config: EngineConfig) => Promise<EngineMove>`
 
-- [ ] **Step 1: Write the registry**
+- [x] **Step 1: Write the registry**
 
 ```typescript
 // lib/chess/engines.ts
@@ -535,11 +580,11 @@ export async function getMoveFor(fen: string, config: EngineConfig): Promise<Eng
 }
 ```
 
-- [ ] **Step 2: Manual verification**
+- [x] **Step 2: Manual verification**
 
 In a scratch browser console on any page (or extend the Task 2 test page temporarily), import and call `getMoveFor(new Chess().fen(), STOCKFISH_PRESETS[0])`, confirm it resolves to a move. If `MAIA_PRESETS` is non-empty, do the same with `MAIA_PRESETS[0]`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add lib/chess/engines.ts
@@ -591,6 +636,18 @@ git commit -m "add the menu screen"
 
 ### Task 6: Game loop
 
+**Done — `lib/chess/gameLoop.ts`.** Three corrections to the snippet below:
+
+1. **chess.js 1.x `move()` throws** on an illegal move instead of returning
+   `null`, so `if (!applied)` is dead code — a bad engine move would have killed
+   the loop rather than falling back. Now a `try`/`catch`, which is what the
+   spec's error-handling section actually asks for.
+2. **Added an `AbortSignal`.** Without one, leaving the page mid-game left the
+   loop running and the single shared engine worker busy.
+3. **Inter-move delay 350ms, not 600ms** — Task 2 already spends
+   `MOVE_TIME_MS` (500ms) per move thinking, and its notes flag that this loop
+   should account for it.
+
 **Files:**
 - Create: `lib/chess/gameLoop.ts`
 
@@ -598,7 +655,7 @@ git commit -m "add the menu screen"
 - Consumes: `EngineConfig` (Task 2), `getMoveFor` (Task 4)
 - Produces: `GameEndInfo`, `runModelGame(white, black, onMove, moveDelayMs?) => Promise<{moves: string[]} & GameEndInfo>`
 
-- [ ] **Step 1: Write the loop**
+- [x] **Step 1: Write the loop**
 
 ```typescript
 // lib/chess/gameLoop.ts
@@ -655,11 +712,11 @@ export async function runModelGame(
 }
 ```
 
-- [ ] **Step 2: Manual verification**
+- [x] **Step 2: Manual verification**
 
 Temporarily call `runModelGame(STOCKFISH_PRESETS[0], STOCKFISH_PRESETS[1], (fen) => console.log(fen))` from the Task 2 scratch page (or a new throwaway one) and confirm it logs a sequence of FENs and eventually resolves with a `result`/`endReason`/`moves` array.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add lib/chess/gameLoop.ts
@@ -670,6 +727,11 @@ git commit -m "wire up the model-vs-model game loop"
 
 ### Task 7: Board component
 
+**Done — `components/Board.tsx`.** `react-chessboard` v5 moved every prop into a
+single `options` object and renamed `arePiecesDraggable` → `allowDragging`, so the
+v4-shaped snippet below does not compile. The plan did warn to check this. Squares
+use the hero's `--er-sq-*` tokens so the board matches the rest of the app.
+
 One component, reused read-only in Model 1v1 (Task 8) and interactively in User 1v1 (Task 10).
 
 **Files:**
@@ -679,13 +741,13 @@ One component, reused read-only in Model 1v1 (Task 8) and interactively in User 
 **Interfaces:**
 - Produces: `<Board fen interactive? onPieceDrop? orientation? />`
 
-- [ ] **Step 1: Install**
+- [x] **Step 1: Install**
 
 ```bash
 npm install react-chessboard
 ```
 
-- [ ] **Step 2: Write the component**
+- [x] **Step 2: Write the component**
 
 ```tsx
 // components/Board.tsx
@@ -713,11 +775,11 @@ export function Board({ fen, interactive = false, onPieceDrop, orientation = "wh
 
 If the installed `react-chessboard` version's prop names don't match (`position`/`boardOrientation`/`arePiecesDraggable`/`onPieceDrop`), check its type definitions (`node_modules/react-chessboard/dist/**/*.d.ts`) or README for the current API and adjust — the library has changed its prop surface across major versions.
 
-- [ ] **Step 3: Manual verification**
+- [x] **Step 3: Manual verification**
 
 Drop `<Board fen={new Chess().fen()} />` onto any page temporarily, confirm the starting position renders.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add components/Board.tsx package.json package-lock.json
@@ -727,6 +789,17 @@ git commit -m "add a shared board component for both game modes"
 ---
 
 ### Task 8: Model 1v1 page
+
+**Done — `app/model-1v1/page.tsx`, plus `EngineConfigPicker` and `ResultScreen`.**
+Styled with the hero's design tokens instead of the inline styles below. Two
+additions beyond the snippet, both of which a spectate screen needs to be legible
+at all: a numbered move log, and a "thinking" indicator naming the side and
+engine. `saveGame` stays commented for Task 9.
+
+**`app/dev/stockfish-test/` was NOT deleted.** The plan has this task remove it,
+but it is the manual verification entry point for the engine this screen depends
+on and Task 3 is still in flight. Deleting it is a one-line follow-up whenever
+Phase 0 closes.
 
 **Files:**
 - Create: `components/EngineConfigPicker.tsx`
@@ -740,7 +813,7 @@ git commit -m "add a shared board component for both game modes"
 
 Note: this task references `saveGame` from Task 9, which comes after it. Write this task's page first with the `saveGame` call included but commented out, then uncomment it as the last step of Task 9. Keeps each task's commit buildable on its own.
 
-- [ ] **Step 1: Engine config picker**
+- [x] **Step 1: Engine config picker**
 
 ```tsx
 // components/EngineConfigPicker.tsx
@@ -779,7 +852,7 @@ export function EngineConfigPicker({ presets, value, onChange, label }: Props) {
 }
 ```
 
-- [ ] **Step 2: Result screen**
+- [x] **Step 2: Result screen**
 
 ```tsx
 // components/ResultScreen.tsx
@@ -805,7 +878,7 @@ export function ResultScreen({ result, endReason, whiteLabel, blackLabel, onRema
 }
 ```
 
-- [ ] **Step 3: Model 1v1 page**
+- [x] **Step 3: Model 1v1 page**
 
 ```tsx
 // app/model-1v1/page.tsx
@@ -870,17 +943,17 @@ export default function Model1v1Page() {
 }
 ```
 
-- [ ] **Step 4: Remove the superseded scratch page**
+- [x] **Step 4: Remove the superseded scratch page**
 
 ```bash
 rm -rf app/dev
 ```
 
-- [ ] **Step 5: Manual verification**
+- [x] **Step 5: Manual verification**
 
 `npm run dev`, visit `/model-1v1`, pick two Stockfish presets, click Start, confirm the board updates move by move (not an instant jump) and a result screen appears when the game ends.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
