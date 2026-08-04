@@ -7,6 +7,7 @@ import { Board } from "@/components/Board";
 import { EngineConfigPicker } from "@/components/EngineConfigPicker";
 import { MaiaLoadNotice } from "@/components/MaiaLoadNotice";
 import { ResultScreen } from "@/components/ResultScreen";
+import { publishBoardFrame } from "@/lib/boardFeed";
 import { ALL_ENGINE_PRESETS, STOCKFISH_PRESETS, getMoveFor } from "@/lib/chess/engines";
 import { describeEnd, type GameEndInfo } from "@/lib/chess/gameLoop";
 import type { EngineConfig } from "@/lib/chess/types";
@@ -51,6 +52,19 @@ export default function User1v1Page() {
 
   useEffect(() => {
     return () => abortRef.current?.abort();
+  }, []);
+
+  // Drive the header's scoreboard. Gated on `started` because this page shows no
+  // board until you begin — a "move 0" readout above an empty column would be
+  // describing a game that isn't set up yet.
+  useEffect(() => {
+    publishBoardFrame(
+      started ? { ply: moves.length, lastSan: moves.at(-1) ?? null, over: Boolean(end) } : null,
+    );
+  }, [started, moves, end]);
+
+  useEffect(() => {
+    return () => publishBoardFrame(null);
   }, []);
 
   function start() {

@@ -7,6 +7,7 @@ import { Board } from "@/components/Board";
 import { EngineConfigPicker } from "@/components/EngineConfigPicker";
 import { MaiaLoadNotice } from "@/components/MaiaLoadNotice";
 import { ResultScreen } from "@/components/ResultScreen";
+import { publishBoardFrame } from "@/lib/boardFeed";
 import { ALL_ENGINE_PRESETS, STOCKFISH_PRESETS } from "@/lib/chess/engines";
 import { GameAbortedError, runModelGame, type ModelGameResult } from "@/lib/chess/gameLoop";
 import type { EngineConfig } from "@/lib/chess/types";
@@ -43,6 +44,21 @@ export default function Model1v1Page() {
   // engine worker busy.
   useEffect(() => {
     return () => abortRef.current?.abort();
+  }, []);
+
+  // Drive the header's scoreboard. The board below is always on screen (it shows
+  // the start position before you hit Start), so this publishes from ply 0 —
+  // unlike /user-1v1, where there's genuinely no board until a game begins.
+  useEffect(() => {
+    publishBoardFrame({
+      ply: moves.length,
+      lastSan: moves.at(-1) ?? null,
+      over: Boolean(end),
+    });
+  }, [moves, end]);
+
+  useEffect(() => {
+    return () => publishBoardFrame(null);
   }, []);
 
   async function start() {

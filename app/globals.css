@@ -141,15 +141,6 @@
     transform: scale(1);
   }
 }
-@keyframes er-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.25;
-  }
-}
 @keyframes er-flicker {
   0%,
   100% {
@@ -258,13 +249,31 @@
   box-shadow: 0 0 14px var(--er-accent-glow);
 }
 
-.er-live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--er-accent);
-  box-shadow: 0 0 10px var(--er-accent-glow);
-  animation: er-pulse 1.6s ease-in-out infinite;
+/* Header scoreboard: the two side-to-move squares. Whichever side is to move
+   gets the accent ring and, at night, the glow — one rule for both editions,
+   because --er-accent-glow is transparent by day.
+
+   The square fills reuse the board's own piece tokens rather than --er-text /
+   --er-bg, so the pair always reads as "a white piece and a black piece" in the
+   same colours the board next to them is using. */
+.er-turn {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--er-line);
+  transition:
+    border-color 0.3s,
+    box-shadow 0.3s,
+    background 0.35s;
+}
+.er-turn--w {
+  background: var(--er-sq-white-piece);
+}
+.er-turn--b {
+  background: var(--er-sq-black-piece);
+}
+.er-turn[data-on="true"] {
+  border-color: var(--er-accent);
+  box-shadow: 0 0 9px var(--er-accent-glow);
 }
 
 .er-lamp {
