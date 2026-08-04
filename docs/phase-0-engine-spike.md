@@ -214,10 +214,19 @@ me.
   carrying forward: the build we use is the **lite** single-threaded one, because
   the plain single-threaded wasm is 107.8 MB and GitHub rejects anything over
   100 MB. Task 2's "What differed" section in the build plan has the full list.
-  **Held unmerged pending agent review** — see
-  [`task-02-stockfish-review.md`](task-02-stockfish-review.md) for the review
-  brief: every decision and why, how to reproduce the verification, and the soft
-  spots worth attacking.
-- **Task 3 — not started.**
+  **Merged as `5fbc001` (#6)** after agent review — reviewed at 9/10 and accepted
+  with three corrections, all applied. See
+  [`task-02-stockfish-review.md`](task-02-stockfish-review.md) for the full
+  brief. Two findings later tasks need: `UCI_Elo`'s real range on this build is
+  **1320–3190** (so 1320 is the engine's floor, not an arbitrary preset), and
+  search depth does **not** vary with ELO, because Stockfish weakens play by
+  choosing a worse candidate move rather than searching shallower. That means
+  Task 2 proved the options are accepted and the engine searches — not that the
+  ELO settings change playing strength. Task 6 is where that becomes measurable.
+- **Task 3 — spec written, pending review, nothing implemented.** See
+  [`task-03-maia-spec.md`](task-03-maia-spec.md). Note the central point in it:
+  unlike Task 2, "returns a legal move" does **not** verify Maia, because a wrong
+  encoder still yields legal moves. The spec's verification section is built
+  around that.
 
 Updated as each lands.
