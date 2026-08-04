@@ -1039,6 +1039,13 @@ git commit -m "log finished games to kv"
 
 ### Task 10: User 1v1 page
 
+**Done — `app/user-1v1/page.tsx`, plus a one-word export change in
+`lib/chess/gameLoop.ts` and a grammar fix in `components/ResultScreen.tsx`.**
+Do not build from the snippet below — it has four real bugs, listed under
+"What differed" at the end of this task. Styled with the Ink & Bone tokens,
+same two-column layout as Model 1v1 (controls + move log left, board right,
+`er-lamp` thinking indicator while the engine searches).
+
 Reuses `Board` (interactive mode), `EngineConfigPicker`, `ResultScreen`, and `saveGame` — no new shared components needed.
 
 **Files:**
@@ -1047,7 +1054,7 @@ Reuses `Board` (interactive mode), `EngineConfigPicker`, `ResultScreen`, and `sa
 **Interfaces:**
 - Consumes: `Board`, `EngineConfigPicker`, `ResultScreen` (Task 7, Task 8), `ALL_ENGINE_PRESETS`, `getMoveFor` (Task 4), `saveGame` (Task 9)
 
-- [ ] **Step 1: Write the page**
+- [x] **Step 1: Write the page**
 
 ```tsx
 // app/user-1v1/page.tsx
@@ -1174,16 +1181,79 @@ export default function User1v1Page() {
 }
 ```
 
-- [ ] **Step 2: Manual verification**
+- [x] **Step 2: Manual verification**
 
 `npm run dev`, visit `/user-1v1`, pick Stockfish 1320, play as White, drag a piece, confirm the engine replies (board updates after a short pause), play through to a game end, confirm the result screen appears and a new record shows up in KV (same check as Task 9 Step 5). Repeat once as Black to confirm the engine moves first correctly.
 
-- [ ] **Step 3: Commit**
+What actually ran (production build on `npm run start`, driven headless over CDP
+with real `Input.dispatchMouseEvent` drags — see the harness note below):
+
+- As White vs Stockfish 1320: dragged e2→e4, the ply counter registered it, the
+  thinking lamp appeared, and the engine answered within a second.
+- Illegal drags rejected with the ply count unchanged: Ke1→e3, and dragging the
+  engine's own pawn.
+- As Black: the engine opened unprompted and the board rendered black-oriented.
+- One **complete game played through the UI** (random legal moves vs Stockfish
+  2800): ended `0-1 · by checkmate`, card credited "Stockfish 2800 wins",
+  cross-checked against an independent chess.js replay of the move log. The
+  random mover even promoted (`fxg1=Q+`), exercising the auto-queen path.
+- `describeEnd` additionally driven directly against six known terminal
+  positions (both mate colours, stalemate, insufficient material, fifty-move,
+  threefold) since one played game can only ever reach one `endReason`.
+- Zero console errors/warnings across all runs, and again on the Vercel preview.
+
+- [x] **Step 3: Commit**
 
 ```bash
 git add app/user-1v1
 git commit -m "build the user vs engine screen"
 ```
+
+#### What differed from the original plan
+
+The snippet above is a first draft with four real bugs — the shipped page is
+the reference, not the snippet:
+
+1. **chess.js 1.x `move()` throws on an illegal move — it does not return
+   `null`.** The snippet's `if (!move) return false` and `if (!applied)`
+   branches are dead code: a user's illegal drop would have crashed the drop
+   handler instead of snapping the piece back, and a bad engine move would have
+   killed the game instead of falling back. Both paths are `try`/`catch` now —
+   the same correction Task 6 already documented for the game loop.
+2. **End detection is not duplicated.** The snippet's `checkEnd` re-implements
+   `describeEnd`; instead `lib/chess/gameLoop.ts` now exports `describeEnd`
+   (that's the whole gameLoop diff) and the page calls it. One source of truth
+   for how a finished position maps to result/reason.
+3. **The `Chess` instance lives in a `useRef`, not `useState`.** The snippet
+   holds it in state and mutates it — mutation doesn't trigger a render, and
+   under React 19 StrictMode's double invocation that's a latent bug. The UI
+   renders from a separate `fen` state string; the ref is the source of truth.
+4. **The snippet's `saveGame` import doesn't compile** — `app/actions/games.ts`
+   is Task 9, which was in flight in a parallel lane when this shipped. The call
+   is written out but commented, Task 8-style, with the exact payload shape
+   ready to uncomment.
+
+Beyond the bug fixes:
+
+- **An in-flight engine reply is cancelled on unmount and restart** via an
+  `AbortController`, mirroring the Model 1v1 page. The worker is shared and
+  takes ~500ms per reply; without this a stale reply lands on the next game.
+- **Restart is allowed mid-game** (the button relabels Start game → Restart →
+  Play again). A human game, unlike a model game, can otherwise strand you with
+  no way out short of leaving the page. The abort handling is what makes this
+  safe.
+- **Promotion is auto-queen** (`promotion: "q"`). No under-promotion picker in
+  this MVP — known, deliberate limitation.
+- **`ResultScreen` got a two-line grammar fix**: the human side is labelled
+  "You", and the card said "You wins". It now special-cases that label to "You
+  win"; engine labels are untouched.
+- **CDP harness for interactive pages:** `scripts/cdp-model-1v1.mjs` only
+  clicks a button; this page needed real drags. The adaptation that worked:
+  dnd-kit's PointerSensor (react-chessboard v5, 1px activation distance)
+  responds fine to `Input.dispatchMouseEvent` sequences (pressed → a few
+  interpolated moves → released), and squares are addressable via
+  `[data-square="e2"]`. React-controlled `<select>`s need the native value
+  setter + a bubbling `change` event; setting `.value` directly is ignored.
 
 ---
 

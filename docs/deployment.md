@@ -329,6 +329,26 @@ stale server.
 there's no serverless function timeout or cold-start risk on the engine path at
 all. The only server-side code in the whole app is the two KV Server Actions.
 
+**Headless-Chrome (CDP) verification traps (Task 10).** Three things that cost
+time when driving the app with the `scripts/cdp-*.mjs`-style harnesses:
+
+- `Page.navigate` can return a normal-looking result and leave the tab parked
+  on `about:blank` — and not only for `localhost` URLs (the comment in
+  `cdp-model-1v1.mjs` blames `localhost`; it happened on `127.0.0.1` too).
+  Reliable recipe: pass the target URL as Chrome's launch argument so the tab
+  starts there, and/or re-issue `Page.navigate` in a loop until
+  `location.href` actually reports the target.
+- Killing a headless Chrome (`taskkill //F`) leaves its `--user-data-dir`
+  holding a ProcessSingleton lock, and the next launch with the same profile
+  dir **aborts silently** ("Lock file can not be created" only appears in the
+  log). Use a fresh profile dir per run rather than fighting the lock.
+- Interactive boards are drivable without Playwright: react-chessboard v5's
+  drag is dnd-kit's PointerSensor (1px activation distance), which accepts
+  `Input.dispatchMouseEvent` — mousePressed, a few interpolated mouseMoved
+  steps, mouseReleased — on the `[data-square="…"]` elements. And React
+  ignores `.value =` on a controlled `<select>`; use the native value setter
+  plus a bubbling `change` event.
+
 ---
 
 ## 5. Optional: protect `main`
