@@ -14,9 +14,14 @@ const REASON_COPY: Record<string, string> = {
   "draw-insufficient": "by insufficient material",
 };
 
+// "Stockfish 2800 wins", but never "You wins" — User 1v1 labels the human "You".
+function winsCopy(label: string) {
+  return label === "You" ? "You win" : `${label} wins`;
+}
+
 export function ResultScreen({ result, endReason, whiteLabel, blackLabel, onRematch }: Props) {
   const summary =
-    result === "1/2-1/2" ? "Draw" : result === "1-0" ? `${whiteLabel} wins` : `${blackLabel} wins`;
+    result === "1/2-1/2" ? "Draw" : result === "1-0" ? winsCopy(whiteLabel) : winsCopy(blackLabel);
 
   return (
     <div className="border-er-line bg-er-surface flex flex-wrap items-center justify-between gap-4 border px-6 py-5">
