@@ -454,6 +454,31 @@ This is fundamentally different from Task 2. Stockfish speaks a stable text prot
 - Produces (if successful): `getMaiaMove(fen: string, config: EngineConfig) => Promise<EngineMove>` — same signature as `getStockfishMove`.
 - Produces (if fallback taken): `getMaiaMove` still exists and has that signature, but its body throws `new Error("Maia not available")`.
 
+**Done — commit `1563b5c`. Maia works.** But the checkpoints below did *not* run as
+written, so read **`scripts/maia-notes.md`** rather than following them — it's the
+authoritative record. In short:
+
+- CP1 (check for something turnkey first) paid off in ~5 minutes and made CP2–CP6
+  unnecessary. The plan aimed at **original Maia** (lc0 `.pb.gz`, `leela2onnx`, 112
+  planes with move history, one network per tier). We use **Maia 2**, which is
+  already ONNX: no lc0, no conversion, no history planes, and the rating is a model
+  *input* so one file covers every tier.
+- Maia 3 exists and is newer, but its weights are **AGPL-3.0**, whose network
+  clause reaches a deployed site. Maia 2 is **MIT** and encodes *more* (18 planes
+  including castling and en passant; Maia 3 encodes piece placement only).
+- The weights (89 MB) and move table are **fetched at runtime** from GitHub raw,
+  not committed. Only MIT-licensed `onnxruntime-web` assets are vendored.
+- ONNX interface: `boards` float32 `[1,18,8,8]`, `elo_self` / `elo_oppo` as
+  **int64 bucket indices**; outputs `logits_maia`, `logits_side_info` (unused),
+  `logits_value`. Read off the session, not assumed.
+- ~35 ms per move, versus Stockfish's ~500 ms. Task 6 should treat inter-move delay
+  as per-engine, not global.
+- One open question is flagged in the notes rather than glossed: the top move from
+  the start position is `Nf3` and the top reply to 1.e4 is `Nf6`, which isn't what
+  human data at these ratings looks like. Encoder arithmetic was checked
+  line-for-line against the reference, so it may just be `maia_rapid`'s behaviour —
+  the notes say how to settle it.
+
 - [ ] **Checkpoint 1: Check for a turnkey browser-runnable Maia package first**
 
 Search npm and GitHub for something that already does this before building a conversion pipeline by hand — try "maia chess onnx", "lc0 onnx web", "maia2". If something exists and can take a FEN and return a move in the browser, use it and skip to Checkpoint 5.

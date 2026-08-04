@@ -223,10 +223,22 @@ me.
   choosing a worse candidate move rather than searching shallower. That means
   Task 2 proved the options are accepted and the engine searches — not that the
   ELO settings change playing strength. Task 6 is where that becomes measurable.
-- **Task 3 — spec written, pending review, nothing implemented.** See
-  [`task-03-maia-spec.md`](task-03-maia-spec.md). Note the central point in it:
-  unlike Task 2, "returns a legal move" does **not** verify Maia, because a wrong
-  encoder still yields legal moves. The spec's verification section is built
-  around that.
+- **Task 3 — done**, commit `1563b5c`. **Maia works**: `getMaiaMove` returns
+  human-plausible legal moves in ~35 ms. Spec is
+  [`task-03-maia-spec.md`](task-03-maia-spec.md); the authoritative record of what
+  actually happened is [`../scripts/maia-notes.md`](../scripts/maia-notes.md),
+  because the spec's checkpoints didn't run as written — CP1 found a far easier
+  path and made CP2–CP6 moot.
+
+  Three things later tasks need: we use **Maia 2 (MIT)**, not Maia 3, because Maia
+  3's weights are AGPL-3.0 and that clause reaches a deployed site; the 89 MB
+  weights are **fetched at runtime**, so the first Maia move on a cold cache is
+  slow and Model 1v1 needs a loading state for it; and Maia is ~35 ms per move
+  against Stockfish's ~500 ms, so inter-move delay wants to be per-engine.
+
+  Phase 0's central lesson, worth carrying: for Maia, "returns a legal move" is
+  **not** a correctness check, because the decoder filters to legal moves — a wrong
+  encoder still returns legal chess. One open question is flagged in the notes
+  rather than glossed over.
 
 Updated as each lands.
