@@ -452,6 +452,46 @@ stale server.
 there's no serverless function timeout or cold-start risk on the engine path at
 all. The only server-side code in the whole app is the two KV Server Actions.
 
+**This app's server-rendered HTML is a bad oracle for "did my deploy land?"**
+`curl | grep` is the obvious way to check the live site from a terminal, and on
+this app it will lie to you in both directions. Cost an agent ~15 minutes and
+prompted an unnecessary production redeploy, so it's worth the words:
+
+- **Client-only UI isn't in the HTML at all.** The header scoreboard
+  (`components/HeaderScoreboard.tsx`) renders `null` on the server on purpose —
+  it reads `lib/boardFeed.ts`, and no board has published anything until a page
+  hydrates. So `grep er-turn` returns 0 on a *correct* deploy. Anything fed by
+  the board feed has the same property.
+- **Don't grep a string that also appears elsewhere on the page.** The old
+  header badge said "engines coupled" — and so did a marquee item, three
+  elements down. Grepping for it matched the new build too, which read as "the
+  deploy is stale" when it had actually shipped. (That marquee line is gone now,
+  which kills this specific case but not the mistake.)
+- **What actually works:** pick a marker that existed *only* in the build you're
+  replacing and that you deleted — `er-live-dot` was the discriminator here.
+  Confirm the expected value against your own local production build first, so
+  you know what a pass looks like before you trust it on prod.
+- **Better: drive the deployed URL in headless Chrome** with one of the
+  `scripts/cdp-*.mjs` harnesses and assert on the post-hydration DOM. That's the
+  only check that sees client-rendered UI, and production (unlike previews) is
+  public, so it needs no credentials.
+
+**A climbing `Age` on `X-Vercel-Cache: HIT` is not evidence of a stale deploy.**
+Related trap, met at the same time. The production alias serves a cached
+prerender and `Age` counts up between revalidations, which *looks* exactly like
+an alias that never rotated. It isn't proof of anything about the content — check
+the content with a correct oracle (above) before concluding the deploy failed.
+Two things that don't help, so don't burn time on them: a query-string cache
+buster does nothing (Vercel ignores query strings in the cache key for static
+prerenders, so you still get `HIT`), and a `Cache-Control: no-cache` *request*
+header doesn't force an edge revalidation either. And you can't diff the new
+build directly — deployment-specific URLs are SSO-gated per §2.
+
+Also worth knowing when you do drive production over the network: the waits that
+work against `localhost` are too short. Hydration lands measurably later, so a
+snapshot taken at 1.2s that passes locally can find no scoreboard at all on the
+live site. ~4-5s before the first assertion was enough here.
+
 **Headless-Chrome (CDP) verification traps (Task 10).** Things that cost
 time when driving the app with the `scripts/cdp-*.mjs`-style harnesses:
 
