@@ -272,10 +272,17 @@ export async function getStockfishMove(fen: string, config: EngineConfig): Promi
 
 - [x] **Step 5: Write a scratch verification page**
 
-The shipped page runs three positions at three different ELOs rather than one,
-and reports per-position timings — one position can pass by luck, and the
-timings are what prove the engine is actually searching for `movetime` rather
-than returning instantly.
+The shipped page does three things rather than the one position the snippet
+below checks:
+
+1. Prints the `option name UCI_LimitStrength` / `option name UCI_Elo` lines from
+   the UCI handshake. A UCI engine **silently ignores `setoption` for a name it
+   doesn't know**, so this is the only way to tell a working option from a typo.
+2. Runs three positions at three ELOs — one position can pass by luck.
+3. Reports the **search depth** reached per move, from the engine's `info depth`
+   stream. Depth is the evidence that a real search happened; wall-clock time
+   isn't, because a stub that slept for `movetime` and returned a random legal
+   move would time identically.
 
 ```tsx
 // app/dev/stockfish-test/page.tsx
@@ -304,17 +311,34 @@ export default function StockfishTestPage() {
 `npm run build` first — it's what Vercel runs and it catches TS/lint the dev
 server won't. Clean, with `/dev/stockfish-test` prerendering as static.
 
-Then `npm run dev` and visit `http://localhost:3000/dev/stockfish-test`. Result:
+Then `npm run start` (production build — closer to Vercel than `npm run dev`) and
+visit `http://localhost:3000/dev/stockfish-test`. Result:
 
 ```
-LEGAL    elo 1320  start position         d2d4 (d4)    1378ms
-LEGAL    elo 1800  mid-opening            d2d4 (d4)     506ms
-LEGAL    elo 2800  king + pawn endgame    e3d3 (Kd3)    508ms
+option name UCI_LimitStrength type check default false
+option name UCI_Elo type spin default 1320 min 1320 max 3190
+
+LEGAL    elo 1320  start position        e2e3 (e3)   depth 16  508ms
+LEGAL    elo 1800  mid-opening           d2d4 (d4)   depth 13  506ms
+LEGAL    elo 2800  king + pawn endgame   e3f3 (Kf3)  depth 45  506ms
+
+elo 1320  run 1  depth 13    played a3   507ms
+elo 1320  run 2  depth 13    played a3   506ms
+elo 2800  run 1  depth 13    played Nc3  508ms
+elo 2800  run 2  depth 13    played d4   508ms
 ```
 
-No console errors. The first call carries the 7 MB wasm fetch plus the UCI
-handshake; the other two land within a few ms of `movetime 500`, which is the
-signal that the engine is really searching.
+No console errors. Two things later tasks should take from this:
+
+- **`UCI_Elo`'s real range on this build is 1320–3190.** 1320 is the floor, which
+  is why it's the lowest preset. Task 4 shouldn't invent presets outside that —
+  Stockfish clamps silently, so a bad value looks like it worked.
+- **Depth does not vary with ELO** (13 at both 1320 and 2800). Stockfish limits
+  strength by choosing a weaker move from the multi-PV candidates, not by
+  searching shallower. So this spike proves the options are accepted and the
+  engine searches; it does **not** prove the ELO settings change playing
+  strength. That only becomes measurable in Task 6, over several complete games
+  between a low and a high preset, scored by results.
 
 Verified in headless Chrome over the DevTools Protocol rather than by eye —
 `chromium-cli` and Playwright aren't installed on this machine, but Chrome is,
@@ -354,8 +378,13 @@ git commit -m "get stockfish talking over uci in a web worker"
 - **No separate `.nnue` file** and no `SharedArrayBuffer`/`Atomics` anywhere in
   the build, which reconfirms the spec's "no COOP/COEP headers" call.
 - **`isready`/`readyok` before `go`.** The plan only waited for `uciok` at
-  startup. That doesn't guarantee the `UCI_Elo` / `UCI_LimitStrength` options
-  have been applied by the time the engine starts searching; `readyok` does.
+  startup. Note the reason carefully, because the obvious one is wrong: a
+  single-threaded UCI engine reads stdin **in order**, so a later `go` cannot
+  overtake an earlier `setoption`. The handshake is worth having because it's the
+  protocol's specified way to confirm processing is complete, because
+  `ucinewgame` triggers a state reset the spec says may be slow and should be
+  waited on, and because it stays correct on engine builds we haven't tested.
+  Costs one round-trip against a 500 ms search.
 - **Calls are serialized through a promise queue.** There's one shared worker
   and replies are matched by listening for the next matching line, so two
   overlapping `go` commands would resolve each other's promises and hand back

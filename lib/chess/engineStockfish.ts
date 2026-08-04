@@ -23,6 +23,12 @@ const RESPONSE_TIMEOUT_MS = 60_000;
 let worker: Worker | null = null;
 let ready: Promise<void> | null = null;
 
+// Every `option name ...` line the engine advertises during the `uci` handshake.
+// Worth capturing because UCI engines silently ignore `setoption` for names they
+// don't know - so a typo'd or unsupported option looks exactly like a working
+// one. This is how verification code proves UCI_Elo is a real knob.
+let advertisedOptions: string[] = [];
+
 // One shared worker instance, so requests have to be serialized. Every reply is
 // read by listening for the next line that matches — two overlapping `go`
 // commands would resolve each other's promises and hand back the wrong move.
@@ -37,8 +43,16 @@ function getWorker(): Worker {
   return worker;
 }
 
-/** Resolve with the first message line matching `matches`. */
-function nextLine(w: Worker, matches: (line: string) => boolean): Promise<string> {
+/**
+ * Resolve with the first message line matching `matches`. `observe`, if given,
+ * sees every line along the way - that's how callers get at the `info depth ...`
+ * stream the engine emits while it searches.
+ */
+function nextLine(
+  w: Worker,
+  matches: (line: string) => boolean,
+  observe?: (line: string) => void
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       cleanup();
@@ -53,6 +67,7 @@ function nextLine(w: Worker, matches: (line: string) => boolean): Promise<string
 
     function onMessage(e: MessageEvent) {
       const line = typeof e.data === "string" ? e.data.trim() : "";
+      observe?.(line);
       if (matches(line)) {
         cleanup();
         resolve(line);
@@ -74,8 +89,15 @@ function initEngine(): Promise<void> {
 
   const w = getWorker();
   ready = (async () => {
+    advertisedOptions = [];
     w.postMessage("uci");
-    await nextLine(w, (line) => line === "uciok");
+    await nextLine(
+      w,
+      (line) => line === "uciok",
+      (line) => {
+        if (line.startsWith("option name")) advertisedOptions.push(line);
+      }
+    );
   })();
 
   // Don't cache a failed handshake forever - let the next caller try again.
@@ -86,6 +108,17 @@ function initEngine(): Promise<void> {
   return ready;
 }
 
+/**
+ * The `option name ...` lines from the UCI handshake, e.g.
+ * `option name UCI_Elo type spin default 1320 min 1320 max 3190`.
+ * Used by verification code to confirm the options we set actually exist on this
+ * build - an unknown `setoption` name is dropped without any error.
+ */
+export async function getAdvertisedOptions(): Promise<string[]> {
+  await initEngine();
+  return [...advertisedOptions];
+}
+
 function parseUciMove(uci: string): EngineMove {
   return {
     from: uci.slice(0, 2),
@@ -94,9 +127,17 @@ function parseUciMove(uci: string): EngineMove {
   };
 }
 
+/**
+ * `onInfo` receives each `info ...` line emitted during the search. Optional and
+ * unused by the game loop - it exists so verification code can read the actual
+ * search depth, which is the only direct evidence that the engine searched at
+ * all. Wall-clock time isn't: a wrapper that slept for `movetime` and returned a
+ * random legal move would look identical from the outside.
+ */
 export async function getStockfishMove(
   fen: string,
-  config: EngineConfig
+  config: EngineConfig,
+  onInfo?: (line: string) => void
 ): Promise<EngineMove> {
   const run = queue.then(async () => {
     const w = getWorker();
@@ -107,13 +148,23 @@ export async function getStockfishMove(
     w.postMessage(`setoption name UCI_Elo value ${config.elo ?? 1500}`);
     w.postMessage(`position fen ${fen}`);
 
-    // isready/readyok before `go`, so the options above are guaranteed to have
-    // landed. Waiting only on uciok at startup doesn't give you that.
+    // isready/readyok before `go`. Not because `go` could overtake the setoptions
+    // above - a single-threaded UCI engine reads stdin in order, so it can't. It's
+    // here because readyok is the protocol's defined "done processing" signal,
+    // because `ucinewgame` triggers a state reset the UCI spec says may be slow
+    // and should be waited on, and because it stays correct on engine builds we
+    // haven't tested. One round-trip against a 500ms search.
     w.postMessage("isready");
     await nextLine(w, (line) => line === "readyok");
 
     w.postMessage(`go movetime ${MOVE_TIME_MS}`);
-    const line = await nextLine(w, (l) => l.startsWith("bestmove"));
+    const line = await nextLine(
+      w,
+      (l) => l.startsWith("bestmove"),
+      onInfo && ((l) => {
+        if (l.startsWith("info")) onInfo(l);
+      })
+    );
 
     // "bestmove e2e4 ponder e7e5", or "bestmove (none)" in a dead position.
     const uci = line.split(/\s+/)[1];
