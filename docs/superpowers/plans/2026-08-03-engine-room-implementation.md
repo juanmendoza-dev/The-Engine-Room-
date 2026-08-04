@@ -1293,7 +1293,8 @@ the reference, not the snippet:
 4. **The snippet's `saveGame` import doesn't compile** — `app/actions/games.ts`
    is Task 9, which was in flight in a parallel lane when this shipped. The call
    is written out but commented, Task 8-style, with the exact payload shape
-   ready to uncomment.
+   ready to uncomment. *(Since wired: Task 9 landed right after this did, and a
+   follow-up PR uncommented the block, importing from `@/lib/games/store`.)*
 
 Beyond the bug fixes:
 
@@ -1413,7 +1414,10 @@ git commit -m "add the game history page"
 - Follow-up owed by whoever lands Task 10: wire `saveGame` from
   `@/lib/games/store` into `app/user-1v1/page.tsx`, mirroring the call in
   `app/model-1v1/page.tsx`. (If that page landed before this PR merged, it was
-  wired here instead — check the PR body.)
+  wired here instead — check the PR body.) *Done — both PRs merged within
+  minutes of each other with the wiring still pending, so it landed as its own
+  tiny follow-up PR right after: uncommented the Task-8-style block and pointed
+  the import at the facade.*
 
 ---
 
