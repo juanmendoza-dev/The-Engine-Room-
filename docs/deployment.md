@@ -340,6 +340,21 @@ glue module — `ort-wasm-simd-threaded.jsep.mjs` alongside
 and is really just a 404. Also set `ort.env.wasm.numThreads = 1` to stay
 single-threaded and keep the no-COOP/COEP decision intact.
 
+**The Maia model is hosted in a second repo of ours (Task 3).** `engineMaia.ts`
+fetches ~93 MB at runtime from **`juanmendoza-dev/engine-room-assets`** via
+`raw.githubusercontent.com`, pinned to a commit. It is not in this repo and not
+on Vercel, on purpose: it would be 93 MB of git history plus ~93 MB of egress per
+page load (roughly 1,000 loads against Hobby's 100 GB/month). Two rules if you
+ever move it:
+
+- **The host must send `Access-Control-Allow-Origin`.** `raw.githubusercontent.com`
+  sends `*`. **GitHub Release assets do not send it at all** — they redirect to an
+  Azure blob with no CORS headers, and a browser `fetch()` of one fails with a
+  bare "Failed to fetch". This was tried, verified broken in a real browser, and
+  abandoned; don't spend the afternoon again.
+- **Never Git LFS for it.** `raw` serves LFS pointer text instead of content, so
+  LFS breaks it the same way it breaks Vercel static assets (above).
+
 **Copy only the jsep pair.** `onnxruntime-web` 1.27 ships five wasm/glue
 variants, and it's tempting to copy the lot. Don't — the default import resolves
 to the **jsep** build, so `ort-wasm-simd-threaded.jsep.wasm` + `.jsep.mjs` are

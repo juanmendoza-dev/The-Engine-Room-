@@ -13,19 +13,33 @@ import type { EngineConfig, EngineMove } from "./types";
 //
 // Neither the weights nor the move table are committed to this repo. Both are
 // fetched at runtime from GitHub raw (which serves Access-Control-Allow-Origin:
-// *). That keeps ~89MB of third-party artefacts out of the repo and off our
-// Vercel bandwidth - the same reason CSSLab moved these files off their own
+// *). That keeps ~93MB of artefacts out of this repo and the per-load egress off
+// our Vercel bandwidth - the same reason CSSLab moved these files off their own
 // hosting.
-const MODEL_URL =
-  "https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/maia2/maia_rapid.onnx";
+//
+// They come from juanmendoza-dev/engine-room-assets, our own mirror, pinned to
+// one commit. Two reasons it isn't CSSLab's copy any more:
+//
+//  - CSSLab have deleted maia_rapid.onnx from their main branch (they ship
+//    public/maia3/ now), so their commit e23a50e was the only thing still
+//    serving it: a single point of failure on the demo path, outside our
+//    control.
+//  - Both files are pinned to the SAME commit of the SAME repo, which is what
+//    stops the weights and the move index drifting apart. Mismatch there
+//    wouldn't error, it would silently decode the wrong move.
+//
+// Mirrored byte-for-byte (sha256 round-trip verified through raw). MIT, (c) 2024
+// CSSLab; notice reproduced in that repo. NOT a GitHub Release, deliberately -
+// release assets come off an Azure blob with no CORS headers at all, so a
+// browser fetch of one fails outright. Checked in a real browser, both ways.
+const ASSET_BASE =
+  "https://raw.githubusercontent.com/juanmendoza-dev/engine-room-assets/7c916f4d794ff411ffe6d0be85c8b1c75e61c8fe/maia2";
 
-// The move index the policy head is ordered by, pinned to the SAME commit as the
-// model so the two can't drift apart. The file has since moved twice upstream
-// (hooks/ -> providers/ -> lib/), but both moves were pure renames: the blob SHA
-// at this commit and on main are identical, verified. The reversed direction is
-// derived by inversion rather than fetched separately.
-const MOVE_TABLE_URL =
-  "https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/src/hooks/useMaiaEngine/data/all_moves.json";
+const MODEL_URL = `${ASSET_BASE}/maia_rapid.onnx`;
+
+/** Move index the policy head is ordered by. Reversed direction is derived by
+ * inversion rather than fetched separately. */
+const MOVE_TABLE_URL = `${ASSET_BASE}/all_moves.json`;
 
 /** Rating buckets the model was trained with: <1100, then 100-wide, then >=2000. */
 const ELO_MIN = 1100;

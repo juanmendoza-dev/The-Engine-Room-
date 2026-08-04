@@ -58,6 +58,47 @@ work".
 - **Move index tables:** `src/lib/engine/data/all_moves_maia3.json` (58.7 KB) and
   `all_moves_maia3_reversed.json` (67.2 KB). Small enough to commit.
 
+## Where *our* copies live, and why not a GitHub Release
+
+The app no longer fetches from CSSLab. Both files are mirrored byte-for-byte in
+**`juanmendoza-dev/engine-room-assets`** (`maia2/`), fetched at runtime from
+`raw.githubusercontent.com` pinned to commit
+`7c916f4d794ff411ffe6d0be85c8b1c75e61c8fe`.
+
+Why we moved off the upstream URL: CSSLab have **deleted `maia_rapid.onnx` from
+their `main`**, so the pinned commit `e23a50e` was the only thing still serving
+it — a single point of failure on the demo path that we didn't control.
+
+Why a separate repo rather than `public/maia/` in this one: 93 MB in this repo's
+history forever, plus ~93 MB of Vercel egress per page load (about 1,000 loads
+against Hobby's 100 GB/month). The separate repo keeps the clone lean and puts
+the egress on GitHub — the same trade CSSLab made when they moved these files off
+their own hosting.
+
+**Why not a GitHub Release, which is the obvious answer:** release assets are
+served from `release-assets.githubusercontent.com`, an Azure blob that sends **no
+CORS headers at all** — no `Access-Control-Allow-Origin`, so a browser `fetch()`
+of one dies with a bare "Failed to fetch". `raw.githubusercontent.com` sends
+`Access-Control-Allow-Origin: *`. Both checked with `curl -H Origin:` *and* with
+a real `fetch()` from our own origin in headless Chrome, because the header dump
+alone is the kind of thing that's easy to misread. A Release was built, tested,
+found unusable, and deleted — don't retry it.
+
+Verification that the mirror is faithful, for anyone who needs to re-do it:
+
+```sh
+# sha256, ours vs upstream — must match
+curl -sSL "https://raw.githubusercontent.com/juanmendoza-dev/engine-room-assets/7c916f4d794ff411ffe6d0be85c8b1c75e61c8fe/maia2/maia_rapid.onnx" | sha256sum
+# 027ddb8c1a8b7235b6e51827cffe325f9cb95fd4523dce65a131547c034ccfc9
+```
+
+`all_moves.json`'s git blob SHA in our mirror is `1698c2296e…`, which is the same
+blob SHA it has upstream — independent confirmation it wasn't mangled in transit
+(`*.onnx binary` in `.gitattributes` there covers the weights for the same
+reason). **No Git LFS**, deliberately: `raw.githubusercontent.com` serves LFS
+pointer text rather than content, so LFS would break this outright — the same
+trap `docs/deployment.md` §4 flags for Vercel builds.
+
 ## The ONNX interface, confirmed from the reference worker
 
 ```js
