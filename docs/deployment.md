@@ -132,6 +132,14 @@ gh pr merge --squash --delete-branch
 git checkout main && git pull --ff-only origin main
 ```
 
+If you can't open the preview, don't stall the PR waiting for permission —
+**every preview URL 302s to Vercel SSO** while Deployment Protection is on, and
+there are no Vercel credentials on this machine. That's expected, not a problem
+with your branch. §4 has the details and the standing answer: the accepted
+substitute is a local production build (`next build` + `next start`) driven to a
+real result, plus Vercel's own green build status on the PR. Two PRs sat open
+overnight because that wasn't written here.
+
 Squash-merging through GitHub means GitHub signs the resulting commit, so `main`
 stays fully "Verified" — the AGENTS.md signing rule holds without extra work.
 If you ever merge locally instead, the merge commit gets signed by your own key
