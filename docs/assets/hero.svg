@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-label="The Engine Room — two engines, one board, nothing server-side">
+  <!--
+    Ink & Bone poster for the README. Tokens from docs/design/ink-and-bone-notes.md:
+    bone #f2f0ea, ink #16151a, accent #e0331f, squares #e9e6dd / #dcd8cb.
+    Text uses system font fallbacks on purpose - GitHub's image proxy blocks webfonts,
+    so Archivo Black is first choice and Arial Black is what most viewers will get.
+  -->
+
+  <rect width="1200" height="420" fill="#f2f0ea"/>
+
+  <!-- hairline frame, sharp corners -->
+  <rect x="14" y="14" width="1172" height="392" fill="none" stroke="#16151a" stroke-opacity="0.16" stroke-width="1"/>
+
+  <!-- printer's registration marks -->
+  <g stroke="#16151a" stroke-opacity="0.38" stroke-width="1" fill="none">
+    <circle cx="42" cy="42" r="6"/><line x1="32" y1="42" x2="52" y2="42"/><line x1="42" y1="32" x2="42" y2="52"/>
+    <circle cx="42" cy="378" r="6"/><line x1="32" y1="378" x2="52" y2="378"/><line x1="42" y1="368" x2="42" y2="388"/>
+    <circle cx="1158" cy="378" r="6"/><line x1="1148" y1="378" x2="1168" y2="378"/><line x1="1158" y1="368" x2="1158" y2="388"/>
+  </g>
+
+  <!-- the one red plate-corner tick, same gesture as the brand mark -->
+  <g stroke="#e0331f" stroke-width="3" fill="none">
+    <line x1="1146" y1="15.5" x2="1185" y2="15.5"/>
+    <line x1="1184.5" y1="14" x2="1184.5" y2="54"/>
+  </g>
+
+  <!-- kicker -->
+  <text x="70" y="84" font-family="'Spline Sans Mono','Courier New',monospace" font-size="13" letter-spacing="4.5" fill="#16151a" fill-opacity="0.62">TWO ENGINES &#183; ONE BOARD &#183; NOTHING SERVER-SIDE</text>
+
+  <!-- THE / ENGINE / ROOM - ENGINE is hollow, per the hero -->
+  <g font-family="'Archivo Black','Arial Black',Arial,sans-serif" font-weight="900" font-size="92" letter-spacing="-3">
+    <text x="66" y="182" fill="#16151a">THE</text>
+    <text x="66" y="270" fill="none" stroke="#16151a" stroke-width="2.5">ENGINE</text>
+    <text x="66" y="358" fill="#16151a">ROOM</text>
+  </g>
+
+  <!-- footer line -->
+  <text x="70" y="392" font-family="'Spline Sans Mono','Courier New',monospace" font-size="12" letter-spacing="3.5" fill="#16151a" fill-opacity="0.55">STOCKFISH 18 &#215; MAIA 2 &#8212; BOTH THINKING IN YOUR TAB</text>
+
+  <!-- the board: 8x8, Nf3 played, g1 ringed, f3 struck in red -->
+  <g>
+    <rect x="848" y="74" width="268" height="268" fill="none" stroke="#16151a" stroke-width="2"/>
+    <g>
+      <!-- dark squares only; light squares stay bone-adjacent -->
+      <g fill="#dcd8cb">
+        <rect x="883" y="76" width="33" height="33"/><rect x="949" y="76" width="33" height="33"/><rect x="1015" y="76" width="33" height="33"/><rect x="1081" y="76" width="33" height="33"/>
+        <rect x="850" y="109" width="33" height="33"/><rect x="916" y="109" width="33" height="33"/><rect x="982" y="109" width="33" height="33"/><rect x="1048" y="109" width="33" height="33"/>
+        <rect x="883" y="142" width="33" height="33"/><rect x="949" y="142" width="33" height="33"/><rect x="1015" y="142" width="33" height="33"/><rect x="1081" y="142" width="33" height="33"/>
+        <rect x="850" y="175" width="33" height="33"/><rect x="916" y="175" width="33" height="33"/><rect x="982" y="175" width="33" height="33"/><rect x="1048" y="175" width="33" height="33"/>
+        <rect x="883" y="208" width="33" height="33"/><rect x="949" y="208" width="33" height="33"/><rect x="1015" y="208" width="33" height="33"/><rect x="1081" y="208" width="33" height="33"/>
+        <rect x="850" y="241" width="33" height="33"/><rect x="916" y="241" width="33" height="33"/><rect x="982" y="241" width="33" height="33"/><rect x="1048" y="241" width="33" height="33"/>
+        <rect x="883" y="274" width="33" height="33"/><rect x="949" y="274" width="33" height="33"/><rect x="1015" y="274" width="33" height="33"/><rect x="1081" y="274" width="33" height="33"/>
+        <rect x="850" y="307" width="33" height="33"/><rect x="916" y="307" width="33" height="33"/><rect x="982" y="307" width="33" height="33"/><rect x="1048" y="307" width="33" height="33"/>
+      </g>
+      <g fill="#e9e6dd">
+        <rect x="850" y="76" width="33" height="33"/><rect x="916" y="76" width="33" height="33"/><rect x="982" y="76" width="33" height="33"/><rect x="1048" y="76" width="33" height="33"/>
+        <rect x="883" y="109" width="33" height="33"/><rect x="949" y="109" width="33" height="33"/><rect x="1015" y="109" width="33" height="33"/><rect x="1081" y="109" width="33" height="33"/>
+        <rect x="850" y="142" width="33" height="33"/><rect x="916" y="142" width="33" height="33"/><rect x="982" y="142" width="33" height="33"/><rect x="1048" y="142" width="33" height="33"/>
+        <rect x="883" y="175" width="33" height="33"/><rect x="949" y="175" width="33" height="33"/><rect x="1015" y="175" width="33" height="33"/><rect x="1081" y="175" width="33" height="33"/>
+        <rect x="850" y="208" width="33" height="33"/><rect x="916" y="208" width="33" height="33"/><rect x="982" y="208" width="33" height="33"/><rect x="1048" y="208" width="33" height="33"/>
+        <rect x="883" y="241" width="33" height="33"/><rect x="949" y="241" width="33" height="33"/><rect x="1015" y="241" width="33" height="33"/><rect x="1081" y="241" width="33" height="33"/>
+        <rect x="850" y="274" width="33" height="33"/><rect x="916" y="274" width="33" height="33"/><rect x="982" y="274" width="33" height="33"/><rect x="1048" y="274" width="33" height="33"/>
+        <rect x="883" y="307" width="33" height="33"/><rect x="949" y="307" width="33" height="33"/><rect x="1015" y="307" width="33" height="33"/><rect x="1081" y="307" width="33" height="33"/>
+      </g>
+    </g>
+    <!-- f3 struck in red -->
+    <rect x="1015" y="241" width="33" height="33" fill="#e0331f"/>
+    <!-- g1 ringed in ink -->
+    <rect x="1051" y="310" width="27" height="27" fill="none" stroke="#16151a" stroke-width="2.5"/>
+    <!-- the knight's path, g1 -> g3 -> f3 -->
+    <polyline points="1064.5,318 1064.5,257.5 1048,257.5" fill="none" stroke="#e0331f" stroke-width="2.5"/>
+  </g>
+  <text x="982" y="368" text-anchor="middle" font-family="'Spline Sans Mono','Courier New',monospace" font-size="11" letter-spacing="3" fill="#16151a" fill-opacity="0.55">MOVE 1 &#183; NF3 &#183; BLACK TO MOVE</text>
+</svg>
