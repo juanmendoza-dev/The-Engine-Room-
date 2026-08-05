@@ -1643,16 +1643,27 @@ the `evaluateMaiaAt` split that task introduced — the shared
 legal-move-softmax extraction lives in the same function, and doing it twice is
 how two copies of a decoder drift apart.
 
-**Landing order, so this doesn't turn into another stranded branch:**
-`feat/14-maia-rollouts` is pushed and its commits verify on GitHub, but it has
-**no PR yet on purpose** — it contains all of Task 13, so a PR against `main`
-today would show two features at once. The agreed sequence is: Task 13
-squash-merges first, then `feat/14` rebases onto `main` (`git fetch origin &&
-git rebase origin/main && git push --force-with-lease`) and opens its own PR.
-One commit on `feat/14` belongs to Task 13 — `5f5ace6`, its write-up, committed
-from another session while this branch happened to be checked out — and is
-deliberately left there rather than cherry-picked onto a branch someone else was
-working in.
+**How it was landed, since the stacking made it non-obvious.** `feat/14` was cut
+from Task 13's branch and so carried all of Task 13's commits, which would have
+made a PR against `main` show two features at once. So it waited for Task 13 to
+squash-merge (`#23`) and then rebased *past* its own base rather than onto it:
+
+```sh
+git rebase --onto origin/main 5f5ace6 feat/14-maia-rollouts
+```
+
+That replays only the seven Task 14 commits. A plain `git rebase origin/main`
+would have tried to reapply Task 13's four commits on top of the squash that
+already contains them — the trap `docs/deployment.md` describes, where a
+squash-merge leaves git unable to tell what has landed. The `5f5ace6` in that
+command is Task 13's write-up commit, which another session committed onto this
+branch by accident (`#24` tells that story) and which is the last commit whose
+content `main` already had.
+
+What made it safe to skip re-running the verification afterwards: `engineMaia.ts`
+and `user-1v1/page.tsx` were byte-identical between the old base and `main`, so
+the squash was exactly the code every check above ran against. Confirmed with
+`git diff 48824f2 origin/main -- <those files>` before rebasing, not assumed.
 
 Estimates a *human-realistic* win/draw/loss at a position: play it out N times
 with Maia choosing every move for both sides, count how they ended. Flat Monte
