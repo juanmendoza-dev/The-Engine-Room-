@@ -134,6 +134,9 @@ function nearestBucket(rating: number): RatingBucket {
  * instead of 9, for a parameter that is plausibly second-order.
  *
  * - Maia opponent: its `ratingTier` is already one of the 9, exactly.
+ * - Mixture opponent: same — the `ratingTier` driving its internal Maia call is
+ *   the closest thing it has to a human rating, and it's already on the right
+ *   scale. Its α/β/T shape *how* that policy gets used, which this can't see.
  * - Stockfish: its `UCI_Elo` is a different scale with no principled conversion
  *   to Maia's human-imitation buckets, so it gets rounded to the nearest one.
  *   1320 -> 1300 and 1800 -> 1800 are fair; 2800 -> 1900 is a real
@@ -141,7 +144,12 @@ function nearestBucket(rating: number): RatingBucket {
  * - Anything with no rating at all, including a `human` config: 1500.
  */
 export function resolveOppoBucket(opponent: EngineConfig): RatingBucket {
-  const rating = opponent.type === "maia" ? opponent.ratingTier : opponent.elo;
+  // `ratingTier ?? elo` rather than a switch on `type`, for two reasons: it's
+  // already on Maia's scale so it needs no conversion, and it covers a mixture
+  // config (ratingTier set, elo deliberately unset) without importing the engine
+  // registry — which would drag onnxruntime-web into what is otherwise pure math.
+  // No preset sets both fields, so the precedence never actually arbitrates.
+  const rating = opponent.ratingTier ?? opponent.elo;
   return rating === undefined ? 1500 : nearestBucket(rating);
 }
 

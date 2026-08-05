@@ -1,4 +1,5 @@
 import { getMaiaMove } from "./engineMaia";
+import { getMixtureMove } from "./engineMixture";
 import { getStockfishMove } from "./engineStockfish";
 import type { EngineConfig, EngineMove } from "./types";
 
@@ -22,7 +23,107 @@ export const MAIA_PRESETS: EngineConfig[] = [
   { type: "maia", label: "Maia 1900", ratingTier: 1900 },
 ];
 
-export const ALL_ENGINE_PRESETS: EngineConfig[] = [...STOCKFISH_PRESETS, ...MAIA_PRESETS];
+// Deliberately not labelled with a strength number. Every other preset here shows
+// a figure the engine itself was configured with — Stockfish's own `UCI_Elo`,
+// Maia's own rating input — and this one has no such figure to show. `α:β = 1:1`
+// means "no opinion yet", not "balanced": a win probability lives in 0..1 and a
+// log-probability is unbounded below, so equal weights aren't a neutral midpoint,
+// they're an arbitrary point on a scale nobody has calibrated. Putting a number on
+// the label would be inventing one.
+//
+// What would earn a number: docs/specs/2026-08-05-sprt-engine-ratings.md's match
+// harness reporting one. Until then `multiPv: 8` and `1:1` are starting guesses,
+// and `/dev/mixture-test` is where the hand-calibration in the spec's step 1 runs.
+//
+// Two things that harness already measured, both relevant to whoever tunes these:
+//
+//  - **`multiPv: 8` costs ~5-6 plies of search depth** at the fixed 500ms budget
+//    (depth 17 → 12, 20 → 14 against MultiPV=1). Kept at 8 anyway, because the
+//    spec chose it and swapping in 4 would be trading one uncalibrated guess for
+//    another — but it's a real cost, not a free widening, and SPRT should sweep it.
+//  - **β = 1 is two to three orders of magnitude past where the blend balances.**
+//    Measured: on the start position the choice flips from Stockfish's move to
+//    Maia's between β = 0.001 and β = 0.01, and never flips back through β = 5.
+//
+//    That isn't a quirk of one position, it falls out of the units. With α fixed at
+//    1, Stockfish can only overturn Maia's preference between two moves when
+//    `Δ winProb > β · Δ log P`. The logistic is flat near cp 0 — its slope is
+//    `k/4 ≈ 0.00092` per centipawn — so two candidates 10cp apart differ by ~0.009
+//    in win probability, while their Maia log-probabilities routinely differ by ~2.
+//    Solving with the real numbers from that position (Δ winProb 0.005 against
+//    Δ log P 2.05) puts the crossover at β ≈ 0.0024, which is exactly where the
+//    sweep found it.
+//
+//    So a calibrated β is likely O(0.001-0.01), and "1:1" is not a neutral
+//    midpoint — it is deep in Maia-decides territory, where the Stockfish term only
+//    reorders candidates whose policy probabilities are within a factor of
+//    `e^(α/β) ≈ 2.7` of each other. Kept at 1 regardless, because the spec chose it
+//    and a hand-picked 0.0024 would just be a better-informed guess without SPRT
+//    behind it — but nobody should read this preset as a balanced blend.
+//
+// And one more, the most visible — and the one whose obvious explanation is wrong:
+//
+//  - **This preset draws against itself in 8 plies**, by threefold repetition:
+//    1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 Ng8. Measured on /model-1v1 with
+//    `web/scripts/cdp-mixture-game.mjs`.
+//
+//    The tempting read is "T=0 makes both sides deterministic, so raise the
+//    temperature." Both halves of that are wrong, and the sweep says so. Raising T
+//    doesn't fix it — at T=1 the engine just finds a *different* 2-cycle
+//    (1. Nf3 Nf6 2. Ng1 Ng8 3. Nc3 Nc6 4. Nb1 Nb8) and still draws, 12 plies in.
+//    And the mixture didn't introduce it: **Maia 1500 and Maia 1100 self-play
+//    produce the identical Nf3/Ng1 shuffle and the identical 8-ply threefold** on
+//    this same build. At β=1 the blend is Maia-dominated, so it is faithfully
+//    inheriting a property of the policy net.
+//
+//    Why Maia does it: Maia 2's input has no move-history planes (see
+//    `docs/maia-notes.md`), so after 1. Nf3 Nf6 it cannot see that it just played
+//    Nf3. Played greedily, a history-free policy over a position pair where each
+//    move's inverse is also well-liked is a 2-cycle attractor, and sampling only
+//    moves which cycle it lands in.
+//
+//    So `temperature: 0` stays. The actual cure is the randomized opening book in
+//    `2026-08-05-sprt-engine-ratings.md`, which exists for exactly this — it
+//    replaces engine choice for the first K plies. Not a mixture concern.
+
+export const MIXTURE_PRESETS: EngineConfig[] = [
+  {
+    type: "mixture",
+    label: "Policy Mixture (uncalibrated)",
+    ratingTier: 1500,
+    multiPv: 8,
+    alpha: 1,
+    beta: 1,
+    temperature: 0,
+  },
+];
+
+export const ALL_ENGINE_PRESETS: EngineConfig[] = [
+  ...STOCKFISH_PRESETS,
+  ...MAIA_PRESETS,
+  ...MIXTURE_PRESETS,
+];
+
+/**
+ * Does this config download the ~93MB Maia weight file?
+ *
+ * Exists because two lookalike checks in the page components need **opposite**
+ * treatment for a mixture config, and a naive "add mixture everywhere" pass gets
+ * one right and the other backwards:
+ *
+ *  - `<MaiaLoadNotice>` — yes, include mixture. It pays exactly the same download,
+ *    so a screen that doesn't warn about it just looks frozen for 25 seconds.
+ *  - the ki-charge bar's indeterminate state — no, exclude mixture. Maia alone has
+ *    no search and therefore no depth to report, but the mixture's internal
+ *    Stockfish call streams real `info depth` lines through the same `onInfo`
+ *    passthrough, so it should show a real bar like any Stockfish config.
+ *
+ * A named predicate for the first case makes the second one's plain
+ * `type === "maia"` read as deliberate rather than as a spot somebody missed.
+ */
+export function usesMaiaWeights(config: EngineConfig): boolean {
+  return config.type === "maia" || config.type === "mixture";
+}
 
 /**
  * The single entry point every screen and the game loop use. Nothing downstream
@@ -33,7 +134,8 @@ export const ALL_ENGINE_PRESETS: EngineConfig[] = [...STOCKFISH_PRESETS, ...MAIA
  * feeds the fight-FX "ki charge" bar a real search depth instead of a decorative
  * ramp. Maia never calls it — it's a policy network doing one forward pass, so
  * there is no search and no depth to report; callers should treat "no info" as
- * indeterminate rather than as zero.
+ * indeterminate rather than as zero. A mixture config *does* call it, from its
+ * internal Stockfish search, so it needs no such special case.
  */
 export async function getMoveFor(
   fen: string,
@@ -42,6 +144,7 @@ export async function getMoveFor(
 ): Promise<EngineMove> {
   if (config.type === "stockfish") return getStockfishMove(fen, config, onInfo);
   if (config.type === "maia") return getMaiaMove(fen, config);
+  if (config.type === "mixture") return getMixtureMove(fen, config, onInfo);
   throw new Error(`No engine available for config type: ${config.type}`);
 }
 

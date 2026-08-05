@@ -11,7 +11,7 @@ export type GameMode = "model-1v1" | "user-1v1";
 export type GameResult = "1-0" | "0-1" | "1/2-1/2";
 
 export interface GamePlayer {
-  type: EngineType; // "stockfish" | "maia" | "human"
+  type: EngineType; // "stockfish" | "maia" | "human" | "mixture"
   label: string; // e.g. "Stockfish 1800", "You"
 }
 

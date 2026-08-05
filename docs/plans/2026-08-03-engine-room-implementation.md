@@ -1803,6 +1803,171 @@ production build. Every check green, zero console errors.
 
 ---
 
+## Task 15: Policy mixture engine (added 2026-08-05, outside the original plan)
+
+The third of the five 2026-08-05 stretch specs, and #3 in
+`docs/specs/2026-08-05-build-priority.md`'s order. A fourth `EngineType` that
+isn't a third model: Stockfish's `MultiPV` shortlist scored against Maia's policy,
+`score(m) = α · winProb(cp_m) + β · log P_maia(m)`, arg-maxed or sampled through a
+temperature. Both models run exactly as they already do; this is arithmetic on
+their two outputs, which keeps it inside the no-training constraint by
+construction. Spec:
+[`docs/specs/2026-08-05-policy-mixture-engine.md`](../specs/2026-08-05-policy-mixture-engine.md).
+
+**Files:**
+- Create: `web/lib/chess/engineMixture.ts`
+- Create: `web/app/dev/mixture-test/page.tsx`, `web/scripts/cdp-mixture-game.mjs`
+- Modify: `web/lib/chess/types.ts` (`"mixture"` + 4 optional fields),
+  `web/lib/chess/engineStockfish.ts` (`getStockfishLines`, and `MultiPV 1` set
+  explicitly on every `getStockfishMove` call), `web/lib/chess/engines.ts`
+  (dispatch, `MIXTURE_PRESETS`, `usesMaiaWeights`),
+  `web/app/{model-1v1,user-1v1}/page.tsx`, `web/lib/analysis/ratingPosterior.ts`,
+  `web/lib/games/types.ts`
+
+- [x] `getStockfishLines(fen, config, multiPv, onInfo)` on the shared worker queue,
+      returning per-line `cp`/`mate`/`depth` plus the raw `bestmove`
+- [x] `buildCandidates` / `selectMixtureMove` / `evaluateMixture` / `getMixtureMove`,
+      with the union rule, the epsilon floor and the temperature sampler
+- [x] Dispatch arm, one preset, and `usesMaiaWeights` for the two lookalike checks
+      that need opposite treatment
+- [x] All three of the spec's falsifiable checks, plus the NaN case, the union
+      case, mate ordering, and the two questions the spec left open
+- [x] Driven end to end on /model-1v1 with the mixture on both sides
+
+### What differed from the spec
+
+**The mate-ordering scheme doesn't work, and the reason generalises.** The spec
+maps mate distance to a synthetic cp of `100_000 - |mate|` and reuses the win-probability
+logistic, on the stated reasoning that "the logistic saturates long before this;
+sign + ordering are what matter". Sign survives. Ordering does not:
+`exp(-0.00368 · 99_995)` underflows, so `winProb` returns *exactly* `1.0` for every
+mate at every distance, mate-in-1 ties mate-in-5, and the stable sort quietly falls
+back to Stockfish's multipv order. Replaced with a clamp plus a reserved band —
+cp clamped to ±3000, mates mapped into `(3000, 4000]` by distance — which makes the
+ordering real.
+
+Real, and still not sufficient, which is the more useful finding: the margin between
+mate-in-1 and mate-in-5 is ~6e-9 of win probability, while a `β · log P` difference
+is order 1. **This engine does not guarantee it plays the fastest available mate**,
+and no choice of constants fixes that, because a bounded win probability blended
+against an unbounded log-probability will always lose the tail comparison. A hard
+"a mate ends the game, skip the blend" override would fix it; it isn't built here
+because it would break the α=0 verification check and deserves its own spec.
+
+**β = 1 is two to three orders of magnitude past where the blend balances.** The
+spec calls `1:1` a starting guess; it's further off than that suggests. On the start
+position the choice flips from Stockfish's move to Maia's between β = 0.001 and
+β = 0.01 and never flips back through β = 5. The exact crossover is β ≈ 0.0027, and
+it's structural rather than positional: the logistic's slope at cp 0 is `k/4 ≈ 0.00092`
+per centipawn, so two candidates 10cp apart differ by ~0.009 in win probability while
+their Maia log-probabilities differ by ~2. At β = 1 the Stockfish term can only
+reorder candidates whose policy probabilities sit within a factor of `e^(α/β) ≈ 2.7`
+of each other. The preset still ships at 1:1, because 0.0027 without SPRT behind it
+is just a better-informed guess — but it should be read as Maia-dominated, not
+balanced. That crossover is calibration step 1's answer, and `/dev/mixture-test`
+now prints it from the closed form.
+
+**Both of the spec's flagged unknowns are now measured, and they went opposite ways.**
+
+- *MultiPV costs real depth.* At the fixed 500ms movetime, `MultiPV=1` → `MultiPV=8`
+  drops depth 17 → 12 on an open Italian and 20 → 14 on a closed middlegame. So a
+  wider shortlist buys candidates by making every candidate's evaluation shallower,
+  with nothing in the output marking it. `multiPv: 8` is kept as specified, but it
+  isn't free and SPRT should sweep it.
+- *`UCI_LimitStrength` does not corrupt the reported evals.* At `MultiPV=5`, uncapped
+  and `UCI_Elo 1320` returned byte-identical cp across all five lines
+  (`d2d4:38 f1b5:37 b1c3:21 f1c4:20 f1e2:-3`) while the `bestmove` token moved from
+  `d2d4` to `a2a4`. Limit-strength picks a different line to play; it doesn't lie
+  about what the lines are worth. One position, so not a proof — but it's direct
+  evidence where the spec had an inference from one indirect data point, and it means
+  the internal call's skipping of limit-strength is a clean-calibration choice rather
+  than a workaround.
+
+**`UCI_ShowWDL` is advertised by this build.** The spec named Stockfish's own
+`info … wdl w d l` as the properly calibrated replacement for Lichess's fitted
+constant and left "does this lite build have it" open. It does:
+`option name UCI_ShowWDL type check default false`. So that follow-up has no
+unknowns left in front of it. Not taken here, because it changes what α weights and
+therefore wants its own before/after calibration.
+
+**The preset draws against itself in 8 plies, and the obvious explanation is
+wrong.** `1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 Ng8`, threefold repetition. The
+tempting diagnosis is "T=0 makes both sides deterministic, so raise the temperature",
+and it survives neither half of a measurement:
+
+- *Raising T doesn't fix it.* Swept T = 0.25, 0.5 and 1 as temporary presets. 0.25
+  and 0.5 draw at 8 plies exactly as T=0 does; T=1 finds a **different** 2-cycle
+  (`3. Nc3 Nc6 4. Nb1 Nb8`) and draws at 12. Sampling changes which cycle, not
+  whether there is one.
+- *The mixture didn't introduce it.* **Maia 1500 and Maia 1100 self-play produce the
+  identical Nf3/Ng1 shuffle and the identical 8-ply threefold** on this build. At
+  β=1 the blend is Maia-dominated, so this is inherited, faithfully. It has presumably
+  been true of Maia-vs-Maia since Task 3 and gone unnoticed because /model-1v1
+  defaults to Stockfish 1320 vs 2800.
+
+Root cause is in the model, not the blend: Maia 2's input carries no move-history
+planes, so after `1. Nf3 Nf6` it cannot see that it just played Nf3. A history-free
+policy played greedily, over a position pair where each move's inverse is also
+well-liked, is a 2-cycle attractor. Written up in `docs/maia-notes.md`, where it
+belongs. `temperature: 0` therefore stays as specified, and the real cure is the
+randomized opening book in `2026-08-05-sprt-engine-ratings.md` — which exists for
+precisely this and replaces engine choice for the first K plies.
+
+Worth recording as a process note too: the first draft of this section confidently
+blamed determinism and recommended `T > 0`. One sweep and one Maia-vs-Maia control
+run falsified both claims. The control run is the part that mattered — without it
+this would have shipped as a mixture bug with a fix that doesn't work.
+
+**The spec's consumer audit missed one site, because Task 13 post-dates the spec.**
+`resolveOppoBucket` in `web/lib/analysis/ratingPosterior.ts` read
+`type === "maia" ? ratingTier : elo`, which sends a mixture config down the `elo`
+branch to `undefined` and silently defaults it to 1500 — wrong, since a mixture
+config's `ratingTier` is already on Maia's scale exactly. Fixed as
+`ratingTier ?? elo` rather than by importing `usesMaiaWeights`: that module is pure
+math, and importing the engine registry would drag `onnxruntime-web` into it and
+break the plain-Node runnability `2026-08-05-sprt-engine-ratings.md` is counting on.
+
+**`uciToMove` briefly wasn't on `main`.** The spec's illustrative code imports it
+from `engineMaia.ts`, but it's a Task 14 addition and `#25` was still open while this
+was built, so the first pass exported `parseUciMove` — the same four lines, already
+private in `engineStockfish.ts` — rather than add a second copy that would collide
+on merge. `#25` has since merged, so this branch was rebased onto it and the
+workaround dropped: `engineMixture` imports `uciToMove` as the spec always intended
+and `parseUciMove` is private again. The two remain near-duplicates of each other in
+their respective modules, which is pre-existing and small enough to leave alone.
+
+**One guard earned its keep immediately.** `evaluateMixture` throws when Stockfish
+reports zero scored lines at a position that has legal moves, because the union rule
+means a broken MultiPV parse would otherwise leave Maia's favourite as the only
+candidate and degrade the whole engine to plain Maia — still returning legal moves,
+still looking like it works. It fired on the first verification run, on a test FEN of
+mine with the two kings adjacent: chess.js reported a legal move for the illegal
+position while Stockfish answered `bestmove (none)`. Two of the ten corpus FENs were
+wrong that way (the other was Fool's Mate, i.e. zero legal moves rather than "few").
+
+**`cp`-argmax and `multipv 1` can disagree.** Seen once, on a quiet Italian position
+at `MultiPV=8`, where rank 1 reported cp 25 and rank 3 reported cp 27 — the
+depth-inequality risk the spec lists, since the lines don't finish at equal depths.
+Rare rather than routine: 7/7 agreement across the C1 corpus. So the β=0 check asserts
+on the mixture's own contract (the highest-cp candidate) and *reports* multipv-1
+agreement with the depths alongside, instead of asserting on something that can
+honestly differ.
+
+### Left undone
+
+- [ ] **No strength claim exists, by design.** Nothing here says how strong this
+      engine is; `2026-08-05-sprt-engine-ratings.md`'s harness is the only thing that
+      could, and it hasn't run. The preset label deliberately carries no number.
+- [ ] **β, `multiPv` and T are all uncalibrated.** The crossover analysis narrows β
+      to O(0.001-0.01) and the depth measurement argues against a wide `multiPv`, but
+      narrowing is not choosing.
+- [ ] **`UCI_ShowWDL` not adopted** — confirmed available, not wired up.
+- [ ] **No fastest-mate guarantee**, per above.
+- [ ] **The limit-strength × MultiPV result is one position.** Consistent with the
+      documented behaviour, but a sweep would settle it properly.
+
+---
+
 ## After Phase 3
 
 Stop and check in with the user. Stretch goals (eval bar, blunder summary, adaptive-opponent heuristic, win-rate stats, expanding Maia to all 9 rating tiers) are explicitly not part of this plan — they get their own planning pass only after Phases 0–3 are confirmed working end to end.
