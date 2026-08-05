@@ -43,6 +43,19 @@ export interface RunModelGameOptions {
   moveDelayMs?: number;
   /** Abort a game in flight (component unmount, rematch, navigating away). */
   signal?: AbortSignal;
+  /**
+   * Start from this position instead of the standard opening.
+   *
+   * Added for the SPRT match runner (Task 16), which opens every game from a
+   * randomized book: both engines are close to deterministic, so replaying the
+   * start position N times is one game wearing N costumes and every interval
+   * computed off it is a lie. Distinct *positions* are what decorrelate the
+   * sample — nothing about either engine changes.
+   *
+   * Note the returned `moves` still only covers plies this loop played. A caller
+   * that wants the whole game concatenates its own prefix.
+   */
+  startFen?: string;
   /** Fires before each search starts, so the UI can show who's thinking. */
   onThinkStart?: (side: "w" | "b", engine: EngineConfig) => void;
   /**
@@ -116,9 +129,9 @@ export async function runModelGame(
    * `moveDelayMs`.
    */
   onMove: (fen: string, sanMove: string, played: MovePlayed) => void | number,
-  { moveDelayMs = 350, signal, onThinkStart, onSearchDepth }: RunModelGameOptions = {},
+  { moveDelayMs = 350, signal, onThinkStart, onSearchDepth, startFen }: RunModelGameOptions = {},
 ): Promise<ModelGameResult> {
-  const chess = new Chess();
+  const chess = new Chess(startFen);
   const moves: string[] = [];
 
   while (!chess.isGameOver()) {
