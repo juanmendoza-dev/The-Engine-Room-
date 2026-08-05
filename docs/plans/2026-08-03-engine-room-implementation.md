@@ -1784,6 +1784,13 @@ production build. Every check green, zero console errors.
   should — and **moving a piece wiped the numbers**, which is the state that would
   otherwise be the most misleading thing on the page. No `Session already started`,
   so the rollouts and the live game shared one ORT session without colliding.
+- **Then the same harness against the live site after merging** (`#25`), because a
+  green Vercel build says nothing about a panel that renders client-side and only
+  after a game starts — grepping production HTML for it returns 0 on a perfectly
+  good deploy, exactly the bad-oracle trap in `docs/deployment.md` §4. Every check
+  passed on production, no console errors, and 30 rollouts took **86 s there
+  against 83.7 s locally**: the compute is local CPU, so unlike Maia's cold load it
+  carries no production penalty at all.
 
 #### Still open
 

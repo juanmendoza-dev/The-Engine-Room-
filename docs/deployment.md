@@ -510,6 +510,15 @@ the progress bar keeps counting, which is exactly what it's there for.
 Our mirror is **not** the cause; benchmarked against the file it replaced, ours
 was faster (37.7 s vs 63.8 s for the same 93 MB).
 
+**The rollouts (Task 14) do not inherit this asymmetry, which is worth knowing
+before you plan a demo around them.** Maia's *load* is much slower live; its
+*compute* isn't, because it's local CPU either way. Thirty rollouts measured
+**86 s on production against 83.7 s on a local production build** — the same
+number. So the "Odds from here" button costs what it costs wherever you run it,
+and everything expensive about doing it live is the model download you already
+paid. Corollary for the demo: get Maia loaded first (below), and the odds are
+then no riskier on stage than on your laptop.
+
 **Demo mitigation:** open a Maia game once before anyone is watching, and don't
 reload that tab. The session is a module-level singleton, so it loads once per
 tab and every later game in that tab is instant. A refresh pays the full cost
