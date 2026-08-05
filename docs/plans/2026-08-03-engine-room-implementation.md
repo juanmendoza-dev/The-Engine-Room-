@@ -2065,6 +2065,157 @@ instead of `elo_oppo = elo_self` moves log loss by **0.00116 nats**, so
   nobody has run the estimator with and without the correction.
 - **One month, one site, first ~14,000 games.** Not a uniform draw from the
   month, and Lichess rapid is a self-selected population.
+## Task 16: SPRT engine ratings (added 2026-08-05, outside the original plan)
+
+Spec: [`../specs/2026-08-05-sprt-engine-ratings.md`](../specs/2026-08-05-sprt-engine-ratings.md).
+Fourth of the five 2026-08-05 stretch specs. Task 15 (the policy mixture) was
+running in a parallel lane, so this was cut from `main` rather than stacked on
+it — nothing here touches the files that task edits.
+
+Measures what the presets are actually worth, instead of what their dropdown
+labels claim. Closes an admission that has been sitting in Task 2 since the
+Stockfish spike:
+
+> Depth does not vary with ELO (13 at both 1320 and 2800)... this spike proves
+> the options are accepted and the engine searches; it does **not** prove the
+> ELO settings change playing strength.
+
+Results, and how to read them: [`../rating-notes.md`](../rating-notes.md).
+
+**Files:**
+- Create: `web/lib/analysis/{types,eloModel,sprt,ratingBT,ratingGlicko2,openingBook,matchRunner}.ts`
+- Create: `web/lib/analysis/fixtures/{games-log.jsonl,ratings.json}`
+- Create: `web/app/dev/match-runner/page.tsx`
+- Create: `web/scripts/{verify-analysis-math.mjs,sprt-run.mjs,ts-extension-resolver.mjs}`
+- Modify: `web/lib/chess/gameLoop.ts` (one optional `startFen`), `web/app/dev/README.md`,
+  `docs/deployment.md`, `docs/README.md`
+
+- [x] Davidson-extended Bradley-Terry fit, Wald SPRT, Glicko-2, all pure
+- [x] Randomized opening book — 21 lines, checked legal *and* non-transposing
+- [x] `verify-analysis-math.mjs`: 55 checks under plain Node, no browser, no engine
+- [x] Match runner on `/dev/match-runner`, driven by `sprt-run.mjs`
+- [x] Real matches played, fixture committed
+
+### What differed from the spec
+
+**Ford's condition is checked structurally, before fitting — not caught
+afterwards as a bad iterate.** The spec says to "detect a diverging/NaN iterate
+and report insufficient connectivity". Detecting it up front is strictly better:
+there is no divergence to catch, and the report can name *which* preset and
+*why*. A preset that swept its games and a preset in a disconnected engine
+family both fail the MLE's existence condition, but for opposite reasons, and
+they get different notes. Draws count as an edge in both directions, which is
+the natural reading of Ford under Davidson and stops an all-draws pairing being
+called disconnected.
+
+**The MM cross-check lives in the verification script, not in the module.** The
+spec suggests implementing both MM and coordinate-wise Newton and checking they
+agree. Shipping both inside `ratingBT.ts` would make the "independent"
+implementation share a file, its aggregation code, and its author's assumptions
+with the thing it checks — so the second implementation is written from scratch
+in `verify-analysis-math.mjs` instead, from wins-and-games counts up. They agree
+to **1.8e-12 Elo** and land on the same log-likelihood.
+
+It is the *plain* Bradley-Terry MM, run on a no-draw fixture, deliberately. The
+Davidson-extended MM update needs a second minorization on the √(π_iπ_j) term,
+and the spec explicitly declines to derive it ("see Hunter (2004) rather than a
+hand-derivation here"). Reconstructing it from memory would be inventing a
+reference and calling it a check. The shared Bradley-Terry core is what gets
+exercised, and a sign error in it shows up regardless of the tie term.
+
+**Standard errors come from the full inverse information matrix.** The spec asks
+only for "stderr per preset". Two presets that played each other are strongly
+correlated — the likelihood only ever sees their difference — so diagonal-only
+errors read too narrow. Measured on the same fixture: 12.198 Elo full-covariance
+against 11.976 diagonal-only. Small, but free, and it is the kind of 2% that
+quietly turns a 95% interval into a 94% one. The β/θ cross term was the easiest
+piece of algebra to get wrong here, which is why it is checked against a
+numerically differentiated Hessian rather than reasoned about.
+
+**A colour-swapped pair always finishes, even after the SPRT decides.** Not
+addressed by the spec, and two of its requirements pull apart: the trinomial LLR
+is a per-game quantity (so the stopping rule is evaluated per game), but
+cancelling first-move bias is the entire reason the runner swaps colours (so
+stopping dead can leave the sample one game heavier in white). The pair
+completes; the extra game goes into the log for the rating fit and the
+already-decided SPRT ignores it. Costs at most one game.
+
+**A single match holds γ fixed; only the pooled fit estimates it.** The spec
+calls γ a nuisance parameter "fit once from pooled data", and that is exactly
+what `sprt-run.mjs` does when it regenerates `ratings.json` across every logged
+game. Inside one ~30-game pairing there is nowhere near the data — a noisy γ̂
+would drag δ̂ with it — so `matchRunner.ts` pins γ at the SPRT's value, which
+also honours the spec's "rating fit and SPRT share one model, not two". The
+consequence is that a match's own reported gap and the pooled fit's gap for the
+same pair differ slightly. That is the two γ's, not an inconsistency.
+
+**The verification script runs the repo's actual TypeScript.** The spec's plan
+for `verify-analysis-math.mjs` assumes this is possible, and it is — Node 24
+strips types with no flag and no dependency — but with a catch that reads like a
+different problem entirely: Node does not rewrite import specifiers, so our
+extensionless relative imports fail with `ERR_MODULE_NOT_FOUND` naming a file
+that is plainly there, while the `import type` lines resolve fine because they
+are erased first. `scripts/ts-extension-resolver.mjs` is a ten-line resolve hook.
+Written up in `docs/deployment.md` §4 so the next Node-side check doesn't
+rediscover it.
+
+**The book got a transposition check the spec doesn't ask for.** It asks for
+"structurally distinct lines... not move-order permutations", which is a property
+you can assert about a list and be wrong about. Replaying each line and comparing
+the resulting positions is the same claim, measured: 21 lines, 21 distinct
+positions. Sizing came out at 21 rather than the spec's ~16 minimum, which buys
+margin on the 320-game case where 16 lines average ~20 repeats each.
+
+**Glicko-2 was built** despite being marked "secondary, optional", because
+Glickman's paper ships a fully worked example — so it is ~90 lines that arrive
+with their own known-answer test, which is a better ratio than most code gets.
+
+### Verification — observed, not asserted
+
+`node scripts/verify-analysis-math.mjs`, ~10 seconds, no Chrome and no engine:
+**55 checks, all green.** The ones that would actually have caught something:
+
+- **Newton vs an independently written MM fit:** agree to 1.8e-12 Elo across
+  three presets, identical log-likelihood.
+- **Standard errors vs a numerically differentiated Hessian:** match to four
+  decimal places, for both δ̂ and γ̂.
+- **Interval coverage:** 96.3% of 300 replications put the truth inside
+  δ̂ ± 1.96·stderr. This is the check a wrong Hessian fails and every other check
+  above passes.
+- **SPRT error rates:** 96.5% correct under H1 and 94.8% under H0 over 400
+  series each, against a nominal 95% — the right side of nominal, as Wald's
+  overshoot-ignoring bounds predict. Mean stopping counts 25.1 and 22.8 against
+  a predicted 22.3 and 20.7.
+- **Glicko-2 vs the paper:** 1464.0507 / 151.5165 / 0.06 against Glickman's
+  published 1464.06 / 151.52 / 0.05999.
+- **Colour bookkeeping:** mirroring every game (swap sides, flip result) leaves
+  the fit bit-identical. Reading `1-0` as "preset A won" is right half the time
+  and silently wrong the other half, and no amount of eyeballing a plausible Elo
+  reveals it.
+- **The half-win bias, measured rather than argued:** the spec derives
+  algebraically that scoring draws as half-wins understates a true 200-Elo gap as
+  ~159. On 4,000 synthetic games it came out at **158.2**.
+- **The spec's own worked numbers** — P(win)=0.626 at δ=200/γ=0.5, E₁[Z]=0.119
+  and 0.0082, E[N]≈22 and ≈320 — all reproduce. Worth having: they are what the
+  whole "is this worth 320 games" argument rests on, and nobody had run them.
+
+### Left undone
+
+- **The full 15-pairing roster is not played.** The spec puts scheduling out of
+  scope ("a thin loop left unchoreographed") and the fixture covers a connected,
+  anchored subgraph rather than every pair. Adding a pairing is one more
+  `sprt-run.mjs` invocation; `ratings.json` refits over everything logged.
+- **Every match is a 0-vs-200 question.** The spec's precision case (0 vs 50,
+  ~320 games) is a ~3-hour serial run per pairing and was not started.
+- **Still no parallelism.** `engineStockfish.ts` is one shared Worker behind a
+  promise queue, so two concurrent games interleave onto it rather than going
+  faster. `2026-08-05-engine-worker-pool.md` is the real fix and does not exist.
+  The multi-tab workaround the spec suggests would work today and wasn't needed
+  at this scale.
+- **Pentanomial scoring**, fishtest's actual refinement, is still a deliberate
+  non-goal — trinomial plus colour-pairing is the smaller step.
+- **`label`-as-id.** `EngineConfig` still has no identifier, so renaming a preset
+  orphans its logged history. Cheap to fix if it ever bites.
 
 ---
 
