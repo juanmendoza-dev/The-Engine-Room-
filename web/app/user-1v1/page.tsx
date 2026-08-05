@@ -7,6 +7,7 @@ import { Board } from "@/components/Board";
 import { EngineConfigPicker } from "@/components/EngineConfigPicker";
 import { FxStage, type FxHandle } from "@/components/fx/FxStage";
 import { MaiaLoadNotice } from "@/components/MaiaLoadNotice";
+import { IDLE_ODDS, OddsReadout, type OddsState } from "@/components/OddsReadout";
 import { RatingReadout } from "@/components/RatingReadout";
 import { ResultScreen } from "@/components/ResultScreen";
 import {
@@ -25,6 +26,7 @@ import {
   parseSearchDepth,
 } from "@/lib/chess/engines";
 import { describeEnd, type GameEndInfo } from "@/lib/chess/gameLoop";
+import { DEFAULT_ROLLOUTS, RolloutAbortedError, runMaiaRollouts } from "@/lib/chess/maiaRollout";
 import type { EngineConfig } from "@/lib/chess/types";
 import { classify } from "@/lib/fx/classify";
 import { ALL_FX_IDS } from "@/lib/fx/effects";
@@ -98,8 +100,17 @@ export default function User1v1Page() {
   const estimatorQueue = useRef<Promise<void>>(Promise.resolve());
   const estimatorPending = useRef(0);
 
+  // Rollout odds. Its own AbortController rather than sharing the game's: this is
+  // the one thing on the page a user may well want to stop without disturbing the
+  // game it's describing.
+  const [odds, setOdds] = useState<OddsState>(IDLE_ODDS);
+  const oddsAbortRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
-    return () => abortRef.current?.abort();
+    return () => {
+      abortRef.current?.abort();
+      oddsAbortRef.current?.abort();
+    };
   }, []);
 
   // Drive the header's scoreboard. Gated on `started` because this page shows no
@@ -144,6 +155,9 @@ export default function User1v1Page() {
     estimatorPending.current = 0;
     setRatingReport(null);
     setRatingWorking(false);
+
+    oddsAbortRef.current?.abort();
+    setOdds(IDLE_ODDS);
 
     // The engine opens when the user takes Black.
     if (userColor === "black") void engineReply();
@@ -294,6 +308,55 @@ export default function User1v1Page() {
     }
   }
 
+  /**
+   * Plays the current position out N times and reports how it went. On demand
+   * only: this is tens of seconds of Maia self-play on the main thread, which is
+   * fine once when asked for and impossible per ply of a live game.
+   */
+  function runOdds() {
+    const game = gameRef.current;
+    if (!game || game.isGameOver()) return;
+
+    oddsAbortRef.current?.abort();
+    const controller = new AbortController();
+    oddsAbortRef.current = controller;
+
+    const fenAtStart = game.fen();
+    setOdds({ status: "running", result: null, progress: null, error: null, forFen: fenAtStart });
+
+    void (async () => {
+      try {
+        const result = await runMaiaRollouts({
+          fen: fenAtStart,
+          moverTier: oddsMoverTier,
+          opponentTier: oddsOpponentTier,
+          n: DEFAULT_ROLLOUTS,
+          signal: controller.signal,
+          onProgress: (progress) => {
+            if (controller.signal.aborted) return;
+            setOdds((prev) => (prev.forFen === fenAtStart ? { ...prev, progress } : prev));
+          },
+        });
+        if (controller.signal.aborted) return;
+        setOdds({ status: "done", result, progress: null, error: null, forFen: fenAtStart });
+      } catch (err) {
+        if (controller.signal.aborted || err instanceof RolloutAbortedError) return;
+        setOdds({
+          status: "failed",
+          result: null,
+          progress: null,
+          error: err instanceof Error ? err.message : String(err),
+          forFen: fenAtStart,
+        });
+      }
+    })();
+  }
+
+  function cancelOdds() {
+    oddsAbortRef.current?.abort();
+    setOdds(IDLE_ODDS);
+  }
+
   function onPieceDrop(from: string, to: string): boolean {
     const game = gameRef.current;
     if (!game || !started || thinking || end || error) return false;
@@ -312,6 +375,12 @@ export default function User1v1Page() {
     setMoves(game.history());
     runFx(game, true);
 
+    // Any odds on screen describe the position that just stopped existing, and a
+    // run still going is now computing the wrong thing — and competing with the
+    // opponent's reply for the same ORT session.
+    oddsAbortRef.current?.abort();
+    setOdds(IDLE_ODDS);
+
     if (game.isGameOver()) {
       finishGame(game);
     } else {
@@ -328,6 +397,26 @@ export default function User1v1Page() {
   }
 
   const inGame = started && !end;
+
+  // Rollouts play both sides with Maia, so the opponent's strength has to land on
+  // Maia's 9-bucket scale whatever it actually is. resolveOppoBucket already
+  // answers exactly that question for the rating estimator (Maia tier as-is,
+  // Stockfish's UCI_Elo rounded to the nearest bucket) — same question, so the
+  // same answer rather than a second mapping that can drift from it.
+  const oddsOpponentTier = engine ? resolveOppoBucket(engine) : 1500;
+  // The player's own side gets sampled at whatever the rating read has settled on,
+  // which is the composition the rollouts spec asks for ("a preset tier, or
+  // whatever bayesian-rating-inference produces"). Before the read passes its
+  // display gate there is no honest estimate to use, so it falls back to the
+  // middle bucket and the readout says which one it used.
+  const oddsMoverTier = ratingReport?.ready ? ratingReport.mapBucket : 1500;
+  const humanToMove = fen.split(" ")[1] === (userColor === "white" ? "w" : "b");
+  // Never while the opponent is searching: one ORT session, and ~30s of rollouts
+  // in front of its reply would read as a hung board.
+  const canRunOdds = inGame && !thinking && !error && humanToMove && odds.status !== "running";
+  // Derived, not stored: a late result can't be shown against the wrong position.
+  const visibleOdds = odds.forFen === fen ? odds : IDLE_ODDS;
+
   const engineLabel = engine?.label ?? "—";
   const sideLabel = (color: PlayerColor) => (color === userColor ? "You" : engineLabel);
   const topSide: PlayerColor = userColor === "white" ? "black" : "white";
@@ -428,6 +517,21 @@ export default function User1v1Page() {
               describing something that isn't happening. Stays up after the game
               ends, where the read is at its most informative. */}
           {started && <RatingReadout report={ratingReport} working={ratingWorking} />}
+
+          {/* In-game only, unlike the rating read: "how does this play out from
+              here" needs a here. On a finished game the position is the final one
+              and there is nothing left to roll out. */}
+          {inGame && (
+            <OddsReadout
+              odds={visibleOdds}
+              moverTier={oddsMoverTier}
+              opponentTier={oddsOpponentTier}
+              tierFromRatingRead={Boolean(ratingReport?.ready)}
+              canRun={canRunOdds}
+              onRun={runOdds}
+              onCancel={cancelOdds}
+            />
+          )}
         </div>
 
         {/* Board */}
