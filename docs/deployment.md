@@ -150,6 +150,48 @@ git push --force-with-lease
 Rebase rewrites commits, which re-signs them automatically (again, because
 `commit.gpgsign=true`). Use `--force-with-lease`, never a bare `--force`.
 
+### Cleaning up after a merge
+
+Two traps here, and the first one is in the merge command this doc recommends
+three paragraphs up.
+
+**`--delete-branch` fails if the branch is checked out in a linked worktree.**
+You get `'main' is already used by worktree at ...` and a non-zero exit. The
+*server-side merge already succeeded* — only `gh`'s local cleanup step failed. Do
+not re-run the merge. Just finish the cleanup by hand:
+
+```sh
+git worktree remove ../engine-room-<lane>   # refuses if there's uncommitted work
+git branch -D <branch>
+git push origin --delete <branch>
+```
+
+`git worktree remove` is the safe primitive: it declines rather than deleting
+anything if the worktree is dirty, so use it instead of `rm -rf`.
+
+**Squash-merging means git can't tell you what's merged.** The squash commit on
+`main` is a brand-new object that shares no ancestry with the branch it came
+from, so `git branch --merged` lists nothing, `git merge-base --is-ancestor`
+says "not merged", and every landed branch looks unmerged forever. That's how
+this repo accumulated seven stale local branches and five worktrees in a day.
+Check the *content* instead — and `gh pr list --state all` is the real authority
+on what landed:
+
+```sh
+git diff --stat origin/main <branch>   # only "deletions" = branch is behind, nothing unique
+git log --all --not origin/main --oneline --decorate   # everything genuinely unlanded
+```
+
+If a branch shows insertions in that first diff, it still has content of its own
+— find out what before deleting it. Deleted branch tips stay in the reflog for
+90 days, so `-D` is recoverable, but reading the diff first is cheaper.
+
+**Why it's worth doing at all:** a branch that's really merged is just noise, but
+a branch that only *looks* merged is a trap. Splitting one branch into two and
+pushing only one half cost this project a live-site fix overnight — the marquee
+kept claiming a backend we don't have because the second half never got pushed.
+When you split a branch, push both halves before you stop for the day.
+
 ### Who can work in parallel
 
 The build plan's tasks aren't all independent. Dependency waves, so multiple
