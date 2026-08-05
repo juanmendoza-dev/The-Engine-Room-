@@ -447,6 +447,37 @@ centre on is the matched-tier one: **-0.047 mean, spanning -0.229 to +0.034.**
 The control mattered more than the measurement here; the obvious sweep pointed
 the opposite way.
 
+## Maia self-play draws in 8 plies (found 2026-08-05, Task 15)
+
+Maia against Maia on `/model-1v1` plays `1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 Ng8`
+and is declared a draw by threefold repetition. Identical at `ratingTier` 1100 and
+1500. Found while verifying the policy mixture, which inherits it — at `β = 1` that
+blend is Maia-dominated, so it reproduces the same shuffle move for move — but this
+is Maia's own behaviour and has presumably been true since Task 3. It went unnoticed
+because `/model-1v1` defaults to Stockfish 1320 vs 2800.
+
+**Why.** Maia 2's input has no move-history planes (see *Two real limitations* above
+and the 18-plane layout — 12 piece planes, side to move, 4 castling, en passant, and
+nothing about how the position was reached). So at the position after `1. Nf3 Nf6`,
+the model cannot see that it just played Nf3; `Ng1` is scored purely on the resulting
+board. `getMaiaMove` then takes the argmax. A history-free policy, played greedily,
+over a position pair where each move's inverse is also well-liked, is a 2-cycle
+attractor — and both sides fall into it symmetrically.
+
+**Temperature is not the fix.** Measured, since it's the obvious guess:
+`sampleFromPolicy` at T = 0.25 and 0.5 draws at 8 plies exactly as argmax does, and
+T = 1 merely finds a *different* 2-cycle (`3. Nc3 Nc6 4. Nb1 Nb8`) and draws at 12.
+Sampling changes which cycle it lands in, not whether one exists. The cure is a
+randomized opening book covering the first K plies, which
+`docs/specs/2026-08-05-sprt-engine-ratings.md` specifies for exactly this reason —
+its determinism section opens with the same problem in the context of match play.
+
+**Consequences worth knowing:** any Maia-involving self-play measurement over the
+standard start position has an effective sample size of one, the rollout work in
+Task 14 is unaffected (it samples at T=1 from *many* distinct positions rather than
+replaying one line greedily), and a Maia-vs-Maia demo needs a non-standard opening
+to be worth watching.
+
 ## Gotchas worth knowing (both cost me a build cycle)
 
 - **Next 16 snapshots `web/public/` at build time.** Files added to `web/public/` *after*

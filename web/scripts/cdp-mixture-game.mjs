@@ -18,7 +18,12 @@
 // scripts/cdp-model-1v1.mjs.
 //
 // usage:
-//   node scripts/cdp-mixture-game.mjs <url> <min-plies> <timeout-ms> [cdp-port]
+//   node scripts/cdp-mixture-game.mjs <url> <min-plies> <timeout-ms> [cdp-port] [preset-label]
+//
+// The preset label is an argument because the picker keys its options by label, so
+// naming one is the only way to drive a specific config from outside the app. That's
+// what made choosing the shipped temperature a measurement instead of a guess:
+// temporary MIXTURE_PRESETS entries at different T, one run each, then delete them.
 
 const [
   ,
@@ -27,10 +32,8 @@ const [
   MIN_PLIES = "8",
   TIMEOUT_MS = "300000",
   PORT = "9222",
+  MIXTURE_LABEL = "Policy Mixture (uncalibrated)",
 ] = process.argv;
-
-/** Must match MIXTURE_PRESETS[0].label — the picker keys options by label. */
-const MIXTURE_LABEL = "Policy Mixture (uncalibrated)";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const problems = [];
@@ -220,7 +223,16 @@ await cdp.evaluate("clearInterval(window.__mixtureTimer), true");
 const probe = (await cdp.evaluate("JSON.stringify(window.__mixtureProbe)")) ?? "{}";
 const { notice, vsLabels, errors } = JSON.parse(probe);
 
+// What it actually played. First question when a game ends strangely, and the move
+// log is right there on screen — reading it back beats inferring from a ply count.
+const sanList = await cdp.evaluate(`(() => {
+  const text = document.body ? document.body.innerText : '';
+  const m = text.match(/Moves[\\s\\S]*?plies([\\s\\S]*?)(?:Run it again|$)/i);
+  return m ? m[1].replace(/\\s+/g, ' ').trim().slice(0, 400) : '';
+})()`);
+
 console.log("");
+console.log(`moves: ${sanList || "(none captured)"}`);
 console.log(`ply progression: ${seen.join(" → ") || "(never moved)"}`);
 if (finished) console.log(`end-of-game text matched: "${endReason}"`);
 if (plies >= Number(MIN_PLIES) || finished) {

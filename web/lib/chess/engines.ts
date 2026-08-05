@@ -61,20 +61,30 @@ export const MAIA_PRESETS: EngineConfig[] = [
 //    and a hand-picked 0.0024 would just be a better-informed guess without SPRT
 //    behind it — but nobody should read this preset as a balanced blend.
 //
-// And one more, the most visible of the three:
+// And one more, the most visible — and the one whose obvious explanation is wrong:
 //
-//  - **At `temperature: 0` this preset draws against itself in 8 plies**, by
-//    threefold repetition. Verified end to end on /model-1v1 by
-//    `web/scripts/cdp-mixture-game.mjs`. With T=0 both sides are deterministic
-//    functions of the position, so they walk a knight out and back and the start
-//    position recurs on plies 4 and 8. Not a flaw in the blend — it's the
-//    determinism problem `2026-08-05-sprt-engine-ratings.md` opens with, arriving in
-//    eight moves rather than a hundred games.
+//  - **This preset draws against itself in 8 plies**, by threefold repetition:
+//    1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 Ng8. Measured on /model-1v1 with
+//    `web/scripts/cdp-mixture-game.mjs`.
 //
-//    T=0 is kept because the spec specifies it and because determinism is what makes
-//    the engine reproducible for verification. But it makes mixture-vs-mixture a
-//    poor watch, and any T > 0 fixes it. One field, real strength implications —
-//    flagged rather than changed unilaterally.
+//    The tempting read is "T=0 makes both sides deterministic, so raise the
+//    temperature." Both halves of that are wrong, and the sweep says so. Raising T
+//    doesn't fix it — at T=1 the engine just finds a *different* 2-cycle
+//    (1. Nf3 Nf6 2. Ng1 Ng8 3. Nc3 Nc6 4. Nb1 Nb8) and still draws, 12 plies in.
+//    And the mixture didn't introduce it: **Maia 1500 and Maia 1100 self-play
+//    produce the identical Nf3/Ng1 shuffle and the identical 8-ply threefold** on
+//    this same build. At β=1 the blend is Maia-dominated, so it is faithfully
+//    inheriting a property of the policy net.
+//
+//    Why Maia does it: Maia 2's input has no move-history planes (see
+//    `docs/maia-notes.md`), so after 1. Nf3 Nf6 it cannot see that it just played
+//    Nf3. Played greedily, a history-free policy over a position pair where each
+//    move's inverse is also well-liked is a 2-cycle attractor, and sampling only
+//    moves which cycle it lands in.
+//
+//    So `temperature: 0` stays. The actual cure is the randomized opening book in
+//    `2026-08-05-sprt-engine-ratings.md`, which exists for exactly this — it
+//    replaces engine choice for the first K plies. Not a mixture concern.
 
 export const MIXTURE_PRESETS: EngineConfig[] = [
   {
