@@ -21,14 +21,14 @@ verbose move + position → classify() → FxBeat{tier,kind,from,to,…} → FxS
 
 | File | Job |
 | --- | --- |
-| `lib/fx/types.ts` | `FxBeat`, `FxContext`. No React, no chess.js. |
-| `lib/fx/classify.ts` | The tier rules. Pure — testable without a DOM. |
-| `lib/fx/openings.ts` | Opening-name table for the attack-name callout. |
-| `lib/fx/effects.ts` | The 19 effects, shared by FxStage and the lab. |
-| `lib/fx/runtime.ts` | `useFxEnabled`, `materialHp`, `depthToPct`. |
-| `components/fx/FxStage.tsx` | Wraps a board, renders effects, imperative handle. |
-| `components/fx/fx.css` | Every keyframe. Deliberately not in globals.css. |
-| `app/dev/fx-lab/page.tsx` | Disposable picking harness. Delete when done with it. |
+| `web/lib/fx/types.ts` | `FxBeat`, `FxContext`. No React, no chess.js. |
+| `web/lib/fx/classify.ts` | The tier rules. Pure — testable without a DOM. |
+| `web/lib/fx/openings.ts` | Opening-name table for the attack-name callout. |
+| `web/lib/fx/effects.ts` | The 19 effects, shared by FxStage and the lab. |
+| `web/lib/fx/runtime.ts` | `useFxEnabled`, `materialHp`, `depthToPct`. |
+| `web/components/fx/FxStage.tsx` | Wraps a board, renders effects, imperative handle. |
+| `web/components/fx/fx.css` | Every keyframe. Deliberately not in globals.css. |
+| `web/app/dev/fx-lab/page.tsx` | Disposable picking harness. Delete when done with it. |
 
 ## The tier ladder
 
@@ -101,5 +101,5 @@ dead). `tsc`, `eslint`, and a production build are clean.
 **Not yet verified in a browser: the wiring on the two game screens**, including
 the drag path on `/user-1v1`. That was cut for time on the merge. If drags stop
 working there, the overlay's `pointer-events` is the first thing to check.
-`scripts/`-style CDP harnesses for this live in the session scratchpad, not the
+`web/scripts/`-style CDP harnesses for this live in the session scratchpad, not the
 repo.

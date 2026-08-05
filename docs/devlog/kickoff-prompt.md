@@ -22,10 +22,10 @@ Before doing anything else, in this order:
    file:.git/config). Without the local signingkey override, commits sign
    fine locally but land on GitHub as Unverified.
 
-3. Read docs/superpowers/specs/2026-08-03-engine-room-design.md — the
+3. Read docs/specs/2026-08-03-engine-room-design.md — the
    approved architecture/design.
 
-4. Read docs/superpowers/plans/2026-08-03-engine-room-implementation.md —
+4. Read docs/plans/2026-08-03-engine-room-implementation.md —
    the task-by-task build plan.
 
 5. Work out which tasks are already done. Don't trust the plan's

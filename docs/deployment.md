@@ -244,10 +244,9 @@ one click and auto-detects everything.
 
 1. vercel.com → log in with GitHub (`juanmendoza-dev`).
 2. **Add New → Project** → import `The-Engine-Room-`.
-3. Confirm the detected settings — for a stock `create-next-app` these should
-   all be correct already and need no edits:
+3. Confirm the detected settings:
    - Framework Preset: **Next.js**
-   - Root Directory: `./`
+   - Root Directory: **`web`** — see the box below, this one is not the default
    - Build Command / Install Command: defaults
 4. **Settings → Git → Production Branch** must be `main`. It defaults to the
    repo's default branch, which is already `main`, so this is a verify step.
@@ -258,6 +257,29 @@ one click and auto-detects everything.
    - open a PR → Vercel bot comments the preview URL on the PR
 6. Confirm `.vercel` is in `.gitignore` (create-next-app's generated ignore
    file normally includes it — verify rather than assume).
+
+### Root Directory must be `web`, not `./`
+
+The Next app lives in `web/`, not at the repo root. There is no `package.json`,
+`next.config.ts` or `tsconfig.json` at the top level, so a build with Root
+Directory left at `./` fails at framework detection before it compiles anything.
+
+Why the app is in a subdirectory at all: those config files can't be relocated
+one at a time. Next and npm resolve them from whatever directory the build runs
+in, and Next *writes* to two of them (it injects a plugin entry into
+`tsconfig.json` and regenerates `next-env.d.ts`). So the unit that moves is the
+whole project, which is also why Trojan-Troy has `client/` and `server/`.
+
+Two consequences worth knowing:
+
+- **Every command in this doc runs from `web/`**, not the repo root — `npm
+  install`, `npm run build`, `npm run start`, and anything touching
+  `web/public/`. `docs/` and the git hooks stay at the repo root.
+- **`.gitignore` patterns must not be root-anchored.** The scaffold shipped
+  `/node_modules`, `/.next/`, `/out/` and `/build` with leading slashes, which
+  only match at the repo root and silently stopped matching once the app moved
+  down a level — `web/node_modules` would have been committed. They're
+  unanchored now. If you ever add an ignore rule, don't anchor it.
 
 ### If preview URLs ask you to log in
 
@@ -289,9 +311,9 @@ the browser's localStorage (per-browser, capped at 50, newest pruned last), and
 `/history` reads whichever adapter is active. The site is fully demo-able with
 zero provisioning — a visitor just sees *their own* games, and the history page
 says so. The Vercel KV adapter is already written and wired
-(`app/actions/games.ts`); it's dormant until one env flag flips.
+(`web/app/actions/games.ts`); it's dormant until one env flag flips.
 
-How the switch works: `lib/games/store.ts` branches on
+How the switch works: `web/lib/games/store.ts` branches on
 `NEXT_PUBLIC_KV_ENABLED === "1"`. It has to be a `NEXT_PUBLIC_` var because the
 branch also runs in the browser, where server-only env vars don't exist —
 Next.js inlines `NEXT_PUBLIC_*` values **at build time**. Two consequences:
@@ -307,7 +329,7 @@ effect, and the flag's value is baked separately into each environment's build.
    injects REST credentials. Depending on which integration flow you land in
    the names are `KV_REST_API_URL`/`KV_REST_API_TOKEN` **or**
    `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` — read them off the
-   dashboard. **The code accepts either pair** (`app/actions/games.ts` checks
+   dashboard. **The code accepts either pair** (`web/app/actions/games.ts` checks
    both), so no renaming is needed.
 3. Project → **Settings → Environment Variables** → add
    `NEXT_PUBLIC_KV_ENABLED` = `1` for Production, Preview, and Development.
@@ -367,7 +389,7 @@ text files and break at runtime in a way that works fine locally.
 the single-threaded build, which never touches `SharedArrayBuffer`.
 onnxruntime-web (Maia) only *ships* threaded-named binaries, so there the
 guarantee is a runtime setting instead: `ort.env.wasm.numThreads = 1` in
-`lib/chess/engineMaia.ts`. Verified against a production build:
+`web/lib/chess/engineMaia.ts`. Verified against a production build:
 `crossOriginIsolated` is `false`, `SharedArrayBuffer` is absent, no console
 warnings, inference correct. If anyone raises `numThreads` above 1 without
 adding cross-origin-isolation headers, ort logs a warning and **falls back to
@@ -378,7 +400,7 @@ multi-threaded Stockfish build in; treat that as one decision, not two.
 
 **onnxruntime-web wasm paths (Task 3).** onnxruntime-web loads its own `.wasm`
 files at runtime and doesn't always resolve them correctly under a bundler.
-If it 404s on Vercel, the fix is copying its wasm assets into `public/` and
+If it 404s on Vercel, the fix is copying its wasm assets into `web/public/` and
 setting `ort.env.wasm.wasmPaths` to that path.
 
 Confirmed while doing Task 3, with one correction: copying the `.wasm` is
@@ -428,7 +450,7 @@ was faster (37.7 s vs 63.8 s for the same 93 MB).
 reload that tab. The session is a module-level singleton, so it loads once per
 tab and every later game in that tab is instant. A refresh pays the full cost
 again — Chrome will not disk-cache a body that size. The real fix is the
-IndexedDB cache noted in `scripts/maia-notes.md`; until then, treat "don't hit F5
+IndexedDB cache noted in `docs/maia-notes.md`; until then, treat "don't hit F5
 on stage" as the operational rule.
 
 **Copy only the jsep pair.** `onnxruntime-web` 1.27 ships five wasm/glue
@@ -436,33 +458,33 @@ variants, and it's tempting to copy the lot. Don't — the default import resolv
 to the **jsep** build, so `ort-wasm-simd-threaded.jsep.wasm` + `.jsep.mjs` are
 the only two ever fetched. The plain `.wasm`, plain `.mjs`, `asyncify.mjs` and
 `jspi.mjs` are 13.6 MB of dead weight; verified by deleting them and re-running
-`/dev/maia-test` clean. `public/ort/` should be 26.9 MB, two files. A further
+`/dev/maia-test` clean. `web/public/ort/` should be 26.9 MB, two files. A further
 13.4 MB is available if someone converts `engineMaia.ts` to a client-side
 dynamic `import("onnxruntime-web/wasm")` — that switches it to the CPU-only
 plain pair. The naive static `import … from "onnxruntime-web/wasm"` does **not**
 work: it fails `next build` with `ERR_INVALID_URL` during prerender, because
 that bundle resolves its own URL at module scope.
 
-**`app/favicon.ico` must contain an RGBA PNG, or `next build` dies.** Turbopack
+**`web/app/favicon.ico` must contain an RGBA PNG, or `next build` dies.** Turbopack
 decodes the ICO at build time and rejects anything else with `Processing image
 failed / unable to decode image data / Format error decoding Ico: The PNG is not
 in RGBA format!`. Nothing in that message points at the file you just replaced.
 The trap: Chrome's own PNG encoder (`Page.captureScreenshot`, `canvas.toDataURL`)
 drops the alpha channel when every pixel is opaque, so a screenshot-derived
 favicon with a solid background is RGB and fails, while the same icon with one
-transparent pixel would have passed. `scripts/make-icons.mjs` sidesteps it by
+transparent pixel would have passed. `web/scripts/make-icons.mjs` sidesteps it by
 reading raw RGBA off a canvas and encoding the PNG itself (~40 lines, zlib is in
-Node). Check any hand-made icon with `file app/favicon.ico` — you want
+Node). Check any hand-made icon with `file web/app/favicon.ico` — you want
 `8-bit/color RGBA`, not `8-bit/color RGB`.
 
-**Next 16 snapshots `public/` at build time.** Files added to `public/` *after*
+**Next 16 snapshots `web/public/` at build time.** Files added to `web/public/` *after*
 `next build` return 404 from `next start` until you rebuild. This bites whenever
 you copy engine assets in as a separate step from the build — the app looks
 broken at runtime for a reason that has nothing to do with your code. Rebuild
-after adding anything to `public/`.
+after adding anything to `web/public/`.
 
 **The history page and prerendering (Task 11).** An earlier version of this
-note said `app/history/page.tsx` must set `export const dynamic =
+note said `web/app/history/page.tsx` must set `export const dynamic =
 "force-dynamic"`. That advice was written for the original design (an async
 server component reading KV at request time) and **does not apply to the page
 as built**: it's a `"use client"` component that fetches through the storage
@@ -508,8 +530,8 @@ this app it will lie to you in both directions. Cost an agent ~15 minutes and
 prompted an unnecessary production redeploy, so it's worth the words:
 
 - **Client-only UI isn't in the HTML at all.** The header scoreboard
-  (`components/HeaderScoreboard.tsx`) renders `null` on the server on purpose —
-  it reads `lib/boardFeed.ts`, and no board has published anything until a page
+  (`web/components/HeaderScoreboard.tsx`) renders `null` on the server on purpose —
+  it reads `web/lib/boardFeed.ts`, and no board has published anything until a page
   hydrates. So `grep er-turn` returns 0 on a *correct* deploy. Anything fed by
   the board feed has the same property.
 - **Don't grep a string that also appears elsewhere on the page.** The old
@@ -522,7 +544,7 @@ prompted an unnecessary production redeploy, so it's worth the words:
   Confirm the expected value against your own local production build first, so
   you know what a pass looks like before you trust it on prod.
 - **Better: drive the deployed URL in headless Chrome** with one of the
-  `scripts/cdp-*.mjs` harnesses and assert on the post-hydration DOM. That's the
+  `web/scripts/cdp-*.mjs` harnesses and assert on the post-hydration DOM. That's the
   only check that sees client-rendered UI, and production (unlike previews) is
   public, so it needs no credentials.
 
@@ -543,7 +565,7 @@ snapshot taken at 1.2s that passes locally can find no scoreboard at all on the
 live site. ~4-5s before the first assertion was enough here.
 
 **Headless-Chrome (CDP) verification traps (Task 10).** Things that cost
-time when driving the app with the `scripts/cdp-*.mjs`-style harnesses:
+time when driving the app with the `web/scripts/cdp-*.mjs`-style harnesses:
 
 - `Page.navigate` can return a normal-looking result and leave the tab parked
   on `about:blank` — and not only for `localhost` URLs (the comment in
@@ -584,7 +606,7 @@ time when driving the app with the `scripts/cdp-*.mjs`-style harnesses:
   it — inject a `requestAnimationFrame` sampler that timestamps itself with
   `performance.now()` into an array on `window` *before* triggering the thing,
   then read the whole array back afterwards in one evaluate. Slow CDP then only
-  delays when you read the log, never what's in it. `scripts/cdp-press.mjs`
+  delays when you read the log, never what's in it. `web/scripts/cdp-press.mjs`
   splits its two passes (`measureCase` asserts off the log, `captureCase` only
   screenshots) for exactly this reason. Bonus: the sampler survives
   `router.push`, since client-side navigation keeps the same JS context — so one

@@ -4,7 +4,7 @@ What I'm about to build, so nobody else picks up the same task or edits the
 same files underneath me. Written before implementation starts, on 2026-08-04.
 
 **Claimed:** Tasks 2 and 3 of the
-[build plan](superpowers/plans/2026-08-03-engine-room-implementation.md) —
+[build plan](../plans/2026-08-03-engine-room-implementation.md) —
 the Stockfish.wasm spike and the Maia ONNX spike. That's all of Phase 0.
 
 **Still unclaimed** (free for another agent right now): Task 7, the `Board`
@@ -45,13 +45,13 @@ haven't done it because it's outside my two tasks.
 
 **Task 2 — Stockfish**
 
-- `lib/chess/types.ts` — shared engine types
-- `lib/chess/engineStockfish.ts` — the Web Worker / UCI wrapper
-- `public/stockfish/` — single-threaded wasm build assets, copied from `node_modules/stockfish`
-- `app/dev/stockfish-test/page.tsx` — throwaway verification page, deleted later by Task 8
+- `web/lib/chess/types.ts` — shared engine types
+- `web/lib/chess/engineStockfish.ts` — the Web Worker / UCI wrapper
+- `web/public/stockfish/` — single-threaded wasm build assets, copied from `node_modules/stockfish`
+- `web/app/dev/stockfish-test/page.tsx` — throwaway verification page, deleted later by Task 8
 - `.gitattributes` — appending `*.wasm` / `*.onnx` / `*.nnue` binary rules (see below)
 - `package.json` / `package-lock.json` — adds `chess.js`, `stockfish`
-- `scripts/cdp-verify.mjs` — **added mid-task, not in the original list.** A
+- `web/scripts/cdp-verify.mjs` — **added mid-task, not in the original list.** A
   dependency-free headless-Chrome driver, because `chromium-cli` and Playwright
   turned out not to be installed on this machine and client-side engine code
   can't be verified any other way. Committed rather than left in a temp folder
@@ -59,9 +59,9 @@ haven't done it because it's outside my two tasks.
 
 **Task 3 — Maia**
 
-- `lib/chess/engineMaia.ts` — the ONNX wrapper
-- `scripts/maia-notes.md` — what worked and where it stalled, written either way
-- `public/maia/1500.onnx` — only if the conversion gets that far
+- `web/lib/chess/engineMaia.ts` — the ONNX wrapper
+- `docs/maia-notes.md` — what worked and where it stalled, written either way
+- `web/public/maia/1500.onnx` — only if the conversion gets that far
 - `package.json` / `package-lock.json` — adds `onnxruntime-web`, if it gets that far
 
 `.gitattributes` currently only has line-ending rules for `.githooks/*` and
@@ -71,16 +71,16 @@ a binary it decides is text. Task 2 adds them.
 
 ## Files I will not touch
 
-- **The hero agent's:** `app/page.tsx`, `app/layout.tsx`, `app/globals.css`,
-  `components/SiteHeader.tsx`, `components/ThemeToggle.tsx`,
-  `components/MiniBoard.tsx`. All of PR #4.
+- **The hero agent's:** `web/app/page.tsx`, `web/app/layout.tsx`, `web/app/globals.css`,
+  `web/components/SiteHeader.tsx`, `web/components/ThemeToggle.tsx`,
+  `web/components/MiniBoard.tsx`. All of PR #4.
 - **Anything Vercel or KV:** the Vercel dashboard, Storage/Upstash
-  provisioning, `.env.local`, `app/actions/games.ts`. Task 9 stays
+  provisioning, `.env.local`, `web/app/actions/games.ts`. Task 9 stays
   deliberately unclaimed while someone else is in the dashboard doing the
   production deploy — two agents in there at once is how you get a confusing
   half-configured project. Whoever picks up Task 9 later gets a clean run at
   it.
-- **`app/model-1v1/page.tsx`** (Task 8) and `app/user-1v1/page.tsx` (Task 10).
+- **`web/app/model-1v1/page.tsx`** (Task 8) and `web/app/user-1v1/page.tsx` (Task 10).
   Task 8 in particular wants the hero's design tokens, so it's much cheaper
   after PR #4 lands.
 - **The build plan's checkboxes:** I'll tick only Task 2's and Task 3's, each
@@ -95,7 +95,7 @@ This is the part other tasks depend on, so it's fixed before I start. Tasks 4,
 6, 8, and 10 all consume it.
 
 ```ts
-// lib/chess/types.ts
+// web/lib/chess/types.ts
 export type EngineType = "stockfish" | "maia" | "human";
 
 export interface EngineConfig {
@@ -132,7 +132,7 @@ neither of those is a solved problem going in. So Task 3 is a **90-minute
 timeboxed investigation** with seven checkpoints, not a task with a
 guaranteed output.
 
-**If it works:** `getMaiaMove` returns real moves, `public/maia/1500.onnx`
+**If it works:** `getMaiaMove` returns real moves, `web/public/maia/1500.onnx`
 exists, `MAIA_PRESETS` in Task 4 gets its three tiers.
 
 **If the timebox runs out:** `getMaiaMove` still exists with the exact
@@ -142,7 +142,7 @@ don't render. Maia joins the stretch goals.
 
 Both are correct outcomes — the fallback is the plan working as designed, and
 it's why every later task talks to `getMoveFor` instead of Maia internals. No
-code outside `lib/chess/engines.ts` changes either way. `scripts/maia-notes.md`
+code outside `web/lib/chess/engines.ts` changes either way. `docs/maia-notes.md`
 gets written in both cases so the next attempt doesn't start from zero.
 
 ---
@@ -216,7 +216,7 @@ me.
   100 MB. Task 2's "What differed" section in the build plan has the full list.
   **Merged as `5fbc001` (#6)** after agent review — reviewed at 9/10 and accepted
   with three corrections, all applied. See
-  [`task-02-stockfish-review.md`](task-02-stockfish-review.md) for the full
+  [`task-02-stockfish-review.md`](../reviews/task-02-stockfish-review.md) for the full
   brief. Two findings later tasks need: `UCI_Elo`'s real range on this build is
   **1320–3190** (so 1320 is the engine's floor, not an arbitrary preset), and
   search depth does **not** vary with ELO, because Stockfish weakens play by
@@ -225,8 +225,8 @@ me.
   ELO settings change playing strength. Task 6 is where that becomes measurable.
 - **Task 3 — done**, landed via PR `#7`. **Maia works**: `getMaiaMove` returns
   human-plausible legal moves in ~35 ms. Spec is
-  [`task-03-maia-spec.md`](task-03-maia-spec.md); the authoritative record of what
-  actually happened is [`../scripts/maia-notes.md`](../scripts/maia-notes.md),
+  [`task-03-maia-spec.md`](../specs/task-03-maia-spec.md); the authoritative record of what
+  actually happened is [`../maia-notes.md`](../maia-notes.md),
   because the spec's checkpoints didn't run as written — CP1 found a far easier
   path and made CP2–CP6 moot.
 

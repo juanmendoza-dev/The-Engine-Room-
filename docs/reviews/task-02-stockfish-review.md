@@ -31,18 +31,18 @@ What changed:
    raced by a later `go` was wrong — a single-threaded UCI engine reads stdin in
    order. The handshake stays; the reasons are now the real ones.
 
-Code changed as part of this: `lib/chess/engineStockfish.ts` gained the optional
+Code changed as part of this: `web/lib/chess/engineStockfish.ts` gained the optional
 `onInfo` parameter and `getAdvertisedOptions()`, and the scratch page was extended.
 Neither touches `EngineConfig` / `EngineMove`, so the contract other tasks consume
 is unchanged.
 
 ## Read these first, so you're not reviewing cold
 
-- `docs/phase-0-engine-spike.md` — the work order I wrote **before** touching
+- `docs/devlog/phase-0-engine-spike.md` — the work order I wrote **before** touching
   code: scope, which files I claimed, which I promised not to touch, and the
   engine contract. Merged as #5. Reviewing against this is the point: it's the
   thing I said I'd do, so any drift is visible.
-- Task 2 in `docs/superpowers/plans/2026-08-03-engine-room-implementation.md` —
+- Task 2 in `docs/plans/2026-08-03-engine-room-implementation.md` —
   step-by-step, with a "What differed from the original plan" section.
 - `docs/deployment.md` §4 — the binary-asset and Vercel traps this task had to
   respect. Two of them were live hazards here, not hypotheticals.
@@ -51,13 +51,13 @@ is unchanged.
 
 | File | What it is | Why it looks like that |
 | --- | --- | --- |
-| `lib/chess/types.ts` | `EngineType`, `EngineConfig`, `EngineMove` | Verbatim from the spec's contract. Tasks 4/6/8/10 all import these, so it's the one file that shouldn't drift. |
-| `lib/chess/engineStockfish.ts` | Worker + UCI wrapper, `getStockfishMove(fen, config, onInfo?)` plus `getAdvertisedOptions()` | The substance of the review. Diverges from the plan's draft in four places, each called out below. `onInfo` and `getAdvertisedOptions` exist only so verification can read search depth and the engine's advertised option list — neither is used by the game loop, and neither changes `EngineConfig`/`EngineMove`, so the published contract is untouched. |
-| `public/stockfish/stockfish-18-lite-single.js` | 21 KB Emscripten loader | Copied unmodified from `node_modules/stockfish/bin/`. |
-| `public/stockfish/stockfish-18-lite-single.wasm` | 7.0 MB engine | Same. Must sit beside the `.js` — Emscripten resolves it relative to the script. |
-| `app/dev/stockfish-test/page.tsx` | Scratch verification page | Throwaway; Task 8 deletes it. Checks three things, not the plan's single position: that the engine advertises the options we set, that three positions yield legal moves with a reported search depth, and one position at two ELOs. |
+| `web/lib/chess/types.ts` | `EngineType`, `EngineConfig`, `EngineMove` | Verbatim from the spec's contract. Tasks 4/6/8/10 all import these, so it's the one file that shouldn't drift. |
+| `web/lib/chess/engineStockfish.ts` | Worker + UCI wrapper, `getStockfishMove(fen, config, onInfo?)` plus `getAdvertisedOptions()` | The substance of the review. Diverges from the plan's draft in four places, each called out below. `onInfo` and `getAdvertisedOptions` exist only so verification can read search depth and the engine's advertised option list — neither is used by the game loop, and neither changes `EngineConfig`/`EngineMove`, so the published contract is untouched. |
+| `web/public/stockfish/stockfish-18-lite-single.js` | 21 KB Emscripten loader | Copied unmodified from `node_modules/stockfish/bin/`. |
+| `web/public/stockfish/stockfish-18-lite-single.wasm` | 7.0 MB engine | Same. Must sit beside the `.js` — Emscripten resolves it relative to the script. |
+| `web/app/dev/stockfish-test/page.tsx` | Scratch verification page | Throwaway; Task 8 deletes it. Checks three things, not the plan's single position: that the engine advertises the options we set, that three positions yield legal moves with a reported search depth, and one position at two ELOs. |
 | `.gitattributes` | `*.wasm` / `*.onnx` / `*.nnue` binary | Was missing. On Windows git will rewrite line endings inside a binary and corrupt it silently. |
-| `scripts/cdp-verify.mjs` | Headless-Chrome driver | **Addition to my declared file list** — see "Scope" below. `.mjs` not `.js`: it uses top-level `await`, and in a package without `"type": "module"` the extension is what makes that unambiguous to both Node and ESLint. |
+| `web/scripts/cdp-verify.mjs` | Headless-Chrome driver | **Addition to my declared file list** — see "Scope" below. `.mjs` not `.js`: it uses top-level `await`, and in a package without `"type": "module"` the extension is what makes that unambiguous to both Node and ESLint. |
 | `package.json` / `package-lock.json` | `chess.js`, `stockfish` | The known conflict hotspot. |
 
 ## Decisions to check
@@ -159,7 +159,7 @@ npm run start          # production build, closer to Vercel than `npm run dev`
 
 Then either open `http://localhost:3000/dev/stockfish-test` in a browser, or
 drive it headlessly — `chromium-cli` and Playwright aren't installed on this
-machine, but Chrome is, and `scripts/cdp-verify.mjs` needs no dependencies at all
+machine, but Chrome is, and `web/scripts/cdp-verify.mjs` needs no dependencies at all
 (Node 22+ has `fetch` and `WebSocket` built in):
 
 ```sh
@@ -167,7 +167,7 @@ machine, but Chrome is, and `scripts/cdp-verify.mjs` needs no dependencies at al
   --headless=new --remote-debugging-port=9222 \
   --user-data-dir=/tmp/cdp-profile about:blank &
 
-node scripts/cdp-verify.mjs http://localhost:3000/dev/stockfish-test done 150000 9222
+node web/scripts/cdp-verify.mjs http://localhost:3000/dev/stockfish-test done 150000 9222
 ```
 
 It prints the page text plus any `Runtime.exceptionThrown` / console errors, and
@@ -285,7 +285,7 @@ alone on purpose rather than change shared settings mid-flight.
 
 ## Scope: one addition, and what I stayed out of
 
-**Added beyond my declared file list:** `scripts/cdp-verify.mjs`. The work order
+**Added beyond my declared file list:** `web/scripts/cdp-verify.mjs`. The work order
 didn't mention it because I didn't know `chromium-cli` would be missing. It's
 committed rather than left in a temp folder so this PR's verification is
 reproducible by you instead of being a claim in a doc. Flagged because the whole
@@ -293,9 +293,9 @@ point of the work order was that my file list be predictable — **closed by rev
 keep it**, a committed dependency-free repro being worth more than a pristine
 file list.
 
-**Untouched, as promised:** every hero file (`app/page.tsx`, `app/layout.tsx`,
-`app/globals.css`, `components/*`), anything Vercel or KV (Task 9 is still
-unclaimed and clean for whoever takes it), and `app/model-1v1` / `app/user-1v1`.
+**Untouched, as promised:** every hero file (`web/app/page.tsx`, `web/app/layout.tsx`,
+`web/app/globals.css`, `web/components/*`), anything Vercel or KV (Task 9 is still
+unclaimed and clean for whoever takes it), and `web/app/model-1v1` / `web/app/user-1v1`.
 The check is:
 
 ```sh
@@ -309,5 +309,5 @@ stale here, which made `README.md` look modified when it wasn't.
 ## Not in this PR
 
 Task 3 (Maia ONNX spike) is next and separate — a 90-minute timeboxed
-investigation with two legitimate outcomes, per `docs/phase-0-engine-spike.md`.
+investigation with two legitimate outcomes, per `docs/devlog/phase-0-engine-spike.md`.
 Task 7 (`Board`) is unclaimed and shares no files with this work.

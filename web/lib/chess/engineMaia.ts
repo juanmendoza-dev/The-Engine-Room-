@@ -9,7 +9,7 @@ import type { EngineConfig, EngineMove } from "./types";
 // needing an lc0 binary and `leela2onnx`, with 112 input planes including move
 // history. This is the newer unified model: already ONNX, no lc0, no conversion,
 // no history planes, and the player rating is a model *input* rather than one
-// network per tier. See scripts/maia-notes.md for the full comparison.
+// network per tier. See docs/maia-notes.md for the full comparison.
 //
 // Neither the weights nor the move table are committed to this repo. Both are
 // fetched at runtime from GitHub raw (which serves Access-Control-Allow-Origin:
