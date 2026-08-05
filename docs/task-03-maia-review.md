@@ -1,5 +1,35 @@
 # Task 3 — Maia spike: review of PR #7
 
+> **Outcome, added when this review landed on `main` (2026-08-05).** Everything
+> below is the review exactly as written on 2026-08-04, while PR #7 was still
+> open. Read it as a snapshot, not as a to-do list — the verdict was acted on and
+> every follow-up it names is already done. What happened after:
+>
+> - **PR #7 merged**, squash `e8e851f`. Maia is live on `/model-1v1`.
+> - **All three follow-ups were done inside PR #7 before it merged**, so don't
+>   re-do them: the first-load status line *plus* a stall timeout (20 s of zero
+>   bytes, not a total budget) on both `/model-1v1` and `/user-1v1` and a new
+>   `components/MaiaLoadNotice.tsx`; the 13.6 MB of dead ort files deleted
+>   (40.4 → 26.9 MB); and the model rehosted.
+> - **The weights now live in a second repo**, `juanmendoza-dev/engine-room-assets`,
+>   fetched from `raw.githubusercontent.com` pinned to `7c916f4`. That closes the
+>   Q2/Q6 single-point-of-failure about CSSLab having deleted the file from their
+>   `main`. One hard-won fact from doing it: GitHub **Release** assets send no
+>   CORS headers at all (they're served from Azure blob), so a browser fetch of
+>   one fails outright — a Release was built, tested, and deleted.
+> - **The ready-to-paste §4 correction at the bottom of this doc is applied.**
+> - **Q1's timings are optimistic.** The 24–29 s figures were local, where the
+>   26.8 MB ORT wasm came off localhost for free. Cold load on *production*
+>   measured **73 s and 261 s**, because there the wasm is a real download
+>   competing with the 93 MB model. Our mirror isn't the culprit — it benchmarked
+>   faster than CSSLab's. Numbers are in `docs/deployment.md` §4.
+>
+> Still genuinely open in this review's territory: the **IndexedDB model cache**
+> (Chrome won't disk-cache a 93 MB body, so every full page load re-downloads it
+> — that's the real fix for the timings above; until then, pre-warm Maia in the
+> tab before showing anyone and don't refresh), and this repo still has **no
+> `LICENSE` file**.
+
 Independent review, written against the PR as it stands at `613a9b6` (eight
 commits — note the branch grew a commit *after* the review was assigned, and it
 matters: Maia is now wired into the registry, so merging this puts three Maia
@@ -7,7 +37,7 @@ presets live on `/model-1v1` immediately, not "later when Task 4 wires it").
 
 | | |
 | --- | --- |
-| PR | #7, **not merged** — this doc is the review |
+| PR | #7 — open at review time, and this doc is that review; **merged since** as `e8e851f` (see the outcome block above) |
 | Branch | `feat/03-maia-onnx-spike` at `613a9b6`, based on `e3319ba` (#8); GitHub reports `MERGEABLE / CLEAN` against `main` at `c5af670` |
 | Verdict | **Merge now.** Three follow-ups named below; the loading state is the one to treat as blocking *for demo day*, not for the merge |
 | Re-verified | production build (`next build` + `next start -p 3003`), headless Chrome 151, cold cache, this machine — plus a reference-parity check against CSSLab's own training-side code run in Python. Every number the author reports reproduced exactly |
@@ -300,8 +330,12 @@ human" and not "is it broken?".
 
 ## How to re-verify from scratch
 
+`feat/03-maia-onnx-spike` is deleted now that #7 has merged — this all runs off
+`main`, plus whatever PR #7 gained before it landed (the load notice and the
+stall timeout, which didn't exist when the numbers below were taken).
+
 ```sh
-git fetch origin && git switch feat/03-maia-onnx-spike
+git fetch origin && git switch main
 npm install && npm run build && npm run start -- -p 3003
 
 "/c/Program Files/Google/Chrome/Application/chrome.exe" \
@@ -340,3 +374,7 @@ Replace the "No COOP/COEP headers needed." paragraph with:
 Not applied on this branch on purpose: `docs/deployment.md` is being edited by
 two other lanes at this hour, and this PR may outlive both merges. Whoever
 touches §4 last, paste the block.
+
+**Done — no action needed.** This went in with PR #7; §4 on `main` opens with
+"No COOP/COEP headers needed — for two different reasons now." Kept here so the
+review reads whole.
