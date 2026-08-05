@@ -201,11 +201,51 @@ console.log(`observed span: ${Math.min(...values).toFixed(4)} .. ${Math.max(...v
 
 // Does the rating input move the value at all? Matters because a rollout feeds
 // elo_self/elo_oppo per side and a bootstrapped truncation reads this scalar.
-console.log("\n== value vs elo_self (same position) ==");
-const cats = [1, 3, 5, 7, 9];
-const sweep = await run(cats.map((self) => ({ fen: FEN_B, self, oppo: CATEGORY })));
+//
+// Read the two sweeps together, in this order - the first one on its own is
+// misleading. MISMATCHED (elo_oppo pinned at 1500) is a rating *gap*: a cat-1
+// player facing 1500 really is worse off, so a value sliding with elo_self there
+// is the model pricing the gap, not drifting. MATCHED is the one that isolates
+// rating from mismatch, and it's the number a rollout's truncation centre needs,
+// because a rollout at one tier feeds the same category to both inputs.
+console.log("\n== value vs elo_self, opponent PINNED at 1500 (a rating gap) ==");
+const cats = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const mismatched = await run(cats.map((self) => ({ fen: FEN_B, self, oppo: CATEGORY })));
 console.log(
-  cats.map((self, i) => `cat ${self}: ${Number(sweep.out.logits_value.data[i]).toFixed(4)}`).join("   "),
+  cats.map((c, i) => `${c}:${Number(mismatched.out.logits_value.data[i]).toFixed(3)}`).join("  "),
+);
+
+console.log("\n== value vs elo_self, opponent MATCHED (no gap) ==");
+// Four positions that are objectively about level, so whatever is left is the
+// model's own idea of "an even game at this rating" - the centre a truncated
+// rollout has to be squashed around.
+const BALANCED = [
+  ["start position", FEN_A],
+  ["mid-opening", FEN_B],
+  ["symmetrical exchange", "r1bqk2r/pppp1ppp/2n2n2/4p3/4P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5"],
+  ["level rook endgame", "5rk1/5ppp/8/8/8/8/5PPP/5RK1 w - - 0 1"],
+];
+const matchedRows = [];
+for (const [, fen] of BALANCED) for (const c of cats) matchedRows.push({ fen, self: c, oppo: c });
+const matched = await run(matchedRows);
+const byCategory = cats.map(() => []);
+matchedRows.forEach((row, i) => {
+  byCategory[cats.indexOf(row.self)].push(Number(matched.out.logits_value.data[i]));
+});
+BALANCED.forEach(([label], p) => {
+  console.log(
+    `${label.padEnd(22)} ` +
+      cats.map((c, i) => `${c}:${byCategory[i][p].toFixed(3)}`).join("  "),
+  );
+});
+const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+console.log(
+  "mean per category:     " + cats.map((c, i) => `${c}:${mean(byCategory[i]).toFixed(3)}`).join("  "),
+);
+const allMatched = byCategory.flat();
+console.log(
+  `all matched-tier balanced positions: mean ${mean(allMatched).toFixed(4)}, ` +
+    `span ${Math.min(...allMatched).toFixed(4)} .. ${Math.max(...allMatched).toFixed(4)}`,
 );
 
 console.log("\ndone");

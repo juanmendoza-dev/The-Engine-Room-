@@ -29,6 +29,7 @@ import {
 } from "@/lib/chess/engineMaia";
 import { getMoveFor, parseSearchScore } from "@/lib/chess/engines";
 import {
+  DEFAULT_PLY_BUDGET,
   runMaiaRollouts,
   valueToExpectedScore,
   wilsonInterval,
@@ -369,8 +370,16 @@ export default function MaiaRolloutTestPage() {
         log(summarize(middlegame));
         log(`end reasons: ${JSON.stringify(middlegame.endReasons)}`);
         log(
-          `${verdict(!middlegame.compromised)}  truncated fraction ${pct(middlegame.truncatedFraction)} ` +
-            `is under the 15% mark where the interval stops meaning much`,
+          `${verdict(middlegame.compromised === middlegame.truncatedFraction > 0.15)}  the ` +
+            `compromised flag agrees with the truncated fraction (${pct(middlegame.truncatedFraction)})`,
+        );
+        // The claim being tested is about the raised ply budget, not about luck: at
+        // the spec's 120 this same position left 16.7% of rollouts unresolved and
+        // tripped the flag. If this line fails, the budget is still too short.
+        log(
+          `${verdict(middlegame.truncatedFraction < 0.15)}  the ${DEFAULT_PLY_BUDGET}-ply budget ` +
+            `resolves more of the tail than 120 did (was 16.7% unresolved there, ` +
+            `${pct(middlegame.truncatedFraction)} here)`,
         );
         const sums =
           middlegame.win.proportion + middlegame.draw.proportion + middlegame.loss.proportion;

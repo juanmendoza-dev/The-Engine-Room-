@@ -30,11 +30,23 @@ export const DEFAULT_ROLLOUTS = 30;
 export const DEFAULT_TEMPERATURE = 1;
 
 /**
- * Hard cap on rollout length. Bounds a pathological shuffle - chess.js's own
- * fifty-move and repetition rules end most games long before this, and 120 plies
- * is 60 moves.
+ * Hard cap on rollout length. Bounds a pathological shuffle; chess.js's own
+ * fifty-move and repetition rules end most games well before it.
+ *
+ * 200 rather than the spec's 120, and the reason is compaction. The spec picked
+ * 120 while every rollout shared one fixed-size pass, so the slowest member cost
+ * the whole batch a forward pass per extra ply. Dropping finished rollouts out of
+ * the batch means a straggler costs only itself: measured from an opening position
+ * at N=30, ply 120 had 5 rollouts still running, so the extra 80 plies bill about
+ * 80 x 5 x 25ms = 10s on top of a 99s run. The spec's shape would have charged
+ * 80 x 30 x 25ms = 60s for the same thing.
+ *
+ * Buying it is worth it because 120 was leaving real work unresolved: 17% of
+ * rollouts from an opening position hit that cap (mean game length 81 plies), and
+ * every one of those gets scored by the value head's guesswork instead of played
+ * out - enough to trip this module's own "the interval is compromised" flag.
  */
-export const DEFAULT_PLY_BUDGET = 120;
+export const DEFAULT_PLY_BUDGET = 200;
 
 /** 95%. */
 export const WILSON_Z = 1.96;
