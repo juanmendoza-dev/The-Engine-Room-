@@ -72,7 +72,7 @@ The whole loop is one page and one script. From `web/`, with a production build
 running (`npm run build && npx next start -p 3200`):
 
 ```sh
-URL='http://localhost:3200/dev/match-runner?a=Stockfish%202800&b=Maia%201900&elo1=200&maxGames=40'
+URL='http://localhost:3200/dev/match-runner?a=Stockfish%202800&b=Maia%201900&elo1=200&minGames=30&maxGames=40&seed=1007'
 
 "C:/Program Files/Google/Chrome/Application/chrome.exe" \
   --headless=new --remote-debugging-port=9351 \
@@ -83,7 +83,22 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \
 ```
 
 The script appends the games and refits `ratings.json` over *everything* logged,
-so pairings accumulate. Four things worth knowing before you start one:
+so pairings accumulate. To rebuild that file from the log alone — including
+replaying each run's SPRT rather than trusting the stored terminal state:
+
+```sh
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/refit-ratings.mjs --dedupe
+```
+
+Five things worth knowing before you start a match:
+
+- **Set `minGames`.** Without it the sequential test stops the moment it is
+  confident, which on a lopsided pairing is about eight games — and eight games
+  of a lopsided pairing is a whitewash, which has no measurable Elo at all. The
+  decision still only counts games up to the boundary; the rest are for the fit.
+- **Use a fresh `seed` per run on a pairing you have already played.** Same seed,
+  same openings, same deterministic engines, same games. `sprt-run.mjs` will drop
+  them as duplicates, so you get a match that logs nothing.
 
 - **Use a fresh `--user-data-dir` and a port nobody else is on.** A killed
   headless Chrome leaves a ProcessSingleton lock and the next launch on the same
@@ -124,6 +139,18 @@ All 21 lines are checked legal and, more usefully, checked *non-transposing*:
 replay each one and the resulting positions must all differ. Two lines that
 transpose are one line for decorrelation purposes however different their move
 lists look.
+
+**Openings are dealt from a shuffled deck, not drawn with replacement, and that
+change came from measurement.** The spec says "picked uniformly per game" and
+sizes the book so repeats stay rare. At small N that under-reads the problem: a
+repeat is not a slightly-correlated game, it is a byte-identical one, worth zero
+information — but the sequential test still counts it as evidence and reports a
+narrower interval for it. The first Maia 1900 vs Maia 1100 match logged 34 games
+of which **22 were distinct**. Seventeen opening draws over a 21-line book
+collide about a third of the time, which is exactly the birthday arithmetic.
+Dealing without replacement makes it impossible for the first 42 games of a
+match; `sprt-run.mjs` catches cross-run collisions separately, on exact
+move-sequence identity.
 
 ## What isn't here
 
