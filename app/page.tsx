@@ -3,13 +3,17 @@ import { ReplayBoard } from "@/components/ReplayBoard";
 
 // Atmospheric flavour text, not live data. Wiring this to real KV records
 // stays an optional later touch (same call as the old ticker).
+//
+// "all engines coupled" used to be in here. It came out with the header badge
+// that said the same thing: the header now reads a real game, so leaving the
+// claim in the marquee would have made this the only place the site still
+// asserts a backend it doesn't have.
 const MARQUEE_ITEMS = [
   "Stockfish 17 — depth 42",
   "eval +0.4 — white ahead",
   "Sicilian Defence · B90",
   "84,000 nodes / second",
   "checkmate detected in 7",
-  "all engines coupled",
 ];
 
 const MODES = [
