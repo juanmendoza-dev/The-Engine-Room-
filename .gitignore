@@ -13,6 +13,13 @@ node_modules/
 # testing
 coverage/
 
+# playwright — run artifacts only. The gallery PNGs it writes to docs/assets/
+# ARE committed; that's the point of the harness.
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
 # next.js
 .next/
 out/

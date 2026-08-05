@@ -19,6 +19,7 @@ glance:
 | why the app looks the way it does | [`design/ink-and-bone-notes.md`](design/ink-and-bone-notes.md) |
 | how Maia actually works in the browser | [`maia-notes.md`](maia-notes.md) |
 | how a branch gets to the live site | [`deployment.md`](deployment.md) |
+| how the README's screenshots get taken | [`screenshots.md`](screenshots.md) |
 | what was planned vs what shipped | [`plans/2026-08-03-engine-room-implementation.md`](plans/2026-08-03-engine-room-implementation.md) |
 
 ## Reference
@@ -29,6 +30,7 @@ glance:
 | [`rating-notes.md`](rating-notes.md) | What the engine presets are empirically worth, as opposed to what their labels say — measured from played games with a Bradley-Terry fit and a sequential test (Task 16). Read this before quoting "Stockfish 2800" or "Maia 1900" at anyone. Also the runbook for adding a pairing. |
 | [`maia-notes.md`](maia-notes.md) | The Maia integration, end to end: why Maia 2 over original Maia and Maia 3 (licensing and encoding), the 18-plane tensor layout, the policy decode, the move table, and the measurements. Moved out of the scripts folder — it's prose, not a script. |
 | [`maia-calibration-notes.md`](maia-calibration-notes.md) | Whether Maia's probabilities can be trusted as probabilities, measured against ~4,000 real Lichess rapid moves: reliability diagram, ECE, Brier, log loss, and what the answer means for the live rating estimate's credible interval. Also documents the offline audit scripts and how to re-run them. |
+| [`screenshots.md`](screenshots.md) | The Playwright harness behind the README gallery — `npm run shots`, what the three Maia shots cost, and the traps (a label that collides with the header scoreboard, a config option that only fails at `next build`). |
 | [`design/ink-and-bone-notes.md`](design/ink-and-bone-notes.md) | The current design system: tokens, fonts, day/night mechanics, the header scoreboard, the brand mark, the route transition, and a Traps section. |
 | [`design/fight-fx-notes.md`](design/fight-fx-notes.md) | The 19 fight effects and the tier ladder that decides which one fires on a given move. |
 | [`design/hero-notes.md`](design/hero-notes.md) | **Superseded.** The original brass/steam design, replaced on 2026-08-04. Kept for history — don't build from it. |

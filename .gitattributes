@@ -6,3 +6,7 @@
 *.wasm binary
 *.onnx binary
 *.nnue binary
+
+# Same reasoning for the README gallery screenshots. Git's own detection gets
+# PNG right, so this is belt-and-braces rather than a fix for something seen.
+*.png binary

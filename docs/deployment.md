@@ -655,6 +655,13 @@ has no `"type": "module"` (harmless — suppress with
 which is Next's to own), and the imported modules must avoid `enum` and
 constructor parameter properties, since those aren't erasable syntax.
 
+**Screenshots are Playwright; verification is still CDP.** `npm run shots` drives
+the app in Playwright to write the README gallery into `docs/assets/`
+([`docs/screenshots.md`](screenshots.md)). It replaces nothing below — the
+`cdp-*.mjs` harnesses are still what proves the app works, and several of the
+traps in this list bit the Playwright harness too, the drag-coordinate one
+included.
+
 **Headless-Chrome (CDP) verification traps (Task 10).** Things that cost
 time when driving the app with the `web/scripts/cdp-*.mjs`-style harnesses:
 
