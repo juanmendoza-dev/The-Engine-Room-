@@ -1643,6 +1643,17 @@ the `evaluateMaiaAt` split that task introduced — the shared
 legal-move-softmax extraction lives in the same function, and doing it twice is
 how two copies of a decoder drift apart.
 
+**Landing order, so this doesn't turn into another stranded branch:**
+`feat/14-maia-rollouts` is pushed and its commits verify on GitHub, but it has
+**no PR yet on purpose** — it contains all of Task 13, so a PR against `main`
+today would show two features at once. The agreed sequence is: Task 13
+squash-merges first, then `feat/14` rebases onto `main` (`git fetch origin &&
+git rebase origin/main && git push --force-with-lease`) and opens its own PR.
+One commit on `feat/14` belongs to Task 13 — `5f5ace6`, its write-up, committed
+from another session while this branch happened to be checked out — and is
+deliberately left there rather than cherry-picked onto a branch someone else was
+working in.
+
 Estimates a *human-realistic* win/draw/loss at a position: play it out N times
 with Maia choosing every move for both sides, count how they ended. Flat Monte
 Carlo, not MCTS — every rollout is an independent sample from the root, which is
