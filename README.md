@@ -11,7 +11,7 @@ run entirely in your browser — there is no backend doing the thinking.
 | --- | --- |
 | `/` | Menu. A looping replay of Morphy's Opera Game (1858) plays on the board while you pick. |
 | `/model-1v1` | Pick two engines, press start, watch them fight. Move log, per-side rating labels, a thinking indicator that names which engine is searching. |
-| `/user-1v1` | Pick one engine and a colour, then play it. Drag or click; illegal moves snap back. Restart mid-game if it's going badly. |
+| `/user-1v1` | Pick one engine and a colour, then play it. Drag or click; illegal moves snap back. Restart mid-game if it's going badly. Reads your own moves as you go and estimates the rating you play like — as a band, not a number. |
 | `/history` | Finished games, newest first — who played, result, how it ended. |
 
 ## The two engines
@@ -78,6 +78,13 @@ redeploy — no code change. Runbook in [`docs/deployment.md`](docs/deployment.m
 
 ### The rest of it
 
+- **Live rating estimate** — on `/user-1v1`, your own moves are scored against all
+  nine of Maia's rating buckets each ply, and Bayes' rule run backwards turns that
+  into a posterior over "which rating do you play like". Reported as a band with
+  the interval always attached, and it shows nothing at all until it has enough
+  information to be worth reading. Honest about its limits: it locates you within
+  about ±1 bucket, not to the nearest 100 points, and it says so. Task 13 in the
+  [plan](docs/plans/2026-08-03-engine-room-implementation.md) has the measurements.
 - **Fight FX** — 19 effects (impact, shake, ghosts, combo counters, a charge bar
   fed by Stockfish's real search depth) over a tier ladder that classifies each
   move and picks a beat. Opts out entirely under `prefers-reduced-motion`, or
@@ -104,6 +111,7 @@ web/                      the Next.js app — everything below is relative to he
   components/               Board, EngineConfigPicker, ResultScreen, header, brand mark…
     fx/                       the fight-FX stage and its stylesheet
   lib/
+    analysis/                 rating inference: maiaLikelihood · ratingPosterior
     chess/                    engineStockfish · engineMaia · engines (getMoveFor) · gameLoop
     fx/                       effect definitions, move classification, runtime
     games/                    storage: types · localStore · store (the adapter facade)
@@ -180,6 +188,14 @@ Stated plainly, because they're all deliberate calls rather than oversights:
   Stockfish weakens play by picking a worse candidate move rather than searching
   shallower. [A spec exists](docs/specs/2026-08-05-sprt-engine-ratings.md)
   to settle it with SPRT; it hasn't been run.
+- **The rating estimate resolves to about ±1 bucket, not to 100 points.** Neighbouring
+  Maia buckets differ by 1–3 percentage points on a given move, so 40 plies of your
+  own play locate you within a couple of hundred points and no better — fed Maia's
+  own moves at a known 1700, the posterior peaks at 1600 on one game and 1800 on
+  another. That's why it's shown as a band. It also measures which bucket's move
+  *distribution* you resemble, which correlates with rating without being the same
+  thing: an unusual repertoire reads as a worse fit rather than a different one.
+  Its three tuned constants come from one fixture pair, not a corpus.
 - **No automated test suite.** Verification is headless-Chrome CDP harnesses in
   `web/scripts/` driving the production build and asserting on the post-hydration DOM
   — full games played through the UI, drags dispatched as real pointer events,

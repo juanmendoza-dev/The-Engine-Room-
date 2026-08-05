@@ -1489,6 +1489,142 @@ animation code. Full write-up: [`docs/design/fight-fx-notes.md`](../design/fight
       `/user-1v1` was never exercised in a browser. First thing to check if
       drags misbehave is the overlay's `pointer-events: none`.
 
+*(Since closed by Task 13, which drives `/user-1v1`'s drag path in headless
+Chrome for 11 player moves — see `web/scripts/cdp-rating-readout.mjs`.)*
+
+---
+
+## Task 13: Bayesian rating inference (added 2026-08-05, outside the original plan)
+
+Not in the original plan — the first of the five 2026-08-05 stretch specs, picked
+for highest demo payoff at lowest risk (`docs/specs/2026-08-05-build-priority.md`).
+Infers the player's rating live from their own moves: a posterior over Maia's 9
+rating buckets that widens or narrows honestly instead of naming a number.
+Spec: [`docs/specs/2026-08-05-bayesian-rating-inference.md`](../specs/2026-08-05-bayesian-rating-inference.md).
+
+**Files:**
+- Create: `web/lib/analysis/{maiaLikelihood,ratingPosterior}.ts`
+- Create: `web/components/RatingReadout.tsx`
+- Create: `web/app/dev/rating-test/page.tsx`, `web/scripts/cdp-rating-readout.mjs`
+- Modify: `web/lib/chess/engineMaia.ts` (`evaluateMaiaAt` + one ORT run at a time),
+  `web/app/user-1v1/page.tsx`
+
+- [x] `evaluateMaiaAt(fen, selfCategory, oppoCategory)`; `evaluateMaia` is now a
+      two-line wrapper over it, so `getMaiaMove` and the game loop are unchanged
+- [x] Likelihood, mutual-information weighting, log-posterior accumulation,
+      credible interval, `resolveOppoBucket`
+- [x] Readout on `/user-1v1`, gated so it never names a bucket bare
+- [x] All five of the spec's verification checks, plus an evidence ceiling and an
+      arg-max fixture that aren't in it
+- [x] Driven in a real browser: 11 player moves against Maia 1500, no console
+      errors, gate opened on move 8
+
+### What differed from the spec
+
+**Three of its constants were wrong, and `I_min`/`I_ref` were wrong by an order
+of magnitude in units.** The spec guessed `I_min = 0.02`, `I_ref = 0.25` nats.
+Measured across a 40-ply game, real `I(fen)` runs min 0.001, p25 0.009, median
+0.013, p75 0.026, max 0.085. At the spec's numbers 22 of 40 plies were skipped
+outright, not one reached full weight, mean `g_t` was 0.07, and the posterior
+finished 0.8 points off a flat prior — it read exactly like a broken estimator
+and was only being told to ignore its own evidence. Shipped at `0.01` / `0.03`,
+roughly the measured p25 and p75: mean `g_t` 0.48.
+
+**The display gate is 6 effective plies, not ~3, and for a different reason.**
+The spec ties it to interval width; the real problem is MAP stability. Over the
+first six rated plies the MAP swings 1900 → 1400 → 1600, most of the width of the
+scale, on almost no evidence. A gate at 3 puts a readout on screen that then
+contradicts itself twice. Past 6 it holds 1600 for the rest of the game bar one
+single-ply excursion in 30, while the band keeps visibly shrinking — which is
+what the spec wants the UI to show. On the fixture the gate opens at rated ply
+10; in the live browser run it opened on move 8, because those positions carried
+more information per ply.
+
+**`τ` stays at 0.35, but the honest justification is weaker than the spec's.**
+The overconfidence tempering exists to prevent does not happen here: at `τ=1`
+with every ply at full weight, 40 rated plies peak at 25.9% on a single bucket
+and never cross 90%. Nine hypotheses this similar can't collapse. `τ` is cheap
+insurance, not a load-bearing correction — measured, it buys one bucket of extra
+interval width for no change in MAP.
+
+**`evaluateMaiaAt`'s parameters are `selfCategory`/`oppoCategory`, not the spec's
+`selfBucket`/`oppoBucket`.** `RatingBucket` in `lib/analysis` is a rating
+(1100–1900) and these are the model's category indices (1–9). Both are `number`,
+so one word covering both scales is a bug waiting to be written.
+
+**One ORT run at a time, which the spec doesn't ask for.** It lists "whether
+concurrent `session.run()` calls on one session even interleave safely" as
+unverified. They don't — ORT throws `Session already started`. That's fine today
+because the game loop is sequential, but the estimator's nine passes land right
+on top of the opponent's own `getMaiaMove`, and if the opponent's call lost the
+race `/user-1v1` would show "Engine failed" for a reason nothing in the game code
+explains. `engineMaia.ts` serialises at the one point both callers pass through.
+Costs a sequential caller one microtask; output is byte-identical.
+
+**Verification is a dev page, not `scripts/verify-rating-posterior.mjs`.** It
+can't be a Node script: `engineMaia.ts` throws "Maia runs in the browser only"
+under Node and ORT resolves its wasm from `/ort/`. `/dev/rating-test` driven by
+the existing `cdp-verify.mjs` is the same shape as the Maia spike's harness.
+
+### Verification results actually observed
+
+Production build, headless Chrome, fixture = Maia 1700's own moves against
+Maia 1500 (so `oppoBucket` resolves exactly), 40 rated plies.
+
+| Spec check | Result |
+| --- | --- |
+| 1. Self-consistency | **MAP 1600, one bucket off 1700.** Interval 1400–1900 covers the truth; `P(1700)` climbs 11.1% → 14.6%; `eff` 19.18/40. Second seed lands MAP 1800 — one bucket off the *other* way. |
+| 2. One legal move | PASS, exact: `I(fen) = 0.000e+0`, `g_t = 0`, no branch needed |
+| 3. No evidence, no claim | PASS on the part that matters — flat 1/9, `ready=false`. Interval spans **8** buckets, not the 9 the spec expects: seven flat buckets is 77.8% and eight is 88.9%, so 80% coverage stops at eight. |
+| 4. Wrong `elo_oppo` | PASS. Scored with a deliberately wrong `oppoBucket` (1100) the MAP still lands on 1700 — "fix to a default" is safe in practice, marginalising isn't worth 9× |
+| 5. Tempering by eye | Ran, but the effect the spec predicts isn't there — see `τ` above |
+
+**Why MAP being one bucket off is not a tuning problem.** With no weighting and
+no tempering at all (`g=1, τ=1`, the most this fixture can possibly claim) the
+ceiling posterior is:
+
+```
+1100:0.5%  1200:1.4%  1300:4.8%  1400:21.1%  1500:18.9%  1600:25.2%  1700:15.4%  1800:9.1%  1900:3.6%
+```
+
+MAP 1600, truth ranked 4th. Adjacent buckets are genuinely unresolvable — Maia's
+own per-move separation between neighbours is 1–3 points (`docs/maia-notes.md`).
+What it *does* resolve is real: 65% of mass on 1400–1700, and the extremes ruled
+out at under 1.5%. Two seeds bracketing 1700 from either side is the signature of
+an unbiased estimator with about ±1 bucket of precision. The evidence-ceiling
+diagnostic is in the page specifically so the next person doesn't respond to
+"MAP is one bucket off" by cranking `τ` until it isn't, which would just be
+fitting one fixture.
+
+**Arg-max fixtures read as 1900, confidently.** Not in the spec's plan, and worth
+knowing. Scoring moves generated by `getMaiaMove` (which takes the arg-max) gives
+MAP 1900 with 69% on one bucket at the ceiling. Always playing the modal move
+looks like a very *predictable* player, and predictability reads as high rating.
+Doesn't affect real use — humans don't play arg-max — but it means pointing this
+estimator at a Model 1v1 game would report nonsense.
+
+**Live on the real screen.** `cdp-rating-readout.mjs`, Maia 1500 opponent, 11
+player moves: readout held "reading your moves…" through move 7, opened at move 8
+on 6.1 effective plies, never named a bucket without its interval. No console
+errors and no `Session already started`, which is the serialisation doing its job.
+The driver has no board model so it plays whatever's legal, which came out as
+`a2a3 h2h3 b2b3 g2g3 a3a4 h3h4 b3b4` — aimless wing pawns — and the estimator
+called it "plays most like a 1100 · likely 1100–1600". It's reading something real.
+
+### Left undone
+
+- [ ] **Not verified on the live site.** Local production build only, per
+      `docs/deployment.md` §4 — preview URLs are SSO-gated.
+- [ ] **`τ`, `I_min`, `I_ref` are tuned against one fixture pair.** Better than
+      the spec's untested guesses, still one game's worth of data. A corpus of
+      graded human games would settle them; there isn't one here.
+- [ ] **Calibration still unaudited** (`2026-08-05-maia-calibration-audit.md`).
+      Everything above assumes Maia's softmax behaves like a probability in
+      `elo_self`. The wide interval is the hedge.
+- [ ] **Still 9 sequential forward passes per ply (~400ms) on the main thread.**
+      A Worker is the real fix and is out of this spec's scope; batching depends
+      on the rollouts spec.
+
 ---
 
 ## After Phase 3
