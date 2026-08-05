@@ -225,8 +225,8 @@ Numbers are only worth anything next to their limits, so here is mines plainly �
   <img src="docs/assets/icon-caution.svg" width="40" alt="">
 </td>
 <td valign="top">
-  <b>The Stockfish ELO presets are unproven as <i>strength</i> settings</b><br>
-  <sub>The spike proved Stockfish accepts <code>UCI_Elo</code> and searches; it never proved 1320 actually plays weaker than 2800 over a sample of games (search depth is identical at both, Stockfish weakens by picking worse candidates not by searching less). An SPRT match harness to settle it for real is mid flight on its own branch right now.</sub>
+  <b>The dropdown numbers are not one shared scale across the two engines</b><br>
+  <sub>We ran actual SPRT matches to check (114 games, Bradley-Terry fit, <a href="docs/rating-notes.md">write-up</a>). Stockfishs <code>UCI_Elo</code> is real — 1800 beat 1320 7-1-0, 2800 beat 1800 8-0-0. But Maias tiers barely differentiate (1500 measured just 34 Elo above 1100, against a 400 point label gap), and Maia 1100 beat Stockfish 1320 <b>26-2-2</b> — weakened Stockfish seems to inject occasional catastrophic moves rather than play consistently weaker chess. So read the labels as within-engine settings, not a shared ladder.</sub>
 </td>
 </tr>
 </table>
@@ -258,7 +258,7 @@ cd web && npm run build && npm run start   # the harnesses drive the production 
 node scripts/cdp-verify.mjs               # then point one at it
 ```
 
-## Three days, 28 PRs (and counting!!!!!!)
+## Three days, 30 PRs (and counting!!!!!!)
 
 | Phase | What shipped |
 |---|---|
@@ -267,7 +267,7 @@ node scripts/cdp-verify.mjs               # then point one at it
 | 1 | Menu, engine registry, game loop, Model 1v1 — the first watchable fight |
 | 2–3 | User 1v1 with drag input, history page, storage adapter |
 | Redesign | Ink & Bone: the whole visual system, header scoreboard, brand mark, the printing press route transition, Fight FX |
-| Day three | The analysis layer: live rating inference, Monte Carlo odds, the policy mixture opponent, the calibration audit |
+| Day three | The analysis layer: live rating inference, Monte Carlo odds, the policy mixture opponent, the calibration audit, and SPRT matches measuring what the presets are actually worth |
 
 <sub>Planned on the 3rd, built on the 4th and 5th. Every change landed as a squash-merged PR off `main`, every commit signed and verified.</sub>
 
@@ -336,6 +336,7 @@ This repo keeps its reasoning, not just its code, [docs/](docs/) has the full in
 |---|---|
 | [`docs/maia-notes.md`](docs/maia-notes.md) | The Maia integration end to end: why Maia 2 over 1 and 3, the tensor layout, the policy decode, the measurements |
 | [`docs/maia-calibration-notes.md`](docs/maia-calibration-notes.md) | The audit: are Maias probabilities actually probabilities (mostly, mildly overconfident) |
+| [`docs/rating-notes.md`](docs/rating-notes.md) | The SPRT matches: Stockfishs presets are real, Maias tiers barely differ, and the two scales dont compare |
 | [`docs/deployment.md`](docs/deployment.md) | Branch workflow, Vercel, the KV runbook, and a long §4 of production traps that each cost someone an afternoon |
 | [`docs/specs/`](docs/specs/) | Design specs per feature, written before the work |
 | [`docs/plans/`](docs/plans/) | The build plan, with per-task "What differed from the plan" post-mortems |
