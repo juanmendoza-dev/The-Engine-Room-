@@ -1,7 +1,7 @@
 import { Chess } from "chess.js";
 
-import { evaluateMaia } from "./engineMaia";
-import { getStockfishLines, parseUciMove } from "./engineStockfish";
+import { evaluateMaia, uciToMove } from "./engineMaia";
+import { getStockfishLines } from "./engineStockfish";
 import type { EngineConfig, EngineMove } from "./types";
 
 // The policy mixture: a fourth engine that isn't a third model.
@@ -417,5 +417,5 @@ export async function getMixtureMove(
   onInfo?: (line: string) => void
 ): Promise<EngineMove> {
   const { chosen } = await evaluateMixture(fen, config, onInfo);
-  return parseUciMove(chosen);
+  return uciToMove(chosen);
 }

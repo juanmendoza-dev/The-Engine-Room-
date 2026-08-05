@@ -1890,14 +1890,33 @@ constant and left "does this lite build have it" open. It does:
 unknowns left in front of it. Not taken here, because it changes what α weights and
 therefore wants its own before/after calibration.
 
-**At `temperature: 0` the preset draws against itself in 8 plies**, by threefold
-repetition — both sides being deterministic functions of the position, they walk a
-knight out and back and the start position recurs on plies 4 and 8. Exactly the
-determinism problem `2026-08-05-sprt-engine-ratings.md` opens with, arriving in eight
-moves instead of a hundred games. T=0 is kept because the spec specifies it and
-because determinism is what the verification checks need, but it makes
-mixture-vs-mixture a poor watch and any `T > 0` fixes it. Flagged rather than changed:
-it's one field with real strength implications.
+**The preset draws against itself in 8 plies, and the obvious explanation is
+wrong.** `1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 Ng8`, threefold repetition. The
+tempting diagnosis is "T=0 makes both sides deterministic, so raise the temperature",
+and it survives neither half of a measurement:
+
+- *Raising T doesn't fix it.* Swept T = 0.25, 0.5 and 1 as temporary presets. 0.25
+  and 0.5 draw at 8 plies exactly as T=0 does; T=1 finds a **different** 2-cycle
+  (`3. Nc3 Nc6 4. Nb1 Nb8`) and draws at 12. Sampling changes which cycle, not
+  whether there is one.
+- *The mixture didn't introduce it.* **Maia 1500 and Maia 1100 self-play produce the
+  identical Nf3/Ng1 shuffle and the identical 8-ply threefold** on this build. At
+  β=1 the blend is Maia-dominated, so this is inherited, faithfully. It has presumably
+  been true of Maia-vs-Maia since Task 3 and gone unnoticed because /model-1v1
+  defaults to Stockfish 1320 vs 2800.
+
+Root cause is in the model, not the blend: Maia 2's input carries no move-history
+planes, so after `1. Nf3 Nf6` it cannot see that it just played Nf3. A history-free
+policy played greedily, over a position pair where each move's inverse is also
+well-liked, is a 2-cycle attractor. Written up in `docs/maia-notes.md`, where it
+belongs. `temperature: 0` therefore stays as specified, and the real cure is the
+randomized opening book in `2026-08-05-sprt-engine-ratings.md` — which exists for
+precisely this and replaces engine choice for the first K plies.
+
+Worth recording as a process note too: the first draft of this section confidently
+blamed determinism and recommended `T > 0`. One sweep and one Maia-vs-Maia control
+run falsified both claims. The control run is the part that mattered — without it
+this would have shipped as a mixture bug with a fix that doesn't work.
 
 **The spec's consumer audit missed one site, because Task 13 post-dates the spec.**
 `resolveOppoBucket` in `web/lib/analysis/ratingPosterior.ts` read
@@ -1908,11 +1927,14 @@ config's `ratingTier` is already on Maia's scale exactly. Fixed as
 math, and importing the engine registry would drag `onnxruntime-web` into it and
 break the plain-Node runnability `2026-08-05-sprt-engine-ratings.md` is counting on.
 
-**`uciToMove` isn't on `main`.** The spec's illustrative code imports it from
-`engineMaia.ts`; it's a Task 14 addition and Task 14 is still in PR `#25`. Rather
-than add a second copy that would collide with it on merge, `parseUciMove` — already
-present and private in `engineStockfish.ts` — was exported. Worth deduplicating once
-`#25` lands, since the two are the same four lines.
+**`uciToMove` briefly wasn't on `main`.** The spec's illustrative code imports it
+from `engineMaia.ts`, but it's a Task 14 addition and `#25` was still open while this
+was built, so the first pass exported `parseUciMove` — the same four lines, already
+private in `engineStockfish.ts` — rather than add a second copy that would collide
+on merge. `#25` has since merged, so this branch was rebased onto it and the
+workaround dropped: `engineMixture` imports `uciToMove` as the spec always intended
+and `parseUciMove` is private again. The two remain near-duplicates of each other in
+their respective modules, which is pre-existing and small enough to leave alone.
 
 **One guard earned its keep immediately.** `evaluateMixture` throws when Stockfish
 reports zero scored lines at a position that has legal moves, because the union rule

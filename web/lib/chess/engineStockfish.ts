@@ -119,8 +119,7 @@ export async function getAdvertisedOptions(): Promise<string[]> {
   return [...advertisedOptions];
 }
 
-/** `e7e8q` -> `{ from: "e7", to: "e8", promotion: "q" }`. Exported for engineMixture.ts. */
-export function parseUciMove(uci: string): EngineMove {
+function parseUciMove(uci: string): EngineMove {
   return {
     from: uci.slice(0, 2),
     to: uci.slice(2, 4),
