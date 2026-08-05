@@ -2233,8 +2233,43 @@ with their own known-answer test, which is a better ratio than most code gets.
   and 0.0082, E[N]≈22 and ≈320 — all reproduce. Worth having: they are what the
   whole "is this worth 320 games" argument rests on, and nobody had run them.
 
+### The matches, and what they found
+
+114 games across six pairings, in `web/lib/analysis/fixtures/`. Full write-up in
+[`../rating-notes.md`](../rating-notes.md); the three findings:
+
+- **Stockfish's `UCI_Elo` is real** — 1800 beat 1320 7-1-0, 2800 beat 1800 8-0-0,
+  both crossing the H1 boundary almost immediately. Task 2's open question is
+  closed.
+- **Maia's tiers barely differentiate.** 1500 vs 1100 over 38 games: 16W 9D 13L,
+  a fitted gap of **34 Elo** against a 400-point label gap, no decision reached.
+  Same thing `docs/maia-notes.md` saw in the logits, now measured in games.
+- **Stockfish's weakened presets lose to Maia badly** — Maia 1100 beat Stockfish
+  1320 26-2-2. `UCI_LimitStrength` appears to weaken by injecting occasional
+  catastrophic moves rather than by playing consistently weaker chess, so the
+  dropdown numbers are not comparable across the two engines.
+
+Stockfish 2800 has no rating: it won all eight of its games, and a preset that
+never loses is unbounded above. Ford's condition doing its job, not a gap in the
+data.
+
+**One reported result did not survive the audit, which is the best argument for
+having built the audit.** The first Maia 1900 vs Maia 1100 match reported H1 on
+an LLR of 3.141 over 34 games. Replayed from the deduplicated log it is **1.795
+over 22 games — no decision**. Twelve of those games were byte-identical
+duplicates and the SPRT had counted them as evidence. Nothing was wrong with the
+test; it was fed games that did not exist.
+
+**Regression:** `/model-1v1` driven in headless Chrome after the `gameLoop.ts`
+change — 8 plies, no console errors, PASS. The one live caller of `runModelGame`
+passes no `startFen` and behaves exactly as before.
+
 ### Left undone
 
+- **Three of the six pairings are short.** The two Stockfish ones and Maia 1500
+  vs Stockfish 1800 ran 8 games each, because the sequential test decided and
+  stopped before `minGames` existed. Directions are solid, magnitudes are weak.
+  Re-running them at `minGames=30` is the highest-value follow-up.
 - **The full 15-pairing roster is not played.** The spec puts scheduling out of
   scope ("a thin loop left unchoreographed") and the fixture covers a connected,
   anchored subgraph rather than every pair. Adding a pairing is one more

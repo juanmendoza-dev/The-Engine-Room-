@@ -19,7 +19,88 @@ results go into a Bradley-Terry fit with a Davidson draw term, and a sequential
 test (SPRT) decides when there is enough evidence to stop. Built as Task 16 from
 [`specs/2026-08-05-sprt-engine-ratings.md`](specs/2026-08-05-sprt-engine-ratings.md).
 
-<!--RESULTS-->
+## The numbers
+
+114 games, six pairings, anchored on Stockfish 1800 = 1800 by definition.
+Fitted Bradley-Terry Elo with a Davidson tie term (γ̂ = 0.641 ± 0.171):
+
+| Preset | Label says | Measured | ± 1 s.e. | Record |
+| --- | --- | --- | --- | --- |
+| Maia 1900 | 1900 | **2104** | 169 | 15/22 |
+| Maia 1500 | 1500 | **1978** | 134 | 26.5/46 |
+| Maia 1100 | 1100 | **1929** | 141 | 51.5/90 |
+| Stockfish 1800 | 1800 | *1800 (anchor)* | — | 9.5/24 |
+| Stockfish 1320 | 1320 | **1347** | 159 | 3.5/38 |
+| Stockfish 2800 | 2800 | *unrated* | — | 8/8 |
+
+Sequential tests, all asking "is the gap at least 200 Elo?" at α = β = 0.05:
+
+| Pairing | Result | SPRT | Gap |
+| --- | --- | --- | --- |
+| Stockfish 1800 vs 1320 | 7W 1D 0L | H1 | decisively stronger |
+| Stockfish 2800 vs 1800 | 8W 0D 0L | H1 | decisively stronger |
+| Maia 1900 vs Maia 1100 | 13W 4D 5L | *no decision* | +176, interval covers 0 |
+| Maia 1500 vs Maia 1100 | 16W 9D 13L | *no decision* | +34 ± 63 |
+| Maia 1500 vs Stockfish 1800 | 4W 4D 0L | H0 | −241 ± 161, to Maia |
+| Maia 1100 vs Stockfish 1320 | 26W 2D 2L | H0 | −496 ± 125, to Maia |
+
+### Three things worth taking from this
+
+**Stockfish's `UCI_Elo` is real.** 1800 beat 1320 seven games to nil with one
+draw, and 2800 beat 1800 eight to nil. Both crossed the H1 boundary almost
+immediately. Whatever else is uncertain here, Task 2's open question — do the
+presets differ in strength at all, or is `UCI_Elo` just an accepted option string
+— is closed, and the answer is yes.
+
+**Maia's rating tiers barely differentiate.** 1500 against 1100 over 38 games:
+sixteen wins, nine draws, thirteen losses, a fitted gap of **34 Elo** against a
+label gap of 400, and the test never reached a boundary. 1900 against 1100 is
++176 with an interval that comfortably covers zero. This is the same thing
+`docs/maia-notes.md` saw from the other end — sweeping the rating input left the
+top move unchanged — now measured in games rather than logits. The rating input
+is wired and it does *something*; it does not buy 800 Elo, or plausibly even 200.
+
+**Stockfish's weakened presets lose to Maia, badly.** Maia 1100 beat Stockfish
+1320 twenty-six games to two. Maia 1500 went unbeaten against Stockfish 1800 in
+eight. On this scale every Maia tier fits *above* Stockfish 1800. The likely
+reason is that `UCI_LimitStrength` weakens Stockfish by making it choose worse
+moves from its own candidate list, which produces occasional catastrophic
+blunders rather than consistently mediocre play — while Maia plays the move a
+human would, which is rarely a catastrophe. Two engines can share a nominal
+rating and be nothing like each other to play against. Worth knowing before
+anyone reads the dropdown numbers as comparable across engines: **they are not,
+and this is the measurement that says so.**
+
+### Why Stockfish 2800 has no number
+
+It won all eight of its games. A preset that never loses has an Elo that is
+unbounded above — push it higher and the likelihood keeps improving, so there is
+no maximum to report. Ford's condition catches this before fitting rather than
+after, and the fit refuses rather than emitting the large confident number a
+runaway iterate would produce. The honest statement is "stronger than everything
+it played, by an amount these games cannot bound."
+
+### A result that did not survive its own audit
+
+The first Maia 1900 vs Maia 1100 match reported H1 accepted — "at least 200 Elo
+apart" — on an LLR of 3.141 over 34 games. Replaying it from the deduplicated log
+gives **LLR 1.795 over 22 games, which is not a decision at all.** Twelve of
+those 34 games were byte-identical replays of others in the same match: the
+opening sampler drew with replacement, and against a deterministic engine the
+same opening is the same game. The duplicates carried the test over its boundary.
+
+Nothing was wrong with the SPRT. It was fed twelve games' worth of evidence that
+did not exist. `scripts/refit-ratings.mjs` recomputes every run's terminal state
+from the log rather than trusting what was stored, which is the only reason this
+was caught; it flags disagreements instead of overwriting them. The log is
+deduplicated and the runner now deals openings from a shuffled deck.
+
+**Three of the six pairings are still short** — the two Stockfish ones and
+Maia 1500 vs Stockfish 1800 ran only 8 games each, because the sequential test
+decided and stopped before `minGames` existed. Their gaps are real in direction
+and weak in magnitude. Re-running them at `minGames=30` is the single highest-
+value thing anyone could do to this fixture, and the runbook below is how.
+
 
 ## How to read these numbers
 
