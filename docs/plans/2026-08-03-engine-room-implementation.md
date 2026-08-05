@@ -1965,6 +1965,106 @@ honestly differ.
 - [ ] **No fastest-mate guarantee**, per above.
 - [ ] **The limit-strength × MultiPV result is one position.** Consistent with the
       documented behaviour, but a sweep would settle it properly.
+---
+
+## Task 17: Maia calibration audit (added 2026-08-05, outside the original plan)
+
+Spec: [`../specs/2026-08-05-maia-calibration-audit.md`](../specs/2026-08-05-maia-calibration-audit.md).
+Fifth of the five 2026-08-05 stretch specs, and the one
+[`../specs/2026-08-05-build-priority.md`](../specs/2026-08-05-build-priority.md)
+puts last precisely because it "never touches the app" — a slide you show a
+judge, not something they click. It answers whether the *number* Maia attaches to
+a move can be trusted, which two shipped features (Tasks 13 and 14) already read
+as though it can. Results: [`../maia-calibration-notes.md`](../maia-calibration-notes.md).
+
+Built out of order: Tasks 15 (policy mixture) and 16 (SPRT) were both claimed by
+other lanes, so this was the next unclaimed spec. It shares no source files with
+either, so the ordering costs nothing.
+
+**Files:**
+- Create: `web/scripts/build-maia-calibration-fixture.mjs`, `web/scripts/audit-maia-calibration.mjs`
+- Create: `web/scripts/verify-calibration-harness.mjs`, `web/scripts/verify-calibration-fixture.mjs`
+- Create: `web/scripts/lib/{calibration,maiaNode}.mjs`
+- Create: `web/scripts/fixtures/maia-calibration-{sample.jsonl,spotcheck.json,report.json}`
+- Create: `docs/maia-calibration-notes.md`
+- Modify: `web/lib/chess/engineMaia.ts` (two `export` keywords, no behaviour change),
+  `docs/specs/2026-08-05-maia-calibration-audit.md`, `docs/README.md`
+
+- [x] Harness validated on synthetic predictors with known answers *before* Maia
+- [x] 3,964-row CC0 Lichess rapid corpus, every row invariant-checked, 10 re-derived from raw PGN
+- [x] Self-consistency gate green, then the real pass: all five of the spec's checks
+- [x] The `elo_oppo` question `bayesian-rating-inference.md` left open, answered
+- [x] Held-out temperature fit, measured and written down, deliberately not wired in
+
+### What it found
+
+**Maia is mildly and systematically overconfident about its top move.** Top-1
+accuracy 50.0%, exactly the published figure. Pooled over every (position, legal
+move) pair ECE is 0.0028 — but that is dominated by the ~90% of pairs carrying
+under 1% of the mass. Restricted to the model's own favourite move, ECE is
+**0.036**, and **all ten bins come in below the line** — at a quoted 84% humans
+play the move 73% of the time. A held-out temperature fit lands at **T = 1.129**,
+the same conclusion from the other direction, and applying it cuts held-out ECE
+by 61% without touching accuracy.
+
+Directly useful downstream: scoring the corpus with the true opponent rating
+instead of `elo_oppo = elo_self` moves log loss by **0.00116 nats**, so
+`bayesian-rating-inference.md`'s cheap fixed default is safe and marginalising
+`elo_oppo` would buy nothing for 9× the passes.
+
+### What differed from the spec
+
+1. **`onnxruntime-web`, not `onnxruntime-node`.** The spec recommends the native
+   package; the wasm backend runs fine under Node — Task 14's
+   `probe-maia-graph.mjs` had already shown that — and it is what the app ships,
+   so the audit measures the deployed runtime instead of a second one. Avoids a
+   native build, which the spec's own Risks call the likeliest install failure
+   on this machine.
+2. **Two exports added to `engineMaia.ts`.** The spec says to import the encoder
+   rather than reimplement it, and names the four pure helpers — but
+   `legalPolicyIndices` and `decodePolicy`, where "which slots are legal" and
+   "softmax over just those" live, were module-private. A keyword each. This is
+   the only app-code change in the task and it alters no behaviour; `npm run
+   build` green.
+3. **The zstd trap is not the one the spec predicted.** It worried about needing
+   a zstd dependency on Node 20; the machine runs Node 24.16, so `zlib` has it
+   built in. The actual trap: Lichess writes the dumps in seekable-zstd layout,
+   so the file opens with a **skippable frame** that Node's decompressor does not
+   skip — fed as-is it emits **zero bytes and no error**, which looks exactly
+   like a month with no rapid games. Also, it stops at the first frame boundary,
+   capping a run at ~14,000 games (~4,000 rows), which is documented and warned
+   about rather than fixed.
+4. **A third synthetic check, not in the spec's list:** that the temperature fit
+   recovers distortions it was not told about (injected ×1.6 → fitted 1.583,
+   ×0.6 → 0.593). The spec proposes temperature scaling as the remedy without
+   ever validating the machinery; applying an unvalidated correction to a real
+   model is how you launder a bug into a result.
+5. **Check 4 covers all 3,964 rows, not ~10.** The spec asks for a hand
+   spot-check of ten rows against raw PGN. That still happens — by a deliberately
+   independent naive replay — but the cheap invariants (move legal at stored FEN,
+   side-to-move matches ply parity, no duplicate `(game, ply)`) run over the
+   whole file for a second's compute, and the parity check is the actual
+   off-by-one detector.
+6. **The fixture carries `ply` and `game` beyond the spec's four fields.** Both
+   exist to make check 4 possible: `ply` parity is what catches an off-by-one,
+   `game` is provenance.
+
+### Still open
+
+- **The per-bucket temperatures look different but the sample can't support it**
+  (spread 0.338 across nine fits of ~167 rows each, no monotone trend in rating).
+  The script's automatic "buckets genuinely differ" verdict fires on a guessed
+  threshold and is called out in the notes as not-to-be-believed. One global T is
+  what the data supports.
+- **T = 1.129 is measured, not applied.** Landing it inside `evaluateMaiaAt` is
+  explicitly out of the spec's scope, and the effect is small enough that there's
+  no urgency. That is the one hook where both the game loop and the rating
+  estimator would inherit it.
+- **The effect on Task 13's 80% credible interval is reasoned, not measured** — a
+  global rescale largely cancels in a bucket-to-bucket likelihood ratio, but
+  nobody has run the estimator with and without the correction.
+- **One month, one site, first ~14,000 games.** Not a uniform draw from the
+  month, and Lichess rapid is a self-selected population.
 
 ---
 
