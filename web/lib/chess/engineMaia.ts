@@ -134,6 +134,9 @@ export function mirrorFen(fen: string): string {
 
 const PIECE_ORDER = ["P", "N", "B", "R", "Q", "K", "p", "n", "b", "r", "q", "k"];
 
+/** Floats in one position's input planes — the stride between batch rows. */
+const PLANE_FLOATS = 18 * 64;
+
 /**
  * 18 planes of 8x8: 12 piece planes, side-to-move, 4 castling rights, en passant.
  * Note this is richer than Maia 3's input, which encodes piece placement only and
@@ -396,6 +399,115 @@ function runExclusive<T>(work: () => Promise<T>): Promise<T> {
   return result;
 }
 
+// ── Decode, shared by the single-position and batched paths ──────────────────
+// Both halves below were inline in evaluateMaiaAt and were lifted out unchanged
+// so the batched path can reuse them per row. A pure extraction on purpose: the
+// gameplay path's output stays byte-identical, which is the whole reason
+// getMaiaMove needed no attention when batching landed.
+
+/**
+ * Policy-table indices of the legal moves at an **already-mirrored** FEN.
+ *
+ * Mirrored, because the policy indices are: the model only ever sees a
+ * white-to-move board. A legal move missing from the table is skipped rather
+ * than defaulted — better to leave it unscored than to score the wrong move.
+ */
+function legalPolicyIndices(encodedFen: string, table: Record<string, number>): number[] {
+  const board = new Chess(encodedFen);
+  const indices: number[] = [];
+  for (const move of board.moves({ verbose: true })) {
+    const index = table[`${move.from}${move.to}${move.promotion ?? ""}`];
+    if (index !== undefined) indices.push(index);
+  }
+  return indices;
+}
+
+/** Softmax over the legal moves only, back in real board coordinates, best first. */
+function decodePolicy(
+  rowLogits: Float32Array,
+  legalIndices: number[],
+  blackToMove: boolean,
+  reversed: string[],
+): MaiaEvaluation["policy"] {
+  const legalLogits = legalIndices.map((i) => rowLogits[i]);
+  const max = Math.max(...legalLogits);
+  const exp = legalLogits.map((l) => Math.exp(l - max));
+  const sum = exp.reduce((a, b) => a + b, 0);
+
+  return legalIndices
+    .map((index, i) => ({
+      uci: blackToMove ? mirrorMove(reversed[index]) : reversed[index],
+      probability: exp[i] / sum,
+    }))
+    .sort((a, b) => b.probability - a.probability);
+}
+
+interface MaiaRowRequest {
+  fen: string;
+  selfCategory: number;
+  oppoCategory: number;
+}
+
+/**
+ * The one place a `session.run()` happens. Everything public in this module is a
+ * wrapper over this, so there's a single copy of the tensor shapes, the
+ * mirroring, and the ORT serialisation to get wrong.
+ */
+async function evaluateMaiaRows(requests: MaiaRowRequest[]): Promise<MaiaEvaluation[]> {
+  await load();
+  if (!session || !moveTable || !moveTableReversed) {
+    throw new Error("Maia not available");
+  }
+  if (requests.length === 0) return [];
+
+  const active = session;
+  const table = moveTable;
+  const reversed = moveTableReversed;
+  const n = requests.length;
+
+  const boards = new Float32Array(n * PLANE_FLOATS);
+  const selfCategories = new BigInt64Array(n);
+  const oppoCategories = new BigInt64Array(n);
+
+  const decoders = requests.map((request, i) => {
+    const blackToMove = request.fen.split(" ")[1] === "b";
+    const encodedFen = blackToMove ? mirrorFen(request.fen) : request.fen;
+    boards.set(boardToTensor(encodedFen), i * PLANE_FLOATS);
+    selfCategories[i] = BigInt(request.selfCategory);
+    oppoCategories[i] = BigInt(request.oppoCategory);
+    return { blackToMove, legalIndices: legalPolicyIndices(encodedFen, table) };
+  });
+
+  const feeds = {
+    boards: new ort.Tensor("float32", boards, [n, 18, 8, 8]),
+    elo_self: new ort.Tensor("int64", selfCategories),
+    elo_oppo: new ort.Tensor("int64", oppoCategories),
+  };
+  const outputs = await runExclusive(() => active.run(feeds));
+
+  const logits = outputs.logits_maia.data as Float32Array;
+  const values = outputs.logits_value.data as Float32Array;
+  // Read the policy width off the tensor rather than hardcoding 1880 — the move
+  // table and the graph are pinned to one commit together, but the whole point
+  // of pinning is that nothing else has to assume the number.
+  const width = Number(outputs.logits_maia.dims.at(-1));
+
+  const inputNames = [...active.inputNames];
+  const outputNames = [...active.outputNames];
+
+  return decoders.map(({ blackToMove, legalIndices }, i) => ({
+    policy: decodePolicy(
+      logits.subarray(i * width, (i + 1) * width),
+      legalIndices,
+      blackToMove,
+      reversed,
+    ),
+    value: Number(values[i]),
+    inputNames,
+    outputNames,
+  }));
+}
+
 /**
  * Full policy and value at one position, with Maia's two rating inputs set
  * independently.
@@ -418,55 +530,47 @@ export async function evaluateMaiaAt(
   selfCategory: number,
   oppoCategory: number,
 ): Promise<MaiaEvaluation> {
-  await load();
-  if (!session || !moveTable || !moveTableReversed) {
-    throw new Error("Maia not available");
-  }
-  const active = session;
+  const [only] = await evaluateMaiaRows([{ fen, selfCategory, oppoCategory }]);
+  return only;
+}
 
-  const blackToMove = fen.split(" ")[1] === "b";
-  const encodedFen = blackToMove ? mirrorFen(fen) : fen;
+/** One position in a batched request. Ratings here are real ratings, not categories. */
+export interface MaiaBatchRow {
+  fen: string;
+  /** Whoever is to move at `fen`. Supplies `elo_self` via its `ratingTier`. */
+  config: EngineConfig;
+  /**
+   * Rating for `elo_oppo`. Defaults to `config.ratingTier`, which is what every
+   * caller on the gameplay path wants and what the single-position path has
+   * always done — so leaving it off reproduces today's behaviour exactly.
+   */
+  oppoRatingTier?: number;
+}
 
-  // Legal moves come from the mirrored board, because the policy indices do too.
-  const board = new Chess(encodedFen);
-  const legalIndices: number[] = [];
-  for (const move of board.moves({ verbose: true })) {
-    const index = moveTable[`${move.from}${move.to}${move.promotion ?? ""}`];
-    if (index !== undefined) legalIndices.push(index);
-  }
-
-  const feeds = {
-    boards: new ort.Tensor("float32", boardToTensor(encodedFen), [1, 18, 8, 8]),
-    elo_self: new ort.Tensor("int64", BigInt64Array.from([BigInt(selfCategory)])),
-    elo_oppo: new ort.Tensor("int64", BigInt64Array.from([BigInt(oppoCategory)])),
-  };
-  const outputs = await runExclusive(() => active.run(feeds));
-
-  const logits = outputs.logits_maia.data as Float32Array;
-  const value = Number((outputs.logits_value.data as Float32Array)[0]);
-
-  // Softmax over legal moves only.
-  const legalLogits = legalIndices.map((i) => logits[i]);
-  const max = Math.max(...legalLogits);
-  const exp = legalLogits.map((l) => Math.exp(l - max));
-  const sum = exp.reduce((a, b) => a + b, 0);
-
-  const policy = legalIndices
-    .map((index, i) => {
-      const uci = moveTableReversed![index];
-      return {
-        uci: blackToMove ? mirrorMove(uci) : uci,
-        probability: exp[i] / sum,
-      };
-    })
-    .sort((a, b) => b.probability - a.probability);
-
-  return {
-    policy,
-    value,
-    inputNames: [...active.inputNames],
-    outputNames: [...active.outputNames],
-  };
+/**
+ * Many positions, one forward pass. Same contract as `evaluateMaia` per row.
+ *
+ * This exists for Monte Carlo rollouts, where N playouts advance a ply each and
+ * would otherwise be N sequential `session.run()` calls per ply. What batching
+ * actually buys, measured rather than assumed (`web/scripts/probe-maia-graph.mjs`):
+ * about 10% — 27.3ms/position at N=1 against 24.2 at N=30. Total FLOPs are
+ * conserved and this backend gets almost nothing extra from a bigger batch, so
+ * the real win is 4,000 sequential awaits collapsing into ~40, not wall clock.
+ * Budget rollout cost as (positions x ~25ms), whatever the batch size.
+ *
+ * The graph does support it: `boards` is declared `["batch_size",18,8,8]`, and
+ * row *i* of the `[N,1880]` output was verified bit-identical to evaluating that
+ * position alone — with two *distinct* positions, since identical ones would
+ * hide a transposed row.
+ */
+export async function evaluateMaiaBatch(rows: MaiaBatchRow[]): Promise<MaiaEvaluation[]> {
+  return evaluateMaiaRows(
+    rows.map(({ fen, config, oppoRatingTier }) => ({
+      fen,
+      selfCategory: eloToCategory(config.ratingTier ?? 1500),
+      oppoCategory: eloToCategory(oppoRatingTier ?? config.ratingTier ?? 1500),
+    })),
+  );
 }
 
 /**
@@ -497,10 +601,61 @@ export async function getMaiaMove(
   const { policy } = await evaluateMaia(fen, config);
   if (policy.length === 0) throw new Error("Maia returned no legal move");
 
-  const best = policy[0].uci;
+  return uciToMove(policy[0].uci);
+}
+
+/** `e7e8q` -> `{ from: "e7", to: "e8", promotion: "q" }`. */
+export function uciToMove(uci: string): EngineMove {
   return {
-    from: best.slice(0, 2),
-    to: best.slice(2, 4),
-    promotion: best.length > 4 ? best.slice(4, 5) : undefined,
+    from: uci.slice(0, 2),
+    to: uci.slice(2, 4),
+    promotion: uci.length > 4 ? uci.slice(4, 5) : undefined,
   };
+}
+
+/**
+ * Draws one move from a policy at a given temperature.
+ *
+ * Rollouts need this because `getMaiaMove` takes the argmax: N playouts of the
+ * top move are N copies of the same game, which measures the top-policy line
+ * rather than what a population of players does.
+ *
+ * Raising each already-renormalised probability to `1/temperature` and
+ * renormalising is exactly equivalent to dividing the raw logits by
+ * `temperature` and re-softmaxing over the same legal subset — the
+ * pre-renormalisation constant cancels — so this is a pure function on the
+ * `policy` array, with no need to plumb raw logits out of the session.
+ *
+ * `temperature = 1` samples the distribution Maia was cross-entropy-trained to
+ * match human move frequencies with, which is why it's the default rather than a
+ * tuned knob. Below 1 sharpens toward argmax (narrower spread, but by
+ * suppressing real behavioural variance, not by being more precise); above 1
+ * flattens toward uniform and biases the whole estimate toward "random legal
+ * move". `temperature = 0` is argmax, kept as an explicit case because 1/0 is
+ * undefined — and it doubles as a test hook: at 0 this must return `policy[0]`.
+ */
+export function sampleFromPolicy(
+  policy: MaiaEvaluation["policy"],
+  temperature: number,
+  rng: () => number = Math.random,
+): string {
+  if (policy.length === 0) throw new Error("sampleFromPolicy called with no moves");
+  if (temperature <= 0) return policy[0].uci;
+
+  const weights = policy.map((move) => move.probability ** (1 / temperature));
+  const total = weights.reduce((a, b) => a + b, 0);
+
+  // A very low temperature raises small probabilities to a power that underflows
+  // to zero; if every weight underflows there's nothing to sample from, and the
+  // sharpened distribution's answer is the top move anyway.
+  if (!(total > 0) || !Number.isFinite(total)) return policy[0].uci;
+
+  const threshold = rng() * total;
+  let cumulative = 0;
+  for (let i = 0; i < policy.length; i++) {
+    cumulative += weights[i];
+    if (threshold < cumulative) return policy[i].uci;
+  }
+  // Only reachable through floating-point slack, or an rng() that returns 1.
+  return policy[policy.length - 1].uci;
 }
