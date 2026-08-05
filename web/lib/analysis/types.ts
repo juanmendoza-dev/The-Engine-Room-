@@ -49,6 +49,12 @@ export interface MatchGameResult {
   timestamp: number;
   /** Set when a game was cut short (abort, engine failure). Excluded from fits. */
   incomplete?: boolean;
+  /**
+   * Which match run produced this game. Lets `ratings.json` tie a stored SPRT
+   * terminal state back to the games it was computed from, so the decision is
+   * reproducible from the log rather than taken on trust.
+   */
+  runId?: string;
 }
 
 /** A game's outcome from one fixed side's point of view. */

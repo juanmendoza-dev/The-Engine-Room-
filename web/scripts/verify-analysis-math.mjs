@@ -653,6 +653,84 @@ section("7. Glicko-2 against the worked example in Glickman's paper");
 }
 
 // ---------------------------------------------------------------------------
+// 8. The opening book
+// ---------------------------------------------------------------------------
+
+section("8. Opening book — legality, depth, and actual distinctness");
+
+{
+  // chess.js is a pure rules library and runs perfectly well under Node, so the
+  // book can be validated here rather than discovering a typo forty minutes into
+  // a match. (This is the only import in this file that isn't first-party — no
+  // engine, no browser, nothing that needs to think for 500ms.)
+  const { Chess } = await import("chess.js");
+  const { OPENING_BOOK, pickOpening, makeRng } = await import("../lib/analysis/openingBook.ts");
+
+  let illegal = 0;
+  const fens = new Map();
+  let shortest = Infinity;
+  let longest = 0;
+
+  for (const line of OPENING_BOOK) {
+    const chess = new Chess();
+    try {
+      for (const san of line.san) chess.move(san);
+    } catch (err) {
+      illegal++;
+      fail(`book line "${line.id}" is illegal`, err.message);
+      continue;
+    }
+    shortest = Math.min(shortest, line.san.length);
+    longest = Math.max(longest, line.san.length);
+    // Position only — side to move and castling rights included, clocks not, so
+    // two lines reaching the same structure by different move orders collide
+    // here exactly as they would in a game.
+    const key = chess.fen().split(" ").slice(0, 4).join(" ");
+    const clash = fens.get(key);
+    if (clash) fail(`"${line.id}" transposes into "${clash}"`, "one line, not two");
+    fens.set(key, line.id);
+  }
+
+  check("every book line is legal from the start position", illegal === 0, `${OPENING_BOOK.length} lines`);
+  check(
+    "no two lines transpose to the same position",
+    fens.size === OPENING_BOOK.length,
+    `${fens.size} distinct positions from ${OPENING_BOOK.length} lines`,
+  );
+  check(
+    "at least 16 lines, each 4–8 plies (spec's minimum)",
+    OPENING_BOOK.length >= 16 && shortest >= 4 && longest <= 8,
+    `${OPENING_BOOK.length} lines, ${shortest}–${longest} plies`,
+  );
+  check(
+    "ids are unique",
+    new Set(OPENING_BOOK.map((l) => l.id)).size === OPENING_BOOK.length,
+  );
+  check(
+    "every line leaves White to move, so a colour-swapped pair is symmetric",
+    OPENING_BOOK.every((l) => l.san.length % 2 === 0),
+  );
+
+  // The sampler has to actually reach the whole book, and reproduce itself.
+  const rng = makeRng(20260805);
+  const seen = new Set();
+  for (let i = 0; i < 2000; i++) seen.add(pickOpening(rng).id);
+  check("uniform sampling reaches every line", seen.size === OPENING_BOOK.length, `${seen.size} reached`);
+  // A whole *sequence* from one generator, twice — not ten fresh generators on
+  // the same seed, which would compare a constant against itself and pass no
+  // matter what the sampler did.
+  const sequence = (seed) => {
+    const gen = makeRng(seed);
+    return Array.from({ length: 10 }, () => pickOpening(gen).id);
+  };
+  check(
+    "one seed replays the same sequence of openings",
+    sequence(7).join() === sequence(7).join() && new Set(sequence(7)).size > 1,
+    sequence(7).slice(0, 4).join(" → "),
+  );
+}
+
+// ---------------------------------------------------------------------------
 
 console.log(`\n${failures === 0 ? "ALL PASS" : `${failures} FAILED`} — ${checks} checks`);
 console.log("done");
