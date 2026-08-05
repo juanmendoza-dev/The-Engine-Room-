@@ -384,6 +384,69 @@ byte-identical.
 The table is now pinned to `e23a50e` anyway, so model and table cannot drift apart in
 future.
 
+## Batching, and what the value head actually says (measured 2026-08-05, Task 14)
+
+Findings from `web/scripts/probe-maia-graph.mjs`, which runs the graph under **Node**
+rather than a browser — `onnxruntime-web`'s wasm backend works fine outside one, so
+re-checking any of this costs a few seconds and no 93 MB download. Point it at a
+local copy of the model.
+
+**The batch axis is dynamic.** `session.inputMetadata` declares
+`boards: ["batch_size",18,8,8]` with `elo_self`/`elo_oppo` as `["batch_size"]`, so
+`[N,18,8,8]` runs as-is — this was the load-bearing unknown for the rollouts
+feature and it's a non-issue. Output is row-major `[N,1880]` with `logits_value`
+as `[N]`, and row *i* came back **bit-identical** (max abs diff 0.000e+0, not
+merely close) to evaluating that position alone. Verified with two *distinct*
+positions, because two copies of one would agree even if the rows were
+transposed. Varying the batch size within one session is also fine — no
+per-shape penalty worth measuring.
+
+**Batching buys about 10%, not a multiple.** Worth knowing before designing
+anything around it:
+
+| Batch | Per pass | Per position |
+| --- | --- | --- |
+| 1 | 27ms | 27.3ms |
+| 9 | 222ms | 24.7ms |
+| 30 | 727ms | 24.2ms |
+| 100 | 2461ms | 24.6ms |
+
+Total FLOPs are conserved and this backend gets almost nothing extra from a
+larger batch. So budget any batched workload as `positions × ~25ms` and treat
+the win as collapsing thousands of sequential awaits into tens — scheduling and
+code shape, not wall clock.
+
+**`logits_value` observed range, mover's perspective:** -0.566 to +1.076 across
+deliberately extreme positions. It is directional and nothing more:
+
+| Value | Position |
+| --- | --- |
+| +1.076 | mover has mate in 1 |
+| +0.602 | mover up rook + queen |
+| +0.458 | mover up a queen |
+| +0.030 | dead drawn K v K |
+| -0.181 | start position |
+| -0.455 | mover gets mated next move |
+| -0.566 | mover down a queen |
+
+Note the ordering error: **"about to be mated" reads better than "down a
+queen."** Any transform of this scalar into a win probability inherits that, so
+keep the squashing wide and don't let it produce confident numbers.
+
+**The elo_self sweep is a trap, and it nearly cost a wrong constant.** Sweeping
+`elo_self` with `elo_oppo` pinned at 1500 moves the value by **0.88** across the
+nine categories (-0.242 at category 1 to +0.636 at 9) — more than a whole queen
+of material. Read alone that looks like a rating-dependent bias any value-based
+maths would have to subtract out. It isn't: with the two inputs **matched**, the
+same sweep is flat to within 0.04 (mean -0.061 at category 1, -0.021 at 9, over
+four objectively level positions).
+
+So the model is pricing a rating *gap*, correctly — a 1100 really is worse off
+against a 1500 — and that is signal to keep, not bias to remove. The number to
+centre on is the matched-tier one: **-0.047 mean, spanning -0.229 to +0.034.**
+The control mattered more than the measurement here; the obvious sweep pointed
+the opposite way.
+
 ## Gotchas worth knowing (both cost me a build cycle)
 
 - **Next 16 snapshots `web/public/` at build time.** Files added to `web/public/` *after*

@@ -50,11 +50,15 @@ const MATING_MOVE = "a1a8";
 
 /**
  * The same board twice, differing only in whose turn it is. White is a rook up,
- * so the first should win overwhelmingly and the second lose overwhelmingly — and
- * a perspective bug makes them agree instead of invert.
+ * so the first should win far more often than the second — and a perspective bug
+ * makes them agree instead of invert.
+ *
+ * Black's king sits on h8 with luft on g7 deliberately. The obvious version of
+ * this position (king g8, pawns f7/g7/h7) is a *mate in one* — Ra8# — so every
+ * rollout ended on ply 1 and the pair stopped testing anything about long games.
  */
-const ROOK_UP_WHITE_TO_MOVE = "6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1";
-const ROOK_UP_BLACK_TO_MOVE = "6k1/5ppp/8/8/8/8/5PPP/R5K1 b - - 0 1";
+const ROOK_UP_WHITE_TO_MOVE = "7k/5p1p/6p1/8/8/8/5PPP/R5K1 w - - 0 1";
+const ROOK_UP_BLACK_TO_MOVE = "7k/5p1p/6p1/8/8/8/5PPP/R5K1 b - - 0 1";
 
 /** Short, sharp, and unambiguously ordered — for the Stockfish comparison. */
 const LEVEL_ROOKS = "5rk1/5ppp/8/8/8/8/5PPP/5RK1 w - - 0 1";
@@ -223,12 +227,22 @@ export default function MaiaRolloutTestPage() {
             `(worst drift ${pct(worstDrift)} over ${draws} draws)`,
         );
 
+        // Checked against what the sharpened distribution actually implies, not a
+        // round number. p^20 over this policy leaves the top move ~95% of the
+        // mass, so "nearly always, but not always" is the correct behaviour and a
+        // stricter threshold would just have been wrong.
+        const sharpWeights = policy.map((move) => move.probability ** (1 / 0.05));
+        const sharpTotal = sharpWeights.reduce((a, b) => a + b, 0);
+        const expectedTopShare = sharpWeights[0] / sharpTotal;
         const sharpRng = mulberry32(0x5eed);
         let topHits = 0;
         for (let i = 0; i < 500; i++) {
           if (sampleFromPolicy(policy, 0.05, sharpRng) === policy[0].uci) topHits += 1;
         }
-        log(`${verdict(topHits > 490)}  T=0.05 concentrates on the top move (${topHits}/500)`);
+        log(
+          `${verdict(Math.abs(topHits / 500 - expectedTopShare) < 0.05)}  T=0.05 sharpens as the ` +
+            `maths says: sampled ${pct(topHits / 500)} top move, distribution implies ${pct(expectedTopShare)}`,
+        );
 
         // ── 4. mate in 1 ────────────────────────────────────────────────────
         // Read against Maia's own policy mass on the mate, not against 100%: if
@@ -291,6 +305,7 @@ export default function MaiaRolloutTestPage() {
         for (const [label, result] of [
           ["mate-in-1", mate],
           ["rook up", asWhite],
+          ["rook down", asBlack],
         ] as const) {
           const budgeted = result.truncated > 0;
           const expectedPasses = result.longestPlies + (budgeted ? 1 : 0);
@@ -299,13 +314,17 @@ export default function MaiaRolloutTestPage() {
               `longest rollout of ${result.longestPlies} plies` +
               `${budgeted ? " (+1 to bootstrap the truncated ones)" : ""} — no work after the last one settled`,
           );
-          log(
-            `${verdict(result.meanPlies < result.longestPlies)}  ${label}: rollouts of differing ` +
-              `lengths coexisted (mean ${result.meanPlies.toFixed(1)} < longest ${result.longestPlies})`,
-          );
           const total = result.win.count + result.draw.count + result.loss.count;
           log(`${verdict(total === result.n)}  ${label}: outcomes account for every rollout (${total}/${result.n})`);
         }
+        // Only meaningful where the games genuinely differ in length. A forced mate
+        // ends every rollout on the same ply, so asserting a spread there tests the
+        // position, not the bookkeeping.
+        log(
+          `${verdict(asBlack.meanPlies < asBlack.longestPlies)}  rollouts of differing lengths shared ` +
+            `a batch (rook down: mean ${asBlack.meanPlies.toFixed(1)} < longest ${asBlack.longestPlies}), ` +
+            `and a settled one is never advanced again — it leaves the batch entirely`,
+        );
 
         // ── 7. does it move with Stockfish? ─────────────────────────────────
         // Direction only. A tight numeric match would be suspicious — the premise
