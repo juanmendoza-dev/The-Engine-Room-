@@ -37,6 +37,7 @@ import {
   renderDiagram,
   reliability,
   scoreRows,
+  shuffled,
   softmaxLegal,
 } from "./lib/calibration.mjs";
 import { eloToCategory, loadMaiaForNode } from "./lib/maiaNode.mjs";
@@ -349,11 +350,10 @@ for (const bucket of NAMED_BUCKETS) {
 // "calibrating a model" sounds adjacent to it without being it.
 
 console.log("\n== 5. temperature scaling ==");
-const shuffleRng = mulberry32(opts.seed + 1);
-const shuffled = [...scopeRows].sort(() => shuffleRng() - 0.5);
-const split = Math.floor(shuffled.length / 2);
-const fitRows = shuffled.slice(0, split);
-const heldOut = shuffled.slice(split);
+const split = Math.floor(scopeRows.length / 2);
+const order = shuffled(scopeRows, mulberry32(opts.seed + 1));
+const fitRows = order.slice(0, split);
+const heldOut = order.slice(split);
 
 const fit = fitTemperature(fitRows);
 const beforeScored = scoreRows(heldOut);

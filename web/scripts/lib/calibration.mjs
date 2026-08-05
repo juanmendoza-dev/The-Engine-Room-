@@ -33,6 +33,25 @@ export function mulberry32(seed) {
 }
 
 /**
+ * Fisher-Yates, seeded. Uniform over permutations.
+ *
+ * Spelled out rather than using the one-liner `sort(() => rng() - 0.5)`, which is
+ * not a shuffle: an inconsistent comparator leaves V8's sort free to do roughly
+ * what it likes, and in practice it leaves many elements near where they started.
+ * That is normally a curiosity; here it would decide the held-out split for the
+ * temperature fit, and the corpus arrives in game order, so a lazy shuffle would
+ * quietly correlate the two halves with each other.
+ */
+export function shuffled(items, rng) {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
  * Softmax over one position's legal-move logits, at temperature `T`.
  *
  * This is deliberately the same shape as decodePolicy's softmax in
