@@ -7,12 +7,13 @@
  * loading spinner. Nothing here verifies app behaviour; that's still the CDP
  * harnesses in `web/scripts/`.
  *
- *   npm run shots                       # all of them
- *   npm run shots -- --grep @maia       # just the two that need the model
+ *   npm run shots                       # all nine
+ *   npm run shots -- --grep @maia       # just the three that need the model
  *   npm run shots -- --grep-invert @maia
  *
- * The two @maia shots pay a ~93 MB model download and then play 30 games out;
- * budget several minutes for them and expect the rest to be seconds.
+ * Each @maia shot pays a ~93 MB model download in its own browser context, and
+ * the odds one then plays 30 games out. Budget several minutes for those three
+ * and expect the other six to be seconds.
  */
 
 import fs from "node:fs";
@@ -79,12 +80,18 @@ async function dragPiece(page: Page, from: string, to: string) {
   await page.mouse.up();
 }
 
-/** Drag, then confirm the ply counter actually moved. False means refused. */
+/**
+ * Drag, then confirm the ply counter actually moved. False means refused.
+ *
+ * A legal drop updates the counter in the same tick, so the poll window only
+ * has to cover render — and it's spent in full on every refused move, of which
+ * there are plenty.
+ */
 async function tryMove(page: Page, from: string, to: string): Promise<boolean> {
   const before = await plies(page);
   await dragPiece(page, from, to);
   try {
-    await expect.poll(() => plies(page), { timeout: 5_000 }).toBeGreaterThan(before);
+    await expect.poll(() => plies(page), { timeout: 400 }).toBeGreaterThan(before);
     return true;
   } catch {
     return false;
@@ -96,11 +103,10 @@ async function waitForEngineReply(page: Page) {
 }
 
 /**
- * White's side of a short, sane-looking opening. The engine's replies aren't
- * predictable, so any of these can turn out illegal on the day — a refused move
- * falls through to a wing pawn instead of failing the shot. That's the tradeoff
- * for a move log that reads like chess: `cdp-rating-readout.mjs` plays nothing
- * but wing pawns for exactly this reason and the log shows it.
+ * White's side of a short, sane-looking opening, so the move log in the shot
+ * reads like chess rather than the aimless wing pawns `cdp-rating-readout.mjs`
+ * plays. The engine's replies aren't predictable, so any of these can be illegal
+ * by the time we try it; a refused move just moves on to the next candidate.
  */
 const OPENING: Array<[string, string]> = [
   ["e2", "e4"],
@@ -115,37 +121,79 @@ const OPENING: Array<[string, string]> = [
   ["a2", "a3"],
 ];
 
-const FALLBACKS: Array<[string, string]> = [
-  ["a2", "a3"],
-  ["h2", "h3"],
+/**
+ * More of the same, drawn on when the opening runs out. Deliberately spread
+ * across every piece: each entry is one attempt, a refused attempt is cheap, and
+ * what matters is that the pool can't be exhausted by one piece being stuck.
+ */
+const MORE_MOVES: Array<[string, string]> = [
   ["b2", "b3"],
+  ["c2", "c3"],
   ["g2", "g3"],
   ["a3", "a4"],
   ["h3", "h4"],
+  ["a1", "b1"],
+  ["h1", "e1"],
+  ["f1", "e1"],
+  ["d1", "d2"],
+  ["c1", "e3"],
+  ["f3", "d4"],
+  ["f3", "e5"],
+  ["c3", "d5"],
+  ["c3", "e2"],
+  ["c4", "d5"],
+  ["c4", "b5"],
+  ["g5", "h4"],
+  ["g5", "f4"],
+  ["e2", "d1"],
+  ["e2", "f1"],
+  ["d3", "d4"],
+  ["g1", "h1"],
+  ["h1", "g1"],
   ["b3", "b4"],
   ["g3", "g4"],
 ];
 
-/** Play `count` moves as White, preferring the opening, falling back to pawns. */
-async function playAsWhite(page: Page, count: number) {
-  const spent = new Set<string>();
+/** True once the rating readout has passed its display gate. */
+function ratingVerdict(page: Page) {
+  return page.getByText(/plays most like/i);
+}
+
+/**
+ * Play as White until the rating readout opens up, or we run out of patience.
+ *
+ * Why not just "play ten moves and screenshot": the gate isn't a move count,
+ * it's six *effective* plies, and a ply only counts for as much information as
+ * its position carries. Two things came out of watching this fail:
+ *
+ *  - Ten scripted moves scored 4.2 effective plies. Eighteen scored 5.4. Not a
+ *    bug in either the app or the harness — a book opening is the *least*
+ *    informative thing a player can do, because 1.e4 Nf3 Bc4 is what every
+ *    rating bucket plays, so the posterior learns nearly nothing from it. The
+ *    CDP harness's aimless wing pawns opened the gate by move 8 for exactly the
+ *    inverse reason.
+ *  - So the pool is cycled rather than walked once. A candidate refused in one
+ *    position is often legal two moves later, and the later, odder moves are the
+ *    ones that carry information.
+ *
+ * Only the readout knows when it's ready, so ask it rather than guessing a
+ * number of moves.
+ */
+async function playUntilRatingReady(page: Page, minMoves: number, maxMoves: number) {
+  const pool = [...OPENING, ...MORE_MOVES];
   let played = 0;
 
-  for (const [from, to] of OPENING) {
-    if (played >= count) break;
-    if (await tryMove(page, from, to)) {
-      played += 1;
-      spent.add(`${from}${to}`);
-      await waitForEngineReply(page);
-    }
-  }
-
-  for (const [from, to] of FALLBACKS) {
-    if (played >= count) break;
-    if (spent.has(`${from}${to}`)) continue;
-    if (await tryMove(page, from, to)) {
-      played += 1;
-      await waitForEngineReply(page);
+  for (let round = 0; round < 3; round++) {
+    for (const [from, to] of pool) {
+      if (played >= maxMoves) return played;
+      if (played >= minMoves && (await ratingVerdict(page).isVisible())) return played;
+      // A finished game stops accepting moves; keep dragging at it and the only
+      // thing that grows is the run time.
+      if (await page.getByText(/\bwins\b|\bdraw\b/i).first().isVisible()) return played;
+      if (await tryMove(page, from, to)) {
+        played += 1;
+        await waitForEngineReply(page);
+      }
     }
   }
 
@@ -187,7 +235,10 @@ const SEEDED_HISTORY = [
   },
   {
     mode: "model-1v1",
-    white: { type: "mixture", label: "Stockfish × Maia" },
+    // Labels here must be ones the app really ships (lib/chess/engines.ts) —
+    // a screenshot is a claim about the app, and an invented preset name is a
+    // false one. This is the Task 15 mixture engine's actual label.
+    white: { type: "mixture", label: "Policy Mixture (uncalibrated)" },
     black: { type: "stockfish", label: "Stockfish 1320" },
     moves: ["Nf3", "d5", "d4", "Nf6", "c4", "e6", "Nc3", "Be7", "Bg5", "h6"],
     result: "1-0",
@@ -266,18 +317,34 @@ test("rating readout and odds @maia", async ({ page }) => {
   // against all nine buckets.
   await startUserGame(page, "Stockfish 1320");
 
-  const played = await playAsWhite(page, 10);
+  const played = await playUntilRatingReady(page, 8, 28);
   expect(played, "needed player moves for the estimator to have evidence").toBeGreaterThanOrEqual(8);
 
   // The readout shows nothing until it has enough information to be worth
-  // reading — around six effective plies. This is that gate opening.
-  await expect(page.getByText(/plays most like/i)).toBeVisible({ timeout: 6 * 60_000 });
+  // reading. This is that gate opening — and the wait is this long because the
+  // 93 MB model has to land before the first ply can be scored at all.
+  await expect(ratingVerdict(page)).toBeVisible({ timeout: 6 * 60_000 });
+
+  // Back to the top: the drags leave the page scrolled wherever the last board
+  // measurement put it. The move log is a fixed-height box, so the rating block
+  // sits at a stable ~560px whatever the ply count — from the top, one frame
+  // holds the controls, the log, the board and the readout.
+  await page.evaluate(() => window.scrollTo(0, 0));
   await shoot(page, "gallery-rating");
 
   await page.getByRole("button", { name: /play it out 30×/i }).click();
-  await expect(page.getByRole("button", { name: /play it out again/i })).toBeVisible({
-    timeout: 6 * 60_000,
-  });
+
+  // Assert on the summary line under the win/draw/loss rows, not on the button
+  // relabelling itself. The button flips as soon as the run ends and it sits
+  // *above* the numbers, so waiting on it proves a run finished and proves
+  // nothing about whether its result is in the frame.
+  const oddsSummary = page.getByText(/\d+ games · Maia/i);
+  await expect(oddsSummary).toBeVisible({ timeout: 6 * 60_000 });
+
+  // The odds block is the last thing in the left column, so on a 900-tall frame
+  // it lands below the fold — the first version of this shot photographed an
+  // empty "Odds from here" heading with the actual numbers cut off.
+  await oddsSummary.evaluate((el) => el.scrollIntoView({ block: "end" }));
   await shoot(page, "gallery-odds");
 });
 
@@ -285,6 +352,10 @@ test("history — finished games, newest first", async ({ page }) => {
   await seedHistory(page);
   await page.goto("/history");
   await expect(page.getByText(/Stockfish 2800/).first()).toBeVisible();
+
+  // Shorter frame than the rest: four rows end around 460px, so the standard
+  // 900 leaves the bottom 40% of the tile empty paper.
+  await page.setViewportSize({ width: 1280, height: 620 });
   await shoot(page, "gallery-history");
 });
 
@@ -340,16 +411,16 @@ test.describe("phone", () => {
     // lands the panel reads "Loading the move model…". Stopping short here
     // photographs that line, so we may as well spend the time and come away
     // with the readout itself.
-    const played = await playAsWhite(page, 10);
+    const played = await playUntilRatingReady(page, 8, 28);
     expect(played).toBeGreaterThanOrEqual(8);
-    await expect(page.getByText(/plays most like/i)).toBeVisible({ timeout: 6 * 60_000 });
+    await expect(ratingVerdict(page)).toBeVisible({ timeout: 6 * 60_000 });
 
-    // Centre the readout: the drags left the page scrolled wherever the last
-    // board measurement put it, and the board sits directly below this, so
-    // centring here frames both.
-    await page
-      .getByText(/plays most like/i)
-      .evaluate((el) => el.scrollIntoView({ block: "center" }));
+    // Anchor the readout to the top of the frame. The drags leave the page
+    // scrolled wherever the last board measurement put it, and on a phone the
+    // layout is one column — readout, then odds, then board — so `start` fits
+    // the whole readout *and* most of the board. `center` spends the top third
+    // of the shot on the move log and cuts the board to three ranks.
+    await ratingVerdict(page).evaluate((el) => el.scrollIntoView({ block: "start" }));
     await shoot(page, "gallery-mobile-user");
   });
 

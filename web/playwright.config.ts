@@ -23,6 +23,11 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
 
+  // The rating shot depends on how much information the engine's replies leave
+  // in the position, which isn't ours to control. One retry rather than a
+  // hand-tuned move list that works on one game.
+  retries: 1,
+
   // Nothing here is quick. The odds shot plays 30 games out at ~25ms a position,
   // and it can't start until Maia has loaded.
   timeout: 6 * 60_000,

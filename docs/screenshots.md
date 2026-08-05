@@ -41,6 +41,19 @@ tab, so nothing is shared between contexts.
   two-Chromes-on-9222 note in `deployment.md` §4. `reuseExistingServer` is on,
   which also means it skips the rebuild: after touching app code, stop the old
   server or you'll shoot the previous build.
+- **Kill a run and its server can outlive it.** Stopping a run mid-flight left
+  `next start` orphaned on 3200; the next run happily attached to it
+  (`reuseExistingServer`), skipped its own build, and then died halfway through
+  with `ERR_CONNECTION_REFUSED` when the orphan got reaped. Same shape as the
+  `next dev` orphan note in `deployment.md` §4. After cancelling a run, check
+  `netstat -ano | grep :3200` is empty before starting another.
+- **A relabelled button is not evidence the result is in frame.** The odds shot
+  waited for "Play it out 30×" to become "Play it out again" — which happens the
+  moment the run ends, on a button that sits *above* the numbers. It passed while
+  photographing an empty "Odds from here" heading with the win/draw/loss rows cut
+  off below the fold. It now asserts on the summary line underneath them and
+  scrolls that into view. Worth generalising: assert on the thing you're
+  photographing, not on a proxy for it.
 - **`use: { reducedMotion: "reduce" }` is a type error.** It's a
   `BrowserContext` option and @playwright/test 1.62 doesn't surface it in
   `UseOptions`, so it goes in `contextOptions`. You find out from `next build`,
@@ -79,4 +92,15 @@ tab, so nothing is shared between contexts.
   The 390px viewport is all that shot actually needs.
 - **The history shots seed `localStorage` directly** via `addInitScript`, rather
   than playing four games through the UI to photograph a list. Records are
-  `GameRecord` from `web/lib/games/types.ts`, key `er:games`.
+  `GameRecord` from `web/lib/games/types.ts`, key `er:games`. Engine labels in
+  the seed have to be ones `lib/chess/engines.ts` really ships — a screenshot is
+  a claim about the app, and the first draft invented "Stockfish × Maia" for what
+  the app actually calls "Policy Mixture (uncalibrated)".
+- **A book opening is the worst thing to play for the rating shot.** The readout's
+  gate is six *effective* plies, weighted by how much each position discriminates
+  between rating buckets — and `1.e4 Nf3 Bc4` is what every bucket plays, so it
+  discriminates almost nothing. Ten scripted book moves scored 4.2 effective
+  plies; eighteen scored 5.4; the gate never opened. The CDP harness's aimless
+  wing pawns open it by move 8 for the inverse reason. The spec now plays a
+  readable opening first and then keeps cycling a pool of odder moves until the
+  readout itself says it's ready, which is the only thing that actually knows.
