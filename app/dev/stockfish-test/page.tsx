@@ -1,7 +1,7 @@
 "use client";
 
-// Scratch verification page for the Task 2 spike. Task 8 deletes this once the
-// real Model 1v1 screen supersedes it. Deliberately unstyled.
+// Scratch verification page for the Task 2 spike. Deliberately unstyled.
+// (The plan had Task 8 delete this; it's kept on purpose — see app/dev/README.md.)
 //
 // Three things are being checked, and they need different evidence:
 //
