@@ -628,6 +628,33 @@ work against `localhost` are too short. Hydration lands measurably later, so a
 snapshot taken at 1.2s that passes locally can find no scoreboard at all on the
 live site. ~4-5s before the first assertion was enough here.
 
+**Plain Node can run this repo's TypeScript, with one catch worth knowing before
+you reach for Chrome.** Node 24 strips types out of a `.ts` file on its own — no
+flag, no build step, no dependency — so any module that doesn't touch `window`,
+a `Worker`, or ORT can be imported straight into a `.mjs` script and checked in
+seconds instead of driven through a browser for minutes. That is why Task 16's
+`lib/analysis/` maths is deliberately dependency-free, and why
+`scripts/verify-analysis-math.mjs` needs neither Chrome nor an engine.
+
+The catch: Node strips *types*, it does not rewrite *import specifiers*. Our
+source uses extensionless relative imports (`from "./eloModel"`), which is the
+bundler convention Next configures, and plain Node's resolver wants
+`./eloModel.ts` — so the import fails with `ERR_MODULE_NOT_FOUND` naming a file
+that is obviously right there. `import type` lines are fine, because they get
+erased before anything tries to resolve them, which makes the failure look
+arbitrary. `web/scripts/ts-extension-resolver.mjs` is a ~10-line resolve hook
+that retries with `.ts` appended; register it before the dynamic import and the
+whole thing just works. Fixing it that way rather than by sprinkling `.ts`
+extensions through the source, or turning on `allowImportingTsExtensions`
+globally, keeps the workaround in the one place that needs it.
+
+Two smaller ones from the same afternoon: Node warns
+`MODULE_TYPELESS_PACKAGE_JSON` on every such import because `web/package.json`
+has no `"type": "module"` (harmless — suppress with
+`--disable-warning=MODULE_TYPELESS_PACKAGE_JSON`, and do **not** add the field,
+which is Next's to own), and the imported modules must avoid `enum` and
+constructor parameter properties, since those aren't erasable syntax.
+
 **Headless-Chrome (CDP) verification traps (Task 10).** Things that cost
 time when driving the app with the `web/scripts/cdp-*.mjs`-style harnesses:
 

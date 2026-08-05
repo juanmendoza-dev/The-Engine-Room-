@@ -7,7 +7,12 @@
 // much it would simplify this.
 //
 // usage:
-//   node scripts/sprt-run.mjs <match-runner-url> [timeout-ms] [cdp-port] [--dry-run]
+//   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \
+//     scripts/sprt-run.mjs <match-runner-url> [timeout-ms] [cdp-port] [--dry-run]
+//
+// The flag is cosmetic: regenerating ratings.json imports `ratingBT.ts` under
+// Node, and `web/package.json` has no `"type": "module"`, so Node warns that it
+// reparsed the file as ESM. Harmless, but it prints in the middle of the results.
 //
 // Chrome must already be running with --remote-debugging-port on that port and
 // the target URL as a launch argument. Both requirements are load-bearing, per

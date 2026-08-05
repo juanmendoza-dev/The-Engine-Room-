@@ -12,9 +12,10 @@ is not a question you want to answer for the first time under demo pressure.
 | `/dev/fx-lab` | Picker for the 19 fight-FX effects, firing each one on demand over a live board. Disposable — safe to delete once the effects are settled. |
 | `/dev/maia-rollout-test` | Monte Carlo rollouts (Task 14). Batched rows against the same positions evaluated alone, the temperature sampler against its own maths, Wilson intervals against hand-computed values, and two perspective checks — the same board with each side to move, which must invert. A rollout estimator that reads chess.js's `1-0` as the root mover's win returns plausible percentages pointing the wrong way, so those two are the reason this file exists. |
 | `/dev/mixture-test` | The policy mixture's verification harness (Task 15). Section A is pure arithmetic with no engine call, and it's the section that matters most: the mixture's failure modes all return a perfectly legal move, so "it moved" proves nothing. It catches the `Math.log(0)` → `NaN` path that a zero-Maia-mass candidate opens up **even at β=0** (`0 * -Infinity` is `NaN`, not `0`), and it caught the spec's mate-ordering scheme being broken by logistic saturation. Sections B-D answer two unknowns the spec flagged — what MultiPV costs in depth, and whether `UCI_LimitStrength` corrupts the reported evals — and print the exact α:β crossover that calibration step 1 was asking for. |
+| `/dev/match-runner` | Plays one preset against another until the SPRT decides (Task 16). The only page here that takes its whole configuration from the URL — `?a=Stockfish%201800&b=Stockfish%201320&elo1=200&maxGames=40` — because `scripts/sprt-run.mjs` drives it and then writes the result into `lib/analysis/fixtures/`. Expect it to sit there for a long time: a Stockfish-vs-Stockfish game is ~35s of engine thinking and a decision takes tens of games. It is also the only /dev page that *produces* a checked-in artefact rather than just printing one. |
 | `/dev/rating-test` | The rating estimator's verification harness (Task 13). Sweeps `elo_self` and `elo_oppo` one at a time, then feeds Maia's own moves at a known bucket back through the posterior to see whether it recovers them. Includes an **evidence ceiling** (`g=1, τ=1`) so "the MAP is one bucket off" can be told apart from "the constants are throwing signal away" — without it the tempting fix is to crank τ until the fixture passes, which is just overfitting one game. |
 
-All six are deliberately unstyled: they're instruments, and the design tokens
+All seven are deliberately unstyled: they're instruments, and the design tokens
 would only make the readouts harder to scan.
 
 **`/dev/mixture-test` has a companion that this folder can't cover.**
@@ -31,10 +32,17 @@ whole-page text: the preset is *labelled* "Policy Mixture (uncalibrated)", so a
 `/\bmixture\b/` test against `document.body.innerText` matches the dropdown and
 reports a failure that isn't one.
 
-**Run `/dev/rating-test`, `/dev/maia-rollout-test` and `/dev/mixture-test` against a
-production build.** Under `next dev`, React StrictMode mounts effects twice and every
-forward pass on these pages happens twice for no benefit. It used to be worse than
-wasteful — two overlapping
+Not everything needs a page. `lib/analysis/`'s maths modules are pure — no
+chess.js, no `window` — specifically so `scripts/verify-analysis-math.mjs` can
+check them under plain Node in about ten seconds, with no browser and no engine
+in the loop. A page is only the right instrument when the thing under test needs
+a Worker or a GPU-less ORT session. Reach for the Node script first.
+
+**Run `/dev/rating-test`, `/dev/maia-rollout-test`, `/dev/mixture-test` and
+`/dev/match-runner` against a production build.** Under `next dev`, React StrictMode
+mounts effects twice and every forward pass on these pages happens twice for no
+benefit — and on `/dev/match-runner` that means playing the whole match twice. It
+used to be worse than wasteful — two overlapping
 `session.run()` calls threw `Session already started` and the page died halfway
 through — which is what turned up the ORT serialisation now in `engineMaia.ts`.
 
