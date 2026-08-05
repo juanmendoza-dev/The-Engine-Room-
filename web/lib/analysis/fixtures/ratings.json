@@ -1,0 +1,184 @@
+{
+  "generatedAt": "2026-08-05T20:52:27.808Z",
+  "note": "Derived from games-log.jsonl — a cache, not a second source of truth. Regenerate with scripts/sprt-run.mjs, or by refitting the log.",
+  "anchor": {
+    "presetId": "Stockfish 1800",
+    "elo": 1800,
+    "substituted": false
+  },
+  "pooled": {
+    "ratings": [
+      {
+        "presetId": "Maia 1100",
+        "elo": 1800,
+        "stderr": null,
+        "games": 34,
+        "score": 10.5,
+        "anchor": false,
+        "rated": false,
+        "note": "no chain of decisive results links it to the anchor in both directions"
+      },
+      {
+        "presetId": "Maia 1500",
+        "elo": 1800,
+        "stderr": null,
+        "games": 8,
+        "score": 6,
+        "anchor": false,
+        "rated": false,
+        "note": "never lost (4W 4D 0L) — its Elo is unbounded above, not measurable"
+      },
+      {
+        "presetId": "Maia 1900",
+        "elo": 1800,
+        "stderr": null,
+        "games": 34,
+        "score": 23.5,
+        "anchor": false,
+        "rated": false,
+        "note": "no chain of decisive results links it to the anchor in both directions"
+      },
+      {
+        "presetId": "Stockfish 1320",
+        "elo": 1800,
+        "stderr": null,
+        "games": 8,
+        "score": 0.5,
+        "anchor": false,
+        "rated": false,
+        "note": "never won (0W 1D 7L) — its Elo is unbounded below, not measurable"
+      },
+      {
+        "presetId": "Stockfish 1800",
+        "elo": 1800,
+        "stderr": null,
+        "games": 24,
+        "score": 9.5,
+        "anchor": true,
+        "rated": false,
+        "note": "anchor, but nothing left on its scale to compare it to"
+      },
+      {
+        "presetId": "Stockfish 2800",
+        "elo": 1800,
+        "stderr": null,
+        "games": 8,
+        "score": 8,
+        "anchor": false,
+        "rated": false,
+        "note": "never lost (8W 0D 0L) — its Elo is unbounded above, not measurable"
+      }
+    ],
+    "drawParam": 0,
+    "drawParamStderr": null,
+    "converged": false,
+    "iterations": 0,
+    "gamesUsed": 0,
+    "warnings": [
+      "not on the anchor's scale (Ford's condition): Maia 1100, Maia 1500, Maia 1900, Stockfish 1320, Stockfish 2800 — either no cross-engine games connect them, or they swept/were swept",
+      "no games between presets on a common scale"
+    ]
+  },
+  "runs": [
+    {
+      "runId": "maia-1900-vs-maia-1100-1785962022835",
+      "config": {
+        "a": "Maia 1900",
+        "b": "Maia 1100",
+        "elo0": 0,
+        "elo1": 200,
+        "alpha": 0.05,
+        "beta": 0.05,
+        "gamma": 0.5,
+        "maxGames": 40,
+        "seed": 20260805,
+        "bookSize": 21
+      },
+      "decision": "accept-h1",
+      "llr": 3.1405181368248787,
+      "games": 34,
+      "wins": 20,
+      "draws": 7,
+      "losses": 7,
+      "status": "decided",
+      "complete": true,
+      "elapsedMs": 181082,
+      "startedAt": "2026-08-05T20:33:42.835Z"
+    },
+    {
+      "runId": "stockfish-1800-vs-stockfish-1320-1785962322328",
+      "config": {
+        "a": "Stockfish 1800",
+        "b": "Stockfish 1320",
+        "elo0": 0,
+        "elo1": 200,
+        "alpha": 0.05,
+        "beta": 0.05,
+        "gamma": 0.5,
+        "maxGames": 40,
+        "seed": 20260805,
+        "bookSize": 21
+      },
+      "decision": "accept-h1",
+      "llr": 3.007668991467634,
+      "games": 8,
+      "wins": 7,
+      "draws": 1,
+      "losses": 0,
+      "status": "decided",
+      "complete": true,
+      "elapsedMs": 294158,
+      "startedAt": "2026-08-05T20:38:42.328Z"
+    },
+    {
+      "runId": "stockfish-2800-vs-stockfish-1800-1785962623783",
+      "config": {
+        "a": "Stockfish 2800",
+        "b": "Stockfish 1800",
+        "elo0": 0,
+        "elo1": 200,
+        "alpha": 0.05,
+        "beta": 0.05,
+        "gamma": 0.5,
+        "maxGames": 40,
+        "seed": 20260805,
+        "bookSize": 21
+      },
+      "decision": "accept-h1",
+      "llr": 3.135400856626627,
+      "games": 7,
+      "wins": 7,
+      "draws": 0,
+      "losses": 0,
+      "status": "decided",
+      "complete": true,
+      "elapsedMs": 281672,
+      "startedAt": "2026-08-05T20:43:43.783Z"
+    },
+    {
+      "runId": "stockfish-1800-vs-maia-1500-1785962912861",
+      "config": {
+        "a": "Stockfish 1800",
+        "b": "Maia 1500",
+        "elo0": 0,
+        "elo1": 200,
+        "alpha": 0.05,
+        "beta": 0.05,
+        "gamma": 0.5,
+        "maxGames": 40,
+        "seed": 20260805,
+        "bookSize": 21
+      },
+      "decision": "accept-h0",
+      "llr": -3.324440014265991,
+      "games": 8,
+      "wins": 0,
+      "draws": 4,
+      "losses": 4,
+      "status": "decided",
+      "complete": true,
+      "elapsedMs": 233649,
+      "startedAt": "2026-08-05T20:48:32.861Z"
+    }
+  ]
+}

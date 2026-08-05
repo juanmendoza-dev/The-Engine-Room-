@@ -75,6 +75,10 @@ export default function MatchRunnerPage() {
         beta: num(params, "beta", 0.05),
         gamma: num(params, "gamma", 0.5),
         maxGames: num(params, "maxGames", 40),
+        // Play on past the SPRT's decision so the rating fit has something to
+        // work with — a whitewash in eight games decides the test and rates
+        // nobody. See the option's own note in matchRunner.ts.
+        minGames: num(params, "minGames", 0),
         seed: num(params, "seed", 20260805),
         signal: controller.signal,
         onProgress: setProgress,
@@ -83,7 +87,8 @@ export default function MatchRunnerPage() {
       setLines([
         `${a.label} vs ${b.label}`,
         `H0: gap = ${config.elo0} Elo   H1: gap = ${config.elo1} Elo`,
-        `alpha=${config.alpha} beta=${config.beta} gamma=${config.gamma} maxGames=${config.maxGames} seed=${config.seed}`,
+        `alpha=${config.alpha} beta=${config.beta} gamma=${config.gamma} ` +
+          `minGames=${config.minGames} maxGames=${config.maxGames} seed=${config.seed}`,
         a.type === "maia" || b.type === "maia"
           ? "note: the first Maia game pays the ~93MB model download before it moves."
           : "",

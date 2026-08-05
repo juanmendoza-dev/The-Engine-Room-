@@ -19,7 +19,7 @@ import { Chess } from "chess.js";
 import { GameAbortedError, runModelGame } from "@/lib/chess/gameLoop";
 import type { EngineConfig } from "@/lib/chess/types";
 
-import { makeRng, OPENING_BOOK, pickOpening } from "./openingBook";
+import { makeOpeningDealer, makeRng, OPENING_BOOK } from "./openingBook";
 import { fitBradleyTerryDavidson } from "./ratingBT";
 import { createSprt, DEFAULT_ALPHA, DEFAULT_BETA, PLACEHOLDER_GAMMA, outcomeFor, recordGame } from "./sprt";
 import type { BradleyTerryFit, MatchGameResult, OpeningLine, SprtState } from "./types";
@@ -41,6 +41,24 @@ export interface SprtMatchConfig {
   gamma?: number;
   /** Rounded up to a whole colour-swapped pair. */
   maxGames?: number;
+  /**
+   * Keep playing past the SPRT's decision until this many games are logged.
+   *
+   * Not in the spec, and it exists because the spec's two goals pull apart in
+   * practice. The sequential test is *supposed* to stop early — a lopsided
+   * pairing crosses the boundary in about eight games, which is the feature. But
+   * eight games of a lopsided pairing is a whitewash by construction, and a
+   * preset that never lost has an Elo that is unbounded above: Ford's condition
+   * fires and the rating fit correctly refuses to rate it. Measured, not
+   * predicted — the first Stockfish runs came back 7W-1D-0L and 8W-0D-0L, and
+   * the pooled fit could rate exactly nothing.
+   *
+   * So the SPRT answers "is it stronger" and stops when it knows; the rating fit
+   * wants volume. The decision is still made from the games up to the boundary
+   * and nothing after it (`recordGame` ignores them), so α and β are untouched.
+   * The extra games go into the log for the fit.
+   */
+  minGames?: number;
   book?: OpeningLine[];
   seed?: number;
   signal?: AbortSignal;
@@ -70,6 +88,7 @@ export interface SprtMatchResult {
     beta: number;
     gamma: number;
     maxGames: number;
+    minGames: number;
     seed: number;
     bookSize: number;
   };
@@ -131,6 +150,7 @@ export async function runSprtMatch(config: SprtMatchConfig): Promise<SprtMatchRe
     beta = DEFAULT_BETA,
     gamma = PLACEHOLDER_GAMMA,
     maxGames = 200,
+    minGames = 0,
     book = OPENING_BOOK,
     seed = 20260805,
     signal,
@@ -142,13 +162,14 @@ export async function runSprtMatch(config: SprtMatchConfig): Promise<SprtMatchRe
   const startedAt = Date.now();
   const runId = `${a.label}-vs-${b.label}-${startedAt}`.replace(/\s+/g, "-").toLowerCase();
   const rng = makeRng(seed);
+  const dealOpening = makeOpeningDealer(rng, book);
   const games: MatchGameResult[] = [];
   let sprt = createSprt({ a: a.label, b: b.label, elo0, elo1, alpha, beta, gamma, maxGames });
   let status: MatchStatus = "playing";
   let error: string | undefined;
 
   outer: while (games.length < maxGames) {
-    const line = pickOpening(rng, book);
+    const line = dealOpening();
     const startFen = bookStartFen(line);
 
     for (const aIsWhite of [true, false]) {
@@ -214,7 +235,7 @@ export async function runSprtMatch(config: SprtMatchConfig): Promise<SprtMatchRe
       });
     }
 
-    if (sprt.decision !== "continue") {
+    if (sprt.decision !== "continue" && games.length >= minGames) {
       status = sprt.decision === "max-games" ? "max-games" : "decided";
       break;
     }
@@ -234,7 +255,19 @@ export async function runSprtMatch(config: SprtMatchConfig): Promise<SprtMatchRe
 
   return {
     runId,
-    config: { a: a.label, b: b.label, elo0, elo1, alpha, beta, gamma, maxGames, seed, bookSize: book.length },
+    config: {
+      a: a.label,
+      b: b.label,
+      elo0,
+      elo1,
+      alpha,
+      beta,
+      gamma,
+      maxGames,
+      minGames,
+      seed,
+      bookSize: book.length,
+    },
     games,
     finalSprt: sprt,
     ratings,

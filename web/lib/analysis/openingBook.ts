@@ -81,7 +81,42 @@ export function makeRng(seed: number): () => number {
   };
 }
 
-/** Uniform pick, as the spec specifies. No weighting by anything. */
+/** Uniform pick with replacement, as the spec specifies. No weighting. */
 export function pickOpening(rng: () => number, book: OpeningLine[] = OPENING_BOOK): OpeningLine {
   return book[Math.floor(rng() * book.length) % book.length];
+}
+
+/**
+ * Uniform *without* replacement: hand out a seeded shuffle of the whole book,
+ * then reshuffle once it runs out.
+ *
+ * This is what the match runner uses, and it is a deliberate deviation from the
+ * spec's "uniform pick". Picking with replacement over 21 lines means a 30-game
+ * match samples ~15 openings and draws some of them twice — and a repeated
+ * opening against deterministic engines is not a second game, it is the same
+ * game logged twice. The spec knows this ("a repeated line is still a repeated
+ * game") and answers it by making the book big enough that repeats are rare.
+ * Dealing from a shuffled deck makes them impossible until the deck is empty,
+ * which is strictly better for the same book size, and is still uniform.
+ *
+ * Reshuffling rather than stopping matters for the 320-game precision case,
+ * where the deck genuinely does run out.
+ */
+export function makeOpeningDealer(
+  rng: () => number,
+  book: OpeningLine[] = OPENING_BOOK,
+): () => OpeningLine {
+  let deck: OpeningLine[] = [];
+
+  return function deal(): OpeningLine {
+    if (deck.length === 0) {
+      deck = [...book];
+      // Fisher-Yates off the same seeded rng, so a whole match still replays.
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+    }
+    return deck.pop() as OpeningLine;
+  };
 }

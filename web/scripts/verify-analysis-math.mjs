@@ -704,7 +704,9 @@ section("8. Opening book — legality, depth, and actual distinctness");
   // a match. (This is the only import in this file that isn't first-party — no
   // engine, no browser, nothing that needs to think for 500ms.)
   const { Chess } = await import("chess.js");
-  const { OPENING_BOOK, pickOpening, makeRng } = await import("../lib/analysis/openingBook.ts");
+  const { OPENING_BOOK, pickOpening, makeOpeningDealer, makeRng } = await import(
+    "../lib/analysis/openingBook.ts"
+  );
 
   let illegal = 0;
   const fens = new Map();
@@ -767,6 +769,29 @@ section("8. Opening book — legality, depth, and actual distinctness");
     "one seed replays the same sequence of openings",
     sequence(7).join() === sequence(7).join() && new Set(sequence(7)).size > 1,
     sequence(7).slice(0, 4).join(" → "),
+  );
+
+  // The dealer is what the match runner actually uses. Its whole reason to exist
+  // is that a repeated opening against deterministic engines is a duplicate
+  // game, not a second sample — so "no repeat inside one pass over the book" is
+  // the property, not a nicety.
+  const deal = makeOpeningDealer(makeRng(2026));
+  const firstPass = Array.from({ length: OPENING_BOOK.length }, () => deal().id);
+  check(
+    "the dealer covers the whole book before repeating anything",
+    new Set(firstPass).size === OPENING_BOOK.length,
+    `${new Set(firstPass).size}/${OPENING_BOOK.length} distinct in the first pass`,
+  );
+  const secondPass = Array.from({ length: OPENING_BOOK.length }, () => deal().id);
+  check(
+    "and reshuffles rather than running out",
+    new Set(secondPass).size === OPENING_BOOK.length && secondPass.join() !== firstPass.join(),
+    "second pass is a full book in a different order",
+  );
+  const replay = makeOpeningDealer(makeRng(2026));
+  check(
+    "the dealer replays from its seed",
+    Array.from({ length: OPENING_BOOK.length }, () => replay().id).join() === firstPass.join(),
   );
 }
 

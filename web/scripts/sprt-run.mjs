@@ -268,9 +268,28 @@ if (DRY_RUN) {
 
 mkdirSync(fileURLToPath(FIXTURES), { recursive: true });
 
+// Drop games already in the log, move for move.
+//
+// Both engines are near-deterministic, so the same opening played by the same
+// two presets with the same colours produces the *same game* — and logging it
+// twice would inflate the apparent sample size, which is precisely the sin the
+// opening book exists to prevent. Within one match the dealer never repeats an
+// opening, but a second run on the same pairing can collide with the first.
+// Exact move-sequence identity is the right test: Stockfish's timing jitter
+// sometimes makes two runs of one opening genuinely diverge, and those are two
+// games and should both count.
+const seen = new Set(readGamesLog().map((g) => `${g.white}|${g.black}|${g.moves.join(" ")}`));
+const fresh = result.games.filter((g) => {
+  const key = `${g.white}|${g.black}|${g.moves.join(" ")}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+});
+const duplicates = result.games.length - fresh.length;
+
 // Newline-delimited so a new match is a pure append rather than a rewrite of a
 // growing array — small diffs, and a crashed run can't corrupt earlier games.
-const lines = result.games.map((g) => JSON.stringify(g)).join("\n");
+const lines = fresh.map((g) => JSON.stringify(g)).join("\n");
 if (lines) appendFileSync(GAMES_LOG, `${lines}\n`, "utf8");
 
 const ratings = await regenerateRatings({
@@ -288,7 +307,10 @@ const ratings = await regenerateRatings({
   startedAt: new Date(result.startedAt).toISOString(),
 });
 
-console.log(`\nwrote ${result.games.length} games to lib/analysis/fixtures/games-log.jsonl`);
+console.log(
+  `\nwrote ${fresh.length} games to lib/analysis/fixtures/games-log.jsonl` +
+    (duplicates ? ` (${duplicates} were move-for-move replays of games already logged)` : ""),
+);
 console.log("pooled fit across everything logged so far:");
 for (const r of ratings.pooled.ratings) {
   console.log(
