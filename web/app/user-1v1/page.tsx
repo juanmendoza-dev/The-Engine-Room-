@@ -24,6 +24,7 @@ import {
   STOCKFISH_PRESETS,
   getMoveFor,
   parseSearchDepth,
+  usesMaiaWeights,
 } from "@/lib/chess/engines";
 import { describeEnd, type GameEndInfo } from "@/lib/chess/gameLoop";
 import { DEFAULT_ROLLOUTS, RolloutAbortedError, runMaiaRollouts } from "@/lib/chess/maiaRollout";
@@ -262,6 +263,10 @@ export default function User1v1Page() {
     if (fxOn) {
       // Maia reports no depth (no search), so show an indeterminate charge rather
       // than a bar pinned at zero for the whole reply.
+      //
+      // `type === "maia"` and NOT usesMaiaWeights() — deliberately the opposite of
+      // the MaiaLoadNotice check further down. A mixture config runs a real
+      // Stockfish search whose depth arrives through the onInfo callback below.
       fx.current?.charge({
         side: userColor === "white" ? "b" : "w",
         pct: engine.type === "maia" ? INDETERMINATE_CHARGE_PCT : 0,
@@ -478,7 +483,9 @@ export default function User1v1Page() {
             </p>
           )}
 
-          <MaiaLoadNotice active={engine?.type === "maia"} />
+          {/* usesMaiaWeights, not `type === "maia"`: a mixture config pays the same
+              ~93MB download for its internal Maia call. */}
+          <MaiaLoadNotice active={Boolean(engine && usesMaiaWeights(engine))} />
 
           {error && (
             <div

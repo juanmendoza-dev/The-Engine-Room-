@@ -9,7 +9,7 @@ import { FxStage, type FxHandle } from "@/components/fx/FxStage";
 import { MaiaLoadNotice } from "@/components/MaiaLoadNotice";
 import { ResultScreen } from "@/components/ResultScreen";
 import { publishBoardFrame } from "@/lib/boardFeed";
-import { ALL_ENGINE_PRESETS, STOCKFISH_PRESETS } from "@/lib/chess/engines";
+import { ALL_ENGINE_PRESETS, STOCKFISH_PRESETS, usesMaiaWeights } from "@/lib/chess/engines";
 import { GameAbortedError, runModelGame, type ModelGameResult } from "@/lib/chess/gameLoop";
 import type { EngineConfig } from "@/lib/chess/types";
 import { beatDelay, classify } from "@/lib/fx/classify";
@@ -37,8 +37,14 @@ const FX_SET = new Set(ALL_FX_IDS);
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** "ELO 2800" / "Tier 1500" — the VS card's power-level line. */
+/** "ELO 2800" / "Tier 1500" / "β 1 · T 0" — the VS card's power-level line. */
 function eloLabel(config: EngineConfig): string {
+  // Before the elo/tier checks: a mixture config carries a `ratingTier` for its
+  // internal Maia call, and showing that as "Tier 1500" would read as a strength
+  // claim the engine has no basis for. Its α/β/T are the honest description.
+  if (config.type === "mixture") {
+    return `β ${config.beta ?? 1} · T ${config.temperature ?? 0}`;
+  }
   if (config.elo) return `ELO ${config.elo}`;
   if (config.ratingTier) return `Tier ${config.ratingTier}`;
   return config.type;
@@ -176,6 +182,11 @@ export default function Model1v1Page() {
             if (!fxOn) return;
             // Maia has no search, so nothing will report depth — show an
             // indeterminate charge rather than a bar stuck at zero.
+            //
+            // `type === "maia"` and NOT usesMaiaWeights() — deliberately the
+            // opposite of the MaiaLoadNotice check below. A mixture config runs a
+            // real Stockfish search that streams `info depth` through onInfo, so it
+            // wants the real bar, not the indeterminate one.
             fx.current?.charge({
               side,
               pct: engine.type === "maia" ? INDETERMINATE_CHARGE_PCT : 0,
@@ -214,7 +225,11 @@ export default function Model1v1Page() {
   }
 
   const configured = Boolean(white && black);
-  const usesMaia = white?.type === "maia" || black?.type === "maia";
+  // usesMaiaWeights, not `type === "maia"`: a mixture config pays the same ~93MB
+  // download for its internal Maia call, so the notice has to cover it too.
+  const usesMaia = Boolean(
+    (white && usesMaiaWeights(white)) || (black && usesMaiaWeights(black)),
+  );
   const sideToMove = moves.length % 2 === 0 ? "White" : "Black";
   const thinkingLabel = moves.length % 2 === 0 ? white?.label : black?.label;
 
