@@ -7,7 +7,16 @@ import { Board } from "@/components/Board";
 import { EngineConfigPicker } from "@/components/EngineConfigPicker";
 import { FxStage, type FxHandle } from "@/components/fx/FxStage";
 import { MaiaLoadNotice } from "@/components/MaiaLoadNotice";
+import { RatingReadout } from "@/components/RatingReadout";
 import { ResultScreen } from "@/components/ResultScreen";
+import {
+  createRatingEstimator,
+  resolveOppoBucket,
+  summarizePosterior,
+  updateRatingEstimator,
+  type RatingEstimatorState,
+  type RatingReport,
+} from "@/lib/analysis/ratingPosterior";
 import { publishBoardFrame } from "@/lib/boardFeed";
 import {
   ALL_ENGINE_PRESETS,
@@ -78,6 +87,17 @@ export default function User1v1Page() {
   const fxOn = useFxEnabled();
   const fxCtx = useRef(freshFxContext());
 
+  // Rating estimator. Same split as the Chess instance: the accumulating state
+  // lives in a ref and the UI renders off a derived report in state.
+  const [ratingReport, setRatingReport] = useState<RatingReport | null>(null);
+  const [ratingWorking, setRatingWorking] = useState(false);
+  const estimatorRef = useRef<RatingEstimatorState | null>(null);
+  // Each update reads the current state and returns a successor, so two
+  // overlapping updates would both start from the same base and one would
+  // silently drop the other's evidence. One chain, strictly in ply order.
+  const estimatorQueue = useRef<Promise<void>>(Promise.resolve());
+  const estimatorPending = useRef(0);
+
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
@@ -118,6 +138,13 @@ export default function User1v1Page() {
     fxCtx.current = freshFxContext();
     if (fxOn) fx.current?.hp({ white: 100, black: 100, hit: null });
 
+    // elo_oppo is resolved once, here, and pinned for the whole game — it's the
+    // opponent actually sitting there, not a hypothesis being swept.
+    estimatorRef.current = createRatingEstimator(resolveOppoBucket(engine));
+    estimatorPending.current = 0;
+    setRatingReport(null);
+    setRatingWorking(false);
+
     // The engine opens when the user takes Black.
     if (userColor === "black") void engineReply();
   }
@@ -152,6 +179,46 @@ export default function User1v1Page() {
       fx.current?.fire(beat, FX_SET);
       fx.current?.hp({ ...hp, hit: beat.victim ? (beat.color === "w" ? "b" : "w") : null });
     }, BOARD_SLIDE_MS);
+  }
+
+  /**
+   * Folds the player's last move into the posterior. Fire-and-forget on purpose:
+   * this is up to nine Maia forward passes, ~400ms, and it must never sit between
+   * the drag and the reply. Nothing awaits it and nothing on the game path reads
+   * its result.
+   *
+   * A failure here costs the readout one ply and nothing else — the board, the
+   * opponent and the result screen don't know this exists.
+   */
+  function scoreLastMove(game: Chess) {
+    const played = game.history({ verbose: true }).at(-1);
+    if (!played) return;
+
+    // `before` is the position the move was chosen in and `lan` is its
+    // from+to+promotion form — both straight off chess.js, no snapshotting.
+    const { before, lan } = played;
+    const controller = abortRef.current;
+
+    estimatorPending.current += 1;
+    setRatingWorking(true);
+    estimatorQueue.current = estimatorQueue.current.then(async () => {
+      try {
+        const base = estimatorRef.current;
+        if (!base || controller?.signal.aborted) return;
+
+        const next = await updateRatingEstimator(base, before, lan);
+
+        // The user restarted or left while those passes were running.
+        if (controller?.signal.aborted || estimatorRef.current !== base) return;
+        estimatorRef.current = next;
+        setRatingReport(summarizePosterior(next));
+      } catch (err) {
+        console.warn("Rating estimate skipped for one move:", err);
+      } finally {
+        estimatorPending.current -= 1;
+        if (estimatorPending.current === 0) setRatingWorking(false);
+      }
+    });
   }
 
   function finishGame(game: Chess) {
@@ -250,6 +317,13 @@ export default function User1v1Page() {
     } else {
       void engineReply();
     }
+
+    // After engineReply, deliberately. Against a Maia opponent both share one
+    // ORT session and the queue in engineMaia.ts is FIFO, so starting the reply
+    // first keeps its single forward pass ahead of our nine rather than behind
+    // ~400ms of them. The last move of a finished game still gets scored — it's
+    // evidence like any other.
+    scoreLastMove(game);
     return true;
   }
 
@@ -348,6 +422,12 @@ export default function User1v1Page() {
               )}
             </div>
           </div>
+
+          {/* Only once a game exists. Before that there are no moves to read,
+              and a "reading your moves…" line over an empty board would be
+              describing something that isn't happening. Stays up after the game
+              ends, where the read is at its most informative. */}
+          {started && <RatingReadout report={ratingReport} working={ratingWorking} />}
         </div>
 
         {/* Board */}
