@@ -47,7 +47,7 @@ Task 1); this table is the truth.
 with the three verified tiers and `engines.ts` imports `engineMaia` for real —
 earlier revisions of this section said the file didn't exist, which stopped being
 true inside PR `#7`. Maia 2 takes the rating as a model *input*, so all three
-presets are one weight file. Details in `scripts/maia-notes.md`.
+presets are one weight file. Details in `docs/maia-notes.md`.
 
 (Branch-local commit SHAs are deliberately not cited anywhere in this doc: a
 rebase rewrites them, and the squash-merge rewrites them again, so they go stale
@@ -64,8 +64,8 @@ gate, and Phases 1–3 are all functionally live in production, so that check-in
 due as well.
 
 Lane ownership, so parallel agents don't collide:
-[`phase-0-engine-spike.md`](../../phase-0-engine-spike.md) (Tasks 2, 3) and
-[`model-1v1-work-order.md`](../../model-1v1-work-order.md) (Tasks 7, 4, 6, 8).
+[`phase-0-engine-spike.md`](../work-orders/phase-0-engine-spike.md) (Tasks 2, 3) and
+[`model-1v1-work-order.md`](../work-orders/model-1v1-work-order.md) (Tasks 7, 4, 6, 8).
 
 ---
 
@@ -455,7 +455,7 @@ This is fundamentally different from Task 2. Stockfish speaks a stable text prot
 
 **Files:**
 - Create: `lib/chess/engineMaia.ts`
-- Create: `scripts/maia-notes.md` (what you found/did at each checkpoint, however far you got)
+- Create: `docs/maia-notes.md` (what you found/did at each checkpoint, however far you got)
 - Create: `public/maia/1500.onnx` (if you get far enough to have one)
 
 **Interfaces:**
@@ -463,7 +463,7 @@ This is fundamentally different from Task 2. Stockfish speaks a stable text prot
 - Produces (if fallback taken): `getMaiaMove` still exists and has that signature, but its body throws `new Error("Maia not available")`.
 
 **Done — PR `#7`. Maia works.** But the checkpoints below did *not* run as
-written, so read **`scripts/maia-notes.md`** rather than following them — it's the
+written, so read **`docs/maia-notes.md`** rather than following them — it's the
 authoritative record. In short:
 
 - CP1 (check for something turnkey first) paid off in ~5 minutes and made CP2–CP6
@@ -554,7 +554,7 @@ Confirm all three print `LEGAL`.
 - [ ] **Step: Write the notes file**
 
 ```markdown
-<!-- scripts/maia-notes.md -->
+<!-- docs/maia-notes.md -->
 # Maia ONNX conversion notes
 
 Reached checkpoint: <N>
@@ -568,7 +568,7 @@ Fill in real content based on what actually happened.
 - [ ] **Step: Commit whatever state you're in**
 
 ```bash
-git add lib/chess/engineMaia.ts scripts/maia-notes.md public/maia
+git add lib/chess/engineMaia.ts docs/maia-notes.md public/maia
 git commit -m "maia onnx spike, got to checkpoint N - notes in scripts"
 ```
 

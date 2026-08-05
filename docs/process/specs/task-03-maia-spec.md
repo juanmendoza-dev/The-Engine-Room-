@@ -123,7 +123,7 @@ remembered name, and adopt lc0's behaviour for a FEN-only position. If that turn
 out to be zero-fill rather than repeat, I match lc0 anyway and record the change —
 V1 outranks my prior here.
 
-**To record in `scripts/maia-notes.md` either way:** Maia's published results
+**To record in `docs/maia-notes.md` either way:** Maia's published results
 assume *real* game history, so with synthesized history the move quality may
 differ slightly from the published behaviour. That's a caveat on the feature, not
 a bug, and it should be written down rather than discovered later by someone
@@ -299,7 +299,7 @@ so adding search would actively defeat the point of using it.
 **CP7 — Run V1–V5 (78–90 min).** V1 first: it's the one that decides whether this
 ships, and if it fails the others only tell me where to look.
 
-**At 90 minutes I stop wherever I am**, write up `scripts/maia-notes.md` with what
+**At 90 minutes I stop wherever I am**, write up `docs/maia-notes.md` with what
 actually happened, and commit. Reaching CP4 and stopping is a legitimate result,
 not a failure — the point of the timebox is that this task can't sink the phase.
 
@@ -314,14 +314,14 @@ Maia options simply don't render. Maia joins the stretch goals.
 
 Either way, **no code outside `lib/chess/engines.ts` changes** — that's exactly
 why every later task calls `getMoveFor` and never touches engine internals. And
-`scripts/maia-notes.md` gets written in both cases, so a second attempt doesn't
+`docs/maia-notes.md` gets written in both cases, so a second attempt doesn't
 restart from zero.
 
 ## Files
 
 **Create / own:**
 - `lib/chess/engineMaia.ts` — the wrapper, both outcomes
-- `scripts/maia-notes.md` — findings per checkpoint, written either way
+- `docs/maia-notes.md` — findings per checkpoint, written either way
 - `public/maia/1500.onnx` — only if CP3 succeeds
 - `public/ort/` — **only if needed**, see risks below
 - `package.json` / `package-lock.json` — adds `onnxruntime-web` if CP3 succeeds

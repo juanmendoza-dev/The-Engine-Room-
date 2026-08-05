@@ -80,7 +80,7 @@ export async function evaluateMaiaBatch(
 - **Assumed, not verified: output layout.** `outputs.logits_maia.data` is
   presumably flat row-major `[N, V]` (standard ONNX convention) — row *i* is
   `data.subarray(i*V, (i+1)*V)`, V = policy width (1880 per the move table in
-  `scripts/maia-notes.md`, but read `outputs.logits_maia.dims` at runtime
+  `docs/maia-notes.md`, but read `outputs.logits_maia.dims` at runtime
   rather than hardcoding it). `logits_value` is one scalar per row. This is
   the standard layout and likely right, but nobody has run this graph at
   batch size >1 — verify before trusting anything downstream.
@@ -164,7 +164,7 @@ convert positions, so throwing them out systematically strips draws and long
 defensive holds from the result, skewing it decisive. Bootstrapping avoids
 that at the cost of trusting the value head.
 
-**The bias this introduces:** `scripts/maia-notes.md` confirms Maia 2's
+**The bias this introduces:** `docs/maia-notes.md` confirms Maia 2's
 `logits_value` has the correct *sign* (verified: start position `-0.1813`,
 white up a queen `+0.4583`) but **no established transform to a win
 probability** — directional, not calibrated. (Maia 2's single scalar, not
@@ -210,7 +210,7 @@ pragmatic MVP choice, not an oversight.
 captures exactly one uncertainty source: having sampled only N games out of
 the space of possible continuations. It says nothing about whether Maia's
 policy faithfully models real human play at that rating (checked only
-qualitatively in `scripts/maia-notes.md`), or about the value-bootstrap guess
+qualitatively in `docs/maia-notes.md`), or about the value-bootstrap guess
 above. At N in the 30–300 range this spec budgets for, the 1/√N sampling term
 is large and dominates any structural model bias. A wider interval is the
 honest fix for "not enough rollouts"; no amount of narrowing it fixes Maia's
@@ -288,7 +288,7 @@ already-generic `scripts/cdp-verify.mjs` (`node cdp-verify.mjs <url>
    positions** at N=2 and confirm each row matches evaluating it alone —
    distinct positions matter because identical copies of one position would
    hide a transposed/off-by-one row (every row "should" agree anyway). Same
-   caution `scripts/maia-notes.md` applies elsewhere: a wrong implementation
+   caution `docs/maia-notes.md` applies elsewhere: a wrong implementation
    still looks legal and plausible.
 2. **Degenerate check: mate-in-1.** From a constructed mate-in-1 FEN, run
    N=30 rollouts. Expect overwhelming wins for the mating side — a perfect

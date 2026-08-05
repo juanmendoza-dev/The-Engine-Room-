@@ -5,7 +5,7 @@ Written 2026-08-04, in the same spirit as
 building so two agents don't land on the same files.
 
 **Claimed:** Tasks 7, 4, 6 and 8 of the
-[build plan](superpowers/plans/2026-08-03-engine-room-implementation.md) — the
+[build plan](../plans/2026-08-03-engine-room-implementation.md) — the
 `Board` component, the engine registry, the game loop, and the Model 1v1 screen.
 Together those four *are* a working Model 1v1, which is the fastest route to
 something demoable.
@@ -43,7 +43,7 @@ build plan says to leave it.
 
 - `lib/chess/engineStockfish.ts`, `lib/chess/types.ts`, `public/stockfish/` — Task
   2's, already merged. I consume them unchanged.
-- `lib/chess/engineMaia.ts`, `scripts/maia-notes.md`, `public/maia/` — Task 3's,
+- `lib/chess/engineMaia.ts`, `docs/maia-notes.md`, `public/maia/` — Task 3's,
   not mine, and not imported (see below).
 - `scripts/cdp-verify.mjs` — Task 2's harness. I wrote a sibling instead of adding
   a click hook to it.

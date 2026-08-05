@@ -102,7 +102,7 @@ Worth getting right:
 **`MultiPV` × `UCI_LimitStrength` — what's known, what needs checking.**
 Skill-limiting is documented, generally, as perturbing which near-best root
 move becomes `bestmove` without a shallower search; this repo's own
-`docs/task-02-stockfish-review.md` is consistent — at `MultiPV=1`, depth
+`docs/process/reviews/task-02-stockfish-review.md` is consistent — at `MultiPV=1`, depth
 stayed stable across ELOs while the move played varied. If that holds under
 `MultiPV>1` too, the N reported `cp` values are honest per-line evals and
 limit-strength only affects which one becomes `bestmove`, which the mixture
@@ -189,7 +189,7 @@ that don't lose," at the cost of that check becoming approximate — union is
 the recommendation, specifically so verification's own checks stay clean.
 
 **A legal move outside Maia's vocabulary entirely**: per
-`scripts/maia-notes.md`, the ~1880-entry move table is understood (not
+`docs/maia-notes.md`, the ~1880-entry move table is understood (not
 verified here) to cover every from/to/underpromotion combination reachable in
 legal chess, the same idea as lc0's 1858-entry table — rare to never, but
 handled defensively regardless: probability `0` before renormalization, not a
@@ -326,7 +326,7 @@ screens for free.
 Stockfish's internal call: fixed 500ms (`MOVE_TIME_MS`) regardless of
 `MultiPV` — `movetime` governs wall clock, not line count. Maia's internal
 call: ~35ms once loaded (the ~89MB cold-cache download is the existing,
-unrelated cost from `scripts/maia-notes.md`, inherited unchanged).
+unrelated cost from `docs/maia-notes.md`, inherited unchanged).
 
 **The two calls can run concurrently, and should** — same fen, no shared
 mutable state, and unlike two Stockfish calls, no contention: Stockfish goes
@@ -398,7 +398,7 @@ meaningful until that harness produces one.
 - Per-phase or per-move-adaptive α/β; opening books, pondering, tablebases
   for the internal call. One fixed `(α, β, T)` per `EngineConfig`, full stop.
 - Fixing Maia's cold-cache download — pre-existing, orthogonal, documented in
-  `scripts/maia-notes.md`.
+  `docs/maia-notes.md`.
 - A worker pool, a transposition cache, a surprisal metric — see
   Cross-references. This spec assumes today's single shared Stockfish worker
   and uncached Maia session, and needs no sibling spec to land first.

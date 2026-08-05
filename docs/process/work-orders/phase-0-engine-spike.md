@@ -4,7 +4,7 @@ What I'm about to build, so nobody else picks up the same task or edits the
 same files underneath me. Written before implementation starts, on 2026-08-04.
 
 **Claimed:** Tasks 2 and 3 of the
-[build plan](superpowers/plans/2026-08-03-engine-room-implementation.md) —
+[build plan](../plans/2026-08-03-engine-room-implementation.md) —
 the Stockfish.wasm spike and the Maia ONNX spike. That's all of Phase 0.
 
 **Still unclaimed** (free for another agent right now): Task 7, the `Board`
@@ -60,7 +60,7 @@ haven't done it because it's outside my two tasks.
 **Task 3 — Maia**
 
 - `lib/chess/engineMaia.ts` — the ONNX wrapper
-- `scripts/maia-notes.md` — what worked and where it stalled, written either way
+- `docs/maia-notes.md` — what worked and where it stalled, written either way
 - `public/maia/1500.onnx` — only if the conversion gets that far
 - `package.json` / `package-lock.json` — adds `onnxruntime-web`, if it gets that far
 
@@ -142,7 +142,7 @@ don't render. Maia joins the stretch goals.
 
 Both are correct outcomes — the fallback is the plan working as designed, and
 it's why every later task talks to `getMoveFor` instead of Maia internals. No
-code outside `lib/chess/engines.ts` changes either way. `scripts/maia-notes.md`
+code outside `lib/chess/engines.ts` changes either way. `docs/maia-notes.md`
 gets written in both cases so the next attempt doesn't start from zero.
 
 ---
@@ -216,7 +216,7 @@ me.
   100 MB. Task 2's "What differed" section in the build plan has the full list.
   **Merged as `5fbc001` (#6)** after agent review — reviewed at 9/10 and accepted
   with three corrections, all applied. See
-  [`task-02-stockfish-review.md`](task-02-stockfish-review.md) for the full
+  [`task-02-stockfish-review.md`](../reviews/task-02-stockfish-review.md) for the full
   brief. Two findings later tasks need: `UCI_Elo`'s real range on this build is
   **1320–3190** (so 1320 is the engine's floor, not an arbitrary preset), and
   search depth does **not** vary with ELO, because Stockfish weakens play by
@@ -225,8 +225,8 @@ me.
   ELO settings change playing strength. Task 6 is where that becomes measurable.
 - **Task 3 — done**, landed via PR `#7`. **Maia works**: `getMaiaMove` returns
   human-plausible legal moves in ~35 ms. Spec is
-  [`task-03-maia-spec.md`](task-03-maia-spec.md); the authoritative record of what
-  actually happened is [`../scripts/maia-notes.md`](../scripts/maia-notes.md),
+  [`task-03-maia-spec.md`](../specs/task-03-maia-spec.md); the authoritative record of what
+  actually happened is [`../../maia-notes.md`](../../maia-notes.md),
   because the spec's checkpoints didn't run as written — CP1 found a far easier
   path and made CP2–CP6 moot.
 

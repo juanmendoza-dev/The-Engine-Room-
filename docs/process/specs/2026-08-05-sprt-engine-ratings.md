@@ -10,8 +10,8 @@ Task 2's own verification notes end with an admission:
 
 Task 6 shipped the game loop; nobody has scored the games. The Stockfish
 dropdowns say 1320/1800/2800 on faith in a UCI option string, and Maia's
-1100/1500/1900 have the same problem one level removed — `scripts/
-maia-notes.md`'s own rating-responsiveness check found the top move
+1100/1500/1900 have the same problem one level removed —
+`docs/maia-notes.md`'s own rating-responsiveness check found the top move
 unchanged across all three ratings ("proves the input is wired... not that
 it produces a large strength difference"). This spec is the measurement: a
 rating fit over accumulated results, plus a sequential test (SPRT) that

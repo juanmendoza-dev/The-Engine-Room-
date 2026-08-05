@@ -11,7 +11,7 @@ export const STOCKFISH_PRESETS: EngineConfig[] = [
 // Task 3 landed, so this is now populated. Maia 2 takes the rating as a model
 // input rather than shipping one network per tier, so these three are the same
 // weight file with a different `ratingTier` - and all three were the ratings
-// actually verified in the spike (scripts/maia-notes.md).
+// actually verified in the spike (docs/maia-notes.md).
 //
 // Two things worth knowing before using these in a game loop:
 //  - the first Maia move downloads ~89MB, so it is slow on a cold cache

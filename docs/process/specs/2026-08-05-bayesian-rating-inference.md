@@ -63,7 +63,7 @@ L_t(r) = P(m_t | fen_t, r, o) = evaluateMaiaAt(fen_t, r, o).policy[m_t]
 
 Nine forward passes per ply, one per bucket, `o` fixed across all nine (it's
 not a hypothesis being tested — see elo_oppo). *Real numbers, not invented:*
-`scripts/maia-notes.md` measured three of the nine buckets' reply to 1.e4 —
+`docs/maia-notes.md` measured three of the nine buckets' reply to 1.e4 —
 `g8f6` at 31.9% (1100), 29.3% (1500), 32.6% (1900). Three real `L_1(r)`
 values, within 3 points of each other — the concrete shape of "one move is
 weak evidence." The other six buckets are unmeasured here.
@@ -163,7 +163,7 @@ g_t = min(1, I(fen_t)/I_ref)   otherwise              (I_ref = 0.25 nats — ful
 ```
 
 **How much this helps: unmeasured.** Expected to matter most in the opening
-(all three checked buckets pick `g1f3` first in `scripts/maia-notes.md`'s
+(all three checked buckets pick `g1f3` first in `docs/maia-notes.md`'s
 numbers) and least in a messy middlegame. "Cuts plies-to-converge by maybe a
 third" is a plausible guess, not a measurement — there's no corpus of graded
 games here to check it against.
@@ -195,7 +195,7 @@ Maia's human-imitation buckets. Two options:
 - **Marginalize:** `P(m|fen,r) = Σ_o P(o)·P(m|fen,r,o)`. Cleaner, but 9× the
   per-ply cost (Cost) for a parameter that's plausibly second-order — whether
   `elo_oppo` moves the policy much independent of `elo_self` hasn't been
-  measured here (`scripts/maia-notes.md`'s responsiveness check varied only
+  measured here (`docs/maia-notes.md`'s responsiveness check varied only
   `elo_self`). Not recommended unless the calibration audit says otherwise.
 
 ## Reporting
@@ -242,8 +242,8 @@ bare number.
 ## Cost
 
 Nine forward passes per ply, sequential by default: 9 × ~35-55ms observed
-elsewhere in this repo (35ms, `scripts/maia-notes.md`; 47-55ms on different
-hardware, `docs/task-03-maia-review.md`) ≈ 315-500ms — call it ~400ms.
+elsewhere in this repo (35ms, `docs/maia-notes.md`; 47-55ms on different
+hardware, `docs/process/reviews/task-03-maia-review.md`) ≈ 315-500ms — call it ~400ms.
 Marginalizing `elo_oppo` instead of fixing it would make this 9×9=81 passes,
 ~2.8-4.5s per ply — the concrete reason that's not the default.
 
@@ -357,7 +357,7 @@ once in `start()`.
 same `P(move|position,bucket)` primitive (surprisal is `-log` of one bucket
 instead of 9 swept) — build `evaluateMaiaAt` once for both rather than risk
 two copies drifting apart, the way the move table and model almost did
-(`scripts/maia-notes.md`'s "hypothesis I had, and disproved").
+(`docs/maia-notes.md`'s "hypothesis I had, and disproved").
 
 ## Verification
 
@@ -402,7 +402,7 @@ the spirit of `scripts/cdp-verify.mjs`.
   worse or different fit than actual strength — this measures which bucket's
   move distribution you resemble, correlated with rating but not identical.
 - **The model's own opening quirk** — `maia_rapid.onnx`'s measured
-  knight-heavy opening prior (`docs/task-03-maia-review.md`, Q3) looks
+  knight-heavy opening prior (`docs/process/reviews/task-03-maia-review.md`, Q3) looks
   constant across buckets as far as anyone's checked, but that's unverified;
   if it varies by bucket, early plies carry a skill-unrelated bias.
 - **Short games** may never cross the `effectivePlies` gate — it can't tell

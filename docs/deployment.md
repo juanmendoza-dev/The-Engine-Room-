@@ -428,7 +428,7 @@ was faster (37.7 s vs 63.8 s for the same 93 MB).
 reload that tab. The session is a module-level singleton, so it loads once per
 tab and every later game in that tab is instant. A refresh pays the full cost
 again — Chrome will not disk-cache a body that size. The real fix is the
-IndexedDB cache noted in `scripts/maia-notes.md`; until then, treat "don't hit F5
+IndexedDB cache noted in `docs/maia-notes.md`; until then, treat "don't hit F5
 on stage" as the operational rule.
 
 **Copy only the jsep pair.** `onnxruntime-web` 1.27 ships five wasm/glue
