@@ -297,10 +297,9 @@ function dumpConsole() {
     }
   }
   if (!saw) console.log("(none)");
-  return saw;
 }
 
-const sawProblem = dumpConsole();
+dumpConsole();
 
 // The two failures that would matter most, called out rather than left in the dump.
 const transcript = cdp.events

@@ -228,6 +228,43 @@ deltas are 1–3 points, so this proves the input is wired — not that it produ
 large strength difference. Whole-game results remain the real test of that, same
 conclusion as Stockfish's ELO.
 
+**Both elo inputs are independently wired — confirmed later, and the check above
+did not show it.** Worth being precise about, because it reads like it did. The
+responsiveness table varied `ratingTier`, which `evaluateMaia` feeds to **both**
+`elo_self` and `elo_oppo`. So it proves the *pair* is consumed and isolates
+neither. Task 13 added `evaluateMaiaAt(fen, selfCategory, oppoCategory)` and swept
+them one at a time on the same FEN (reply to 1.e4):
+
+```
+elo_oppo pinned at 1500, elo_self 1100 -> 1900:  9/9 distinct distributions
+elo_self pinned at 1500, elo_oppo 1100 -> 1900:  9/9 distinct distributions
+
+  self=1100 oppo=1500  g8f6 36.6%  b8c6 19.2%  g8h6 9.6%
+  self=1900 oppo=1500  g8f6 29.8%  b8c6 27.5%  e7e5 6.9%
+  self=1500 oppo=1100  g8f6 29.7%  b8c6 24.6%  g8h6 9.3%
+  self=1500 oppo=1900  g8f6 32.4%  b8c6 21.9%  g8h6 9.3%
+```
+
+Both inputs move the policy on their own. Note the `self` sweep is not monotonic
+(`b8c6` climbs 19.2% → 27.5% but `g8f6` dips and recovers), so don't expect the
+buckets to lie on a line.
+
+**Adjacent buckets are nearly indistinguishable, and that has consequences.**
+The honest limit already noted above turns out to be the dominant fact about this
+model for any inference built on it. Neighbouring buckets differ by 1–3 points on
+a given move, so 40 plies of a player's own moves can locate them within about
+±1 bucket and no better. Task 13's write-up in
+`docs/plans/2026-08-03-engine-room-implementation.md` has the numbers.
+
+**Concurrent `session.run()` on one session throws `Session already started`.**
+Not a subtlety — ORT rejects it outright. Found by loading a page that ran two
+`evaluateMaia` calls at once under React StrictMode's double mount. It never
+mattered while the game loop was the only caller (strictly sequential), but any
+second caller collides with it. `engineMaia.ts` now serialises every run through
+one promise chain, which costs a sequential caller a microtask and changes no
+output. If you add another Maia caller, you get that for free — don't reintroduce
+a second session to work around it.
+
 **Move index table round-trip — PASS.** 1880 entries, 0 mismatches. (Note 1880,
 not lc0's 1858 — different move space.)
 

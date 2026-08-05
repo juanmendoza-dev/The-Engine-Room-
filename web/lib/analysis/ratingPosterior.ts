@@ -88,10 +88,11 @@ export const CREDIBLE_MASS = 0.8;
  * interval width. On the verification fixture the MAP swings 1900 -> 1400 ->
  * 1600 across the first six rated plies — most of the width of the scale, on
  * almost no evidence. At 3 effective plies (rated ply 5 there) the readout would
- * appear and then contradict itself twice. From ~6 it holds one bucket for the
- * rest of the game, and the band is still visibly shrinking after it, which is
- * what the spec asks the UI to show. Costs about ten of the player's own moves
- * before anything appears; the placeholder covers that honestly.
+ * appear and then contradict itself twice. Past 6 it holds 1600 for the rest of
+ * the game bar one single-ply excursion in 30, and the band keeps visibly
+ * shrinking after it, which is what the spec asks the UI to show. Costs eight to
+ * ten of the player's own moves before anything appears, depending on how
+ * informative their positions are; the placeholder covers that honestly.
  */
 export const READY_EFFECTIVE_PLIES = 6;
 
