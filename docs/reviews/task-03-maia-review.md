@@ -324,7 +324,7 @@ human" and not "is it broken?".
    object size. The IndexedDB cache the reference app has is the fix, not a
    nicety.
 5. **Docs cite a dead-ish commit**: `1563b5c` (pre-rebase) in
-   `docs/process/work-orders/phase-0-engine-spike.md` and the plan doc for what is now `1ffb98a`.
+   `docs/devlog/phase-0-engine-spike.md` and the plan doc for what is now `1ffb98a`.
    The old object still resolves on GitHub, so the links work today — but it's
    the hash of a commit no branch contains.
 

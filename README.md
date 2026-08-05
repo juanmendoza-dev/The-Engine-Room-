@@ -147,7 +147,7 @@ Two things that will otherwise waste your afternoon, both documented at length i
 - [Maia integration](docs/maia-notes.md) — plane layout, policy decode, why Maia 2
   and not Maia 3
 - [Design notes](docs/design/ink-and-bone-notes.md) — tokens, fonts, mechanics, traps
-- [Build process](docs/process/) — the specs, the plan, the lane declarations, the
+- [Build process](docs/) — the specs, the plan, the lane declarations, the
   code reviews. Written before the work, not tidied up afterwards.
 - [`AGENTS.md`](AGENTS.md) — rules for AI agents committing to this repo, some of
   them hook-enforced
@@ -168,7 +168,7 @@ Stated plainly, because they're all deliberate calls rather than oversights:
   Stockfish accepts the options and searches; it never proved 1320 plays worse
   than 2800 over a sample of games. Search depth is identical at both, because
   Stockfish weakens play by picking a worse candidate move rather than searching
-  shallower. [A spec exists](docs/process/specs/2026-08-05-sprt-engine-ratings.md)
+  shallower. [A spec exists](docs/specs/2026-08-05-sprt-engine-ratings.md)
   to settle it with SPRT; it hasn't been run.
 - **No automated test suite.** Verification is headless-Chrome CDP harnesses in
   `scripts/` driving the production build and asserting on the post-hydration DOM

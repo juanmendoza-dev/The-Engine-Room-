@@ -52,7 +52,7 @@ drafting it. Its strength claim is also unfounded until SPRT (#4) validates it
 ### 4. SPRT engine ratings — valuable, but not a live-clickable feature
 
 This is the one that actually closes an admission already sitting in
-`docs/process/plans/2026-08-03-engine-room-implementation.md` (Task 2): the
+`docs/plans/2026-08-03-engine-room-implementation.md` (Task 2): the
 `UCI_Elo` presets were never proven to change playing strength, only accepted
 as options. Worth doing for real. But one match already costs ~30-40s of
 engine thinking, and even a loose sanity-check SPRT decision needs ~22 games,

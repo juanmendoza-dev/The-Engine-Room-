@@ -64,8 +64,8 @@ gate, and Phases 1–3 are all functionally live in production, so that check-in
 due as well.
 
 Lane ownership, so parallel agents don't collide:
-[`phase-0-engine-spike.md`](../work-orders/phase-0-engine-spike.md) (Tasks 2, 3) and
-[`model-1v1-work-order.md`](../work-orders/model-1v1-work-order.md) (Tasks 7, 4, 6, 8).
+[`phase-0-engine-spike.md`](../devlog/phase-0-engine-spike.md) (Tasks 2, 3) and
+[`model-1v1-work-order.md`](../devlog/model-1v1-work-order.md) (Tasks 7, 4, 6, 8).
 
 ---
 
@@ -1470,7 +1470,7 @@ git commit -m "add the game history page"
 
 Not in the original plan — asked for after Phase 3 landed. Anime-fight effects
 over both game boards, built as a tiered beat system rather than per-screen
-animation code. Full write-up: [`docs/design/fight-fx-notes.md`](../../design/fight-fx-notes.md).
+animation code. Full write-up: [`docs/design/fight-fx-notes.md`](../design/fight-fx-notes.md).
 
 **Files:**
 - Create: `lib/fx/{types,classify,openings,effects,runtime}.ts`

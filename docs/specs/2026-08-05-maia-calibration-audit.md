@@ -6,7 +6,7 @@ play it about 30% of the time. This is an *evaluation* of a released
 model's existing outputs, not a change to it — nothing here trains or
 fine-tunes any weight, including in the correction it proposes if the
 answer is "no." Written 2026-08-05, after Task 3 (`docs/maia-notes.md`,
-`docs/process/reviews/task-03-maia-review.md`) shipped Maia 2 rapid on `/model-1v1` and
+`docs/reviews/task-03-maia-review.md`) shipped Maia 2 rapid on `/model-1v1` and
 `/user-1v1`. `2026-08-05-bayesian-rating-inference.md` already exists and
 names this audit as a stated dependency, so it was read in full —
 connections appear inline below, not gathered into one section.
@@ -278,7 +278,7 @@ caller wants the hook.
   share its exact pure encode → softmax logic underneath — two thin
   runtime shims over one shared core, not a third implementation. This
   project already paid once for two encoders quietly disagreeing
-  (`docs/process/reviews/task-03-maia-review.md`, Q3's en-passant finding); a fourth copy
+  (`docs/reviews/task-03-maia-review.md`, Q3's en-passant finding); a fourth copy
   of this math is how that repeats.
 - Script dependencies (`onnxruntime-node`, a zstd/PGN helper if needed) are
   dev-only tooling, never in the Vercel build or client bundle, so they
@@ -296,7 +296,7 @@ follow-up, not built here.
 ## Cost
 
 Per-row cost is one forward pass: **35 ms** per `docs/maia-notes.md`'s
-spike, **47–55 ms** per `docs/process/reviews/task-03-maia-review.md`'s re-measurement on
+spike, **47–55 ms** per `docs/reviews/task-03-maia-review.md`'s re-measurement on
 different hardware — matching the citation `bayesian-rating-inference.md`
 already uses. Call it ~50 ms as the planning number, for consistency.
 
@@ -342,7 +342,7 @@ harness itself isn't lying before trusting what it says about Maia.
 4. **Hand spot-check ~10 fixture rows.** Replay the stored FEN in `chess.js`
    by hand, confirm the move is legal and matches the raw PGN at that ply —
    catches an off-by-one-ply bug before it contaminates thousands of rows,
-   the same discipline `docs/process/reviews/task-03-maia-review.md` used throughout.
+   the same discipline `docs/reviews/task-03-maia-review.md` used throughout.
 5. **Sanity anchor: top-1 accuracy should land near the published ~50%.**
    Not pass/fail, but if wildly off (5%, 95%), suspect the fixture pipeline
    before concluding Maia differs from its published numbers.
@@ -351,7 +351,7 @@ Existing prior art, not redone here: Task 3's review already ran a
 canonical-parity check of the encoder — CSSLab's *training-side*
 preprocessing, ported to Python, run against the same released
 `maia_rapid.onnx`, matching the browser pipeline "to 0.1 percentage points
-on every test position" (`docs/process/reviews/task-03-maia-review.md`, Q3). That transfers
+on every test position" (`docs/reviews/task-03-maia-review.md`, Q3). That transfers
 here *only if* the Node script imports `engineMaia.ts`'s encoder rather
 than reimplementing it. That Python script is not a committed file in this
 repo, worth knowing so nobody goes looking — it's documented in that
@@ -382,7 +382,7 @@ review and in PR #12's discussion, not checked in anywhere.
   WASM/pure-JS zstd decompressor over a native-binding package if one is
   added — native builds are the likelier install failure here.
 - **Unmeasured interaction with Maia's opening prior.** That knight-heavy
-  prior (`docs/process/reviews/task-03-maia-review.md`, Q3) "looks constant across
+  prior (`docs/reviews/task-03-maia-review.md`, Q3) "looks constant across
   ratings... not measured either way" per `bayesian-rating-inference.md`'s
   Risks — a per-bucket ECE breakdown would be one of the few ways to check,
   optional here.

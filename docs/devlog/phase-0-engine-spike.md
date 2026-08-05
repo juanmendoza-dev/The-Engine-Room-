@@ -226,7 +226,7 @@ me.
 - **Task 3 — done**, landed via PR `#7`. **Maia works**: `getMaiaMove` returns
   human-plausible legal moves in ~35 ms. Spec is
   [`task-03-maia-spec.md`](../specs/task-03-maia-spec.md); the authoritative record of what
-  actually happened is [`../../maia-notes.md`](../../maia-notes.md),
+  actually happened is [`../maia-notes.md`](../maia-notes.md),
   because the spec's checkpoints didn't run as written — CP1 found a far easier
   path and made CP2–CP6 moot.
 

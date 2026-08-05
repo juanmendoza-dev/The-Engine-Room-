@@ -38,11 +38,11 @@ is unchanged.
 
 ## Read these first, so you're not reviewing cold
 
-- `docs/process/work-orders/phase-0-engine-spike.md` — the work order I wrote **before** touching
+- `docs/devlog/phase-0-engine-spike.md` — the work order I wrote **before** touching
   code: scope, which files I claimed, which I promised not to touch, and the
   engine contract. Merged as #5. Reviewing against this is the point: it's the
   thing I said I'd do, so any drift is visible.
-- Task 2 in `docs/process/plans/2026-08-03-engine-room-implementation.md` —
+- Task 2 in `docs/plans/2026-08-03-engine-room-implementation.md` —
   step-by-step, with a "What differed from the original plan" section.
 - `docs/deployment.md` §4 — the binary-asset and Vercel traps this task had to
   respect. Two of them were live hazards here, not hypotheticals.
@@ -309,5 +309,5 @@ stale here, which made `README.md` look modified when it wasn't.
 ## Not in this PR
 
 Task 3 (Maia ONNX spike) is next and separate — a 90-minute timeboxed
-investigation with two legitimate outcomes, per `docs/process/work-orders/phase-0-engine-spike.md`.
+investigation with two legitimate outcomes, per `docs/devlog/phase-0-engine-spike.md`.
 Task 7 (`Board`) is unclaimed and shares no files with this work.

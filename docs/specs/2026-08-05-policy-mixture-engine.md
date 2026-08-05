@@ -102,7 +102,7 @@ Worth getting right:
 **`MultiPV` × `UCI_LimitStrength` — what's known, what needs checking.**
 Skill-limiting is documented, generally, as perturbing which near-best root
 move becomes `bestmove` without a shallower search; this repo's own
-`docs/process/reviews/task-02-stockfish-review.md` is consistent — at `MultiPV=1`, depth
+`docs/reviews/task-02-stockfish-review.md` is consistent — at `MultiPV=1`, depth
 stayed stable across ELOs while the move played varied. If that holds under
 `MultiPV>1` too, the N reported `cp` values are honest per-line evals and
 limit-strength only affects which one becomes `bestmove`, which the mixture

@@ -243,7 +243,7 @@ bare number.
 
 Nine forward passes per ply, sequential by default: 9 × ~35-55ms observed
 elsewhere in this repo (35ms, `docs/maia-notes.md`; 47-55ms on different
-hardware, `docs/process/reviews/task-03-maia-review.md`) ≈ 315-500ms — call it ~400ms.
+hardware, `docs/reviews/task-03-maia-review.md`) ≈ 315-500ms — call it ~400ms.
 Marginalizing `elo_oppo` instead of fixing it would make this 9×9=81 passes,
 ~2.8-4.5s per ply — the concrete reason that's not the default.
 
@@ -402,7 +402,7 @@ the spirit of `scripts/cdp-verify.mjs`.
   worse or different fit than actual strength — this measures which bucket's
   move distribution you resemble, correlated with rating but not identical.
 - **The model's own opening quirk** — `maia_rapid.onnx`'s measured
-  knight-heavy opening prior (`docs/process/reviews/task-03-maia-review.md`, Q3) looks
+  knight-heavy opening prior (`docs/reviews/task-03-maia-review.md`, Q3) looks
   constant across buckets as far as anyone's checked, but that's unverified;
   if it varies by bucket, early plies carry a skill-unrelated bias.
 - **Short games** may never cross the `effectivePlies` gate — it can't tell
