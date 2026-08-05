@@ -367,18 +367,62 @@ export interface MaiaEvaluation {
   outputNames: string[];
 }
 
+// ── One session, one caller at a time ────────────────────────────────────────
+// ORT throws `Session already started` if two session.run() calls overlap on the
+// same InferenceSession. Measured, not assumed: it showed up the moment a page
+// with two concurrent evaluate calls loaded under React StrictMode's double
+// invocation, and it answers a question the rating-inference spec left open
+// ("whether concurrent session.run() calls on one session even interleave safely
+// is unverified") with a flat no.
+//
+// It matters because there is now a second caller. The game loop on its own is
+// strictly sequential, so nothing collided before; the rating estimator fires
+// nine passes off the move-response path, which lands them squarely on top of
+// the opponent's own getMaiaMove. Whichever call lost that race would throw, and
+// if the loser were the opponent's, /user-1v1 would show "Engine failed" for a
+// reason nothing in the game code could explain.
+//
+// Serialising here rather than in the estimator is deliberate: this is the one
+// place both callers pass through. It changes nothing for a sequential caller
+// beyond a microtask hop - same feeds, same session, byte-identical output - it
+// just makes an overlapping call wait its turn instead of failing.
+let inferenceQueue: Promise<unknown> = Promise.resolve();
+
+function runExclusive<T>(work: () => Promise<T>): Promise<T> {
+  // Same callback on both branches so one caller's failure doesn't strand the
+  // queue, and the tail is caught so a rejection can't poison later turns.
+  const result = inferenceQueue.then(work, work);
+  inferenceQueue = result.catch(() => {});
+  return result;
+}
+
 /**
- * Full policy and value for a position. Exported mainly so the verification page
- * can check that the rating input actually changes the output.
+ * Full policy and value at one position, with Maia's two rating inputs set
+ * independently.
+ *
+ * `evaluateMaia` reuses one rating for both, which is right for gameplay ("we
+ * both think we're this rating" is good enough to pick a move) and wrong for
+ * inference: the rating estimator sweeps `elo_self` across all nine buckets as
+ * its hypothesis while `elo_oppo` has to stay pinned to the opponent who is
+ * actually sitting there. Hence the split.
+ *
+ * Both arguments are `eloToCategory()` outputs - bucket indices on the model's
+ * own scale, 1-9 for the named tiers, 0 for "below 1100" and 10 for "2000 and
+ * up" - NOT raw ratings. The spec calls these `selfBucket`/`oppoBucket`; they're
+ * named for categories here because `RatingBucket` in lib/analysis means a
+ * rating (1100-1900), and one word covering both scales is a bug waiting to be
+ * written.
  */
-export async function evaluateMaia(
+export async function evaluateMaiaAt(
   fen: string,
-  config: EngineConfig
+  selfCategory: number,
+  oppoCategory: number,
 ): Promise<MaiaEvaluation> {
   await load();
   if (!session || !moveTable || !moveTableReversed) {
     throw new Error("Maia not available");
   }
+  const active = session;
 
   const blackToMove = fen.split(" ")[1] === "b";
   const encodedFen = blackToMove ? mirrorFen(fen) : fen;
@@ -391,14 +435,12 @@ export async function evaluateMaia(
     if (index !== undefined) legalIndices.push(index);
   }
 
-  const rating = config.ratingTier ?? 1500;
-  const category = BigInt(eloToCategory(rating));
-
-  const outputs = await session.run({
+  const feeds = {
     boards: new ort.Tensor("float32", boardToTensor(encodedFen), [1, 18, 8, 8]),
-    elo_self: new ort.Tensor("int64", BigInt64Array.from([category])),
-    elo_oppo: new ort.Tensor("int64", BigInt64Array.from([category])),
-  });
+    elo_self: new ort.Tensor("int64", BigInt64Array.from([BigInt(selfCategory)])),
+    elo_oppo: new ort.Tensor("int64", BigInt64Array.from([BigInt(oppoCategory)])),
+  };
+  const outputs = await runExclusive(() => active.run(feeds));
 
   const logits = outputs.logits_maia.data as Float32Array;
   const value = Number((outputs.logits_value.data as Float32Array)[0]);
@@ -422,9 +464,25 @@ export async function evaluateMaia(
   return {
     policy,
     value,
-    inputNames: [...session.inputNames],
-    outputNames: [...session.outputNames],
+    inputNames: [...active.inputNames],
+    outputNames: [...active.outputNames],
   };
+}
+
+/**
+ * Full policy and value for a position. Exported mainly so the verification page
+ * can check that the rating input actually changes the output.
+ *
+ * Both rating tensors get the same category, which is what every caller on the
+ * gameplay path wants. `evaluateMaiaAt` is the same forward pass with the two
+ * pulled apart.
+ */
+export async function evaluateMaia(
+  fen: string,
+  config: EngineConfig
+): Promise<MaiaEvaluation> {
+  const category = eloToCategory(config.ratingTier ?? 1500);
+  return evaluateMaiaAt(fen, category, category);
 }
 
 /**
