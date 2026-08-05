@@ -2140,6 +2140,40 @@ stopping dead can leave the sample one game heavier in white). The pair
 completes; the extra game goes into the log for the rating fit and the
 already-decided SPRT ignores it. Costs at most one game.
 
+**The runner keeps playing after the test decides, and that turned out to be
+mandatory rather than nice.** The spec's two goals — "measure empirical strength
+of every preset" and "stop once the evidence is in" — quietly conflict. A
+lopsided pairing crosses the SPRT boundary in about eight games, which is the
+sequential test working perfectly, and eight games of a lopsided pairing is a
+whitewash. A preset that never lost has an Elo unbounded above, Ford's condition
+fires, and it drops out of the fit. The first full batch decided all five of its
+questions and could rate **nobody**. So `minGames` keeps the games coming for the
+fit's sake while `recordGame` ignores everything past the boundary, leaving α and
+β exactly as claimed. Mild caveat, stated rather than hidden: total N now depends
+on outcomes, which is a small optional-stopping effect on the fit's intervals.
+
+**Openings are dealt from a shuffled deck, not sampled with replacement.** The
+spec says "picked uniformly per game" and sizes the book so repeats are rare —
+reasoning about repeats-per-line at 320 games. At small N that reasoning
+understates the problem badly, because a repeat is not a slightly-correlated
+game, it is a *byte-identical* one against a deterministic engine: zero
+information, but the SPRT counts it as evidence and the interval it reports comes
+out too narrow. Measured, not predicted: Maia 1900 vs Maia 1100 logged 34 games
+of which **22 were distinct**. Seventeen opening draws over a 21-line book
+collide about a third of the time, which is exactly what the birthday arithmetic
+says. Dealing without replacement makes it impossible for the first 42 games of
+any match, and `sprt-run.mjs` drops cross-run collisions on exact move-sequence
+identity — Stockfish's timing jitter does sometimes make two runs of one opening
+genuinely diverge, and those are two real games.
+
+**`scripts/refit-ratings.mjs` exists so "a cache, not a second source of truth"
+is executable.** The spec says `ratings.json` is regenerable from the log at any
+time. That is the kind of claim that rots quietly, so there is a script that does
+it — including replaying each run's SPRT from the logged games rather than
+trusting the stored terminal state, which is what caught the duplicate problem
+above in the first place. It flags any run whose replayed LLR disagrees with what
+was stored, instead of silently overwriting it.
+
 **A single match holds γ fixed; only the pooled fit estimates it.** The spec
 calls γ a nuisance parameter "fit once from pooled data", and that is exactly
 what `sprt-run.mjs` does when it regenerates `ratings.json` across every logged

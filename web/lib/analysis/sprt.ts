@@ -93,11 +93,15 @@ export function outcomeFor(
 /** One line a human can read off a finished or in-flight run. */
 export function describeSprt(state: SprtState): string {
   const { a, b, elo0, elo1 } = state.config;
+  // Careful with the wording. Accepting H0 does not mean "no difference" — it
+  // means the evidence favours a gap of elo0 over a gap of elo1, which for the
+  // usual 0-vs-200 question is "not 200 Elo apart", not "identical". The point
+  // estimate from ratingBT.ts is what says how far apart they actually look.
   const verdict =
     state.decision === "accept-h1"
-      ? `H1 accepted: ${a} is stronger than ${b} by at least about ${elo1} Elo`
+      ? `H1 accepted: the gap looks closer to ${elo1} than to ${elo0} Elo, in ${a}'s favour`
       : state.decision === "accept-h0"
-        ? `H0 accepted: no evidence ${a} beats ${b} by more than ${elo0} Elo`
+        ? `H0 accepted: the gap looks closer to ${elo0} than to ${elo1} Elo`
         : state.decision === "max-games"
           ? "inconclusive - hit the game cap before either bound"
           : "still running";
