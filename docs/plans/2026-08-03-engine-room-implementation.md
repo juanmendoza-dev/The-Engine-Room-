@@ -1613,8 +1613,14 @@ called it "plays most like a 1100 · likely 1100–1600". It's reading something
 
 ### Left undone
 
-- [ ] **Not verified on the live site.** Local production build only, per
-      `docs/deployment.md` §4 — preview URLs are SSO-gated.
+- [x] ~~Not verified on the live site.~~ **Done, after merge.** The preview URL is
+      SSO-gated, but *production* is public, so `cdp-rating-readout.mjs` runs
+      against it unchanged. 11 player moves on
+      `the-engine-room-gold.vercel.app/user-1v1` against Maia 1500: readout held
+      through move 7, opened on move 8 at 6.1 effective plies, never named a
+      bucket bare, no console errors, no `Session already started`. Byte-identical
+      to the local run, including the "plays most like a 1100 · likely 1100–1600"
+      verdict on the driver's wing-pawn play.
 - [ ] **`τ`, `I_min`, `I_ref` are tuned against one fixture pair.** Better than
       the spec's untested guesses, still one game's worth of data. A corpus of
       graded human games would settle them; there isn't one here.
