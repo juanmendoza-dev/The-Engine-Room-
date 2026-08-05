@@ -305,14 +305,14 @@ not a failure — the point of the timebox is that this task can't sink the phas
 
 ## The two outcomes
 
-**Works:** `getMaiaMove(fen, config)` returns real moves, `public/maia/1500.onnx`
+**Works:** `getMaiaMove(fen, config)` returns real moves, `web/public/maia/1500.onnx`
 is committed, `MAIA_PRESETS` gets populated in Task 4.
 
 **Fallback:** `getMaiaMove` exists with the identical signature but throws
 `new Error("Maia not available")`. `MAIA_PRESETS` becomes `[]` in Task 4 and the
 Maia options simply don't render. Maia joins the stretch goals.
 
-Either way, **no code outside `lib/chess/engines.ts` changes** — that's exactly
+Either way, **no code outside `web/lib/chess/engines.ts` changes** — that's exactly
 why every later task calls `getMoveFor` and never touches engine internals. And
 `docs/maia-notes.md` gets written in both cases, so a second attempt doesn't
 restart from zero.
@@ -320,15 +320,15 @@ restart from zero.
 ## Files
 
 **Create / own:**
-- `lib/chess/engineMaia.ts` — the wrapper, both outcomes
+- `web/lib/chess/engineMaia.ts` — the wrapper, both outcomes
 - `docs/maia-notes.md` — findings per checkpoint, written either way
-- `public/maia/1500.onnx` — only if CP3 succeeds
-- `public/ort/` — **only if needed**, see risks below
+- `web/public/maia/1500.onnx` — only if CP3 succeeds
+- `web/public/ort/` — **only if needed**, see risks below
 - `package.json` / `package-lock.json` — adds `onnxruntime-web` if CP3 succeeds
 
-**Won't touch:** every hero file (`app/page.tsx`, `app/layout.tsx`,
-`app/globals.css`, `components/*`), anything Vercel or KV (Task 9 stays
-unclaimed), `app/model-1v1` / `app/user-1v1`, and `lib/chess/types.ts` — the
+**Won't touch:** every hero file (`web/app/page.tsx`, `web/app/layout.tsx`,
+`web/app/globals.css`, `web/components/*`), anything Vercel or KV (Task 9 stays
+unclaimed), `web/app/model-1v1` / `web/app/user-1v1`, and `web/lib/chess/types.ts` — the
 contract is published and stays fixed. Task 7 (`Board`) remains unclaimed and
 free for another agent.
 
@@ -339,8 +339,8 @@ there.
 
 - **`onnxruntime-web` and its own wasm files.** It loads wasm at runtime and
   doesn't always resolve the paths correctly under a bundler. `deployment.md` §4
-  already documents the fix: copy its wasm assets into `public/` and point
-  `ort.env.wasm.wasmPaths` at them. That's what `public/ort/` above is for, if it
+  already documents the fix: copy its wasm assets into `web/public/` and point
+  `ort.env.wasm.wasmPaths` at them. That's what `web/public/ort/` above is for, if it
   comes to it.
 - **File size.** Maia is a small network (far smaller than Stockfish's NNUE), so
   I expect a few MB, but I'll check before committing — GitHub rejects over

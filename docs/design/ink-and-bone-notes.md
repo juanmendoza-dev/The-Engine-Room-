@@ -25,7 +25,7 @@ Kinetic editorial monochrome — a print-shop metaphor with two "editions":
 Boldness budget is spent on typography; everything else stays quiet: hairline
 borders, sharp corners (no border-radius anywhere), one accent color.
 
-## Fonts (via `next/font/google`, loaded in `app/layout.tsx`)
+## Fonts (via `next/font/google`, loaded in `web/app/layout.tsx`)
 
 | Var | Face | Use | Tailwind utility |
 |---|---|---|---|
@@ -37,7 +37,7 @@ Display type is always uppercase with tight tracking (−0.02 to −0.035em) and
 leading around 0.9. Mono labels are small (10–12px) with wide tracking
 (0.16–0.24em), uppercase.
 
-## Tokens (CSS custom properties in `app/globals.css`)
+## Tokens (CSS custom properties in `web/app/globals.css`)
 
 | Token | Day | Night | Use |
 |---|---|---|---|
@@ -59,8 +59,8 @@ leading around 0.9. Mono labels are small (10–12px) with wide tracking
 
 **Day is now the default; `data-theme="dark"` is the override.** The old
 brass design had dark as `:root` and `data-theme="light"` as the override.
-The toggle (`components/ThemeToggle.tsx`) and the inline bootstrap in
-`app/layout.tsx` both flipped accordingly. The localStorage key is still
+The toggle (`web/components/ThemeToggle.tsx`) and the inline bootstrap in
+`web/app/layout.tsx` both flipped accordingly. The localStorage key is still
 `er-theme` (values `"light"`/`"dark"`), and with nothing stored the bootstrap
 falls back to `prefers-color-scheme` — so a returning visitor keeps their
 choice and a new visitor gets their OS preference.
@@ -71,7 +71,7 @@ the new default. Anything theme-conditional hangs off
 
 ## Structure
 
-- **Header** (`components/SiteHeader.tsx`, all screens): ER monogram (see below),
+- **Header** (`web/components/SiteHeader.tsx`, all screens): ER monogram (see below),
   letterspaced mono wordmark, live scoreboard, edition toggle. No gradient
   wordmark. Stays a *server* component — only the scoreboard needs the client,
   and it's a separate component so the rest of the header isn't dragged over the
@@ -79,11 +79,11 @@ the new default. Anything theme-conditional hangs off
   that boundary either. The rotating ink square the monogram replaced is gone,
   along with the `er-sq-turn` keyframes it was the only user of — a monogram
   can't rotate and stay readable.
-- **Hero** (`app/page.tsx`): three-line THE / ENGINE / ROOM headline, each
+- **Hero** (`web/app/page.tsx`): three-line THE / ENGINE / ROOM headline, each
   line rising from an `overflow: hidden` mask (`.er-line`), "ENGINE" hollow
   via `-webkit-text-stroke` (`.er-hollow`; fills red on headline hover).
   Right: the ReplayBoard.
-- **ReplayBoard** (`components/ReplayBoard.tsx`): replays Morphy's Opera Game
+- **ReplayBoard** (`web/components/ReplayBoard.tsx`): replays Morphy's Opera Game
   (1858) on a loop, one ply per 1.15s, board squares cascade in on load.
   Dependency-free — a hardcoded move script, no chess.js. Captured pieces are
   *flagged*, not removed, so React keys stay stable and CSS transitions
@@ -97,7 +97,7 @@ the new default. Anything theme-conditional hangs off
 
 ## Header scoreboard — the live readout
 
-`components/HeaderScoreboard.tsx` + `lib/boardFeed.ts`. Two squares for the two
+`web/components/HeaderScoreboard.tsx` + `web/lib/boardFeed.ts`. Two squares for the two
 sides with the side to move ringed in red, the move number, and the last move in
 algebraic. Replaced the old `Live — engines coupled` badge, which is worth
 understanding as a design lesson rather than just a deleted line:
@@ -108,7 +108,7 @@ claim the app couldn't back. But the landing page *does* have a real game runnin
 on it: `ReplayBoard`'s Opera Game, one ply every 1150ms. So the fix wasn't to
 remove the readout, it was to connect it.
 
-- **`lib/boardFeed.ts` is a module-level store, not React context.** The header
+- **`web/lib/boardFeed.ts` is a module-level store, not React context.** The header
   lives in the root layout and every board lives inside the page, so a provider
   would have to wrap the whole layout, and publishing upward from board to
   provider means calling `setState` from an effect — the same
@@ -133,7 +133,7 @@ remove the readout, it was to connect it.
   feel cheap; it was measured at a constant 153px across a whole game.
 ## Brand mark — the ER monogram
 
-`components/BrandMark.tsx`. Two letters on a 100-unit cap-height grid (stem 26,
+`web/components/BrandMark.tsx`. Two letters on a 100-unit cap-height grid (stem 26,
 horizontal bar 20), constructed rather than typeset: flat terminals, square
 corners, a rectilinear R bowl with a straight leg. Ink by day, paper by night
 (it inherits `color`, so it flips for free), plus one red plate-corner tick that
@@ -152,22 +152,22 @@ the hairline frame, the gap inside it, and the letter counters all land under
 accidentally ship the illegible one; pass `cut` to override. The header uses
 `size={18}` → bare.
 
-**The letters are paths, not `<text>` in Archivo Black.** `app/icon.svg` reuses
+**The letters are paths, not `<text>` in Archivo Black.** `web/app/icon.svg` reuses
 the same geometry and a favicon renders with no webfont available — a text mark
 would silently fall back to a serif in the browser tab. The trade is that the
 numbers exist in two files; the SVG says so at the top, and `BrandMark.tsx` is
 the source of truth.
 
-**Icons** (all Next `app/` file conventions, no `metadata.icons` config needed):
+**Icons** (all Next `web/app/` file conventions, no `metadata.icons` config needed):
 `icon.svg` is the bare cut, ink on light browser chrome and paper on dark via an
 inline `prefers-color-scheme` rule. `favicon.ico` (32px bare) and
 `apple-icon.png` (180px plate, inset 15% so iOS's rounded mask can't clip the
 frame) are raster, so they can't carry that media query — both sit on an opaque
 bone plate instead, because an ink monogram on transparency disappears entirely
-on a dark tab strip. Regenerate them with `scripts/make-icons.mjs`.
+on a dark tab strip. Regenerate them with `web/scripts/make-icons.mjs`.
 ## Route transition — "the press"
 
-`components/PageTransition.tsx` + the `.er-press-*` rules in `globals.css`.
+`web/components/PageTransition.tsx` + the `.er-press-*` rules in `globals.css`.
 Every link that navigates goes through it; nothing else in the app does.
 
 The print metaphor taken literally — a press taking an impression:
@@ -186,12 +186,12 @@ The print metaphor taken literally — a press taking an impression:
    mid-entry-animation.
 
 Roughly 1.2s end to end (620ms to cover, then the route swap, then 540ms to
-lift). Verified frame by frame with `scripts/cdp-press.mjs`.
+lift). Verified frame by frame with `web/scripts/cdp-press.mjs`.
 
 Things worth knowing before you touch it:
 
 - **It's a provider, not CSS on the link.** The platen has to stay down *across*
-  the navigation, so one overlay lives above the router in `app/layout.tsx` and
+  the navigation, so one overlay lives above the router in `web/app/layout.tsx` and
   links only ask it to run. It renders a fragment — wrapping the header and page
   in a `<div>` there would break `<body>`'s flex column.
 - **The lift is triggered by the route committing, not a timer.** A slow RSC

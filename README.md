@@ -23,7 +23,7 @@ Both are real engines, not difficulty multipliers on one search.
 | What it is | Classical alpha-beta search — `stockfish-18-lite-single.wasm` in a Web Worker, driven over UCI | Maia 2 "rapid" — a neural net trained to predict what a *human* of a given rating plays, one forward pass via `onnxruntime-web` |
 | Strength control | `UCI_LimitStrength` + `UCI_Elo` — presets 1320 / 1800 / 2800 (1320 is this build's actual floor; the range is 1320–3190) | Rating is a **model input**, not a separate network — presets 1100 / 1500 / 1900 feed `elo_self` / `elo_oppo` as bucket indices |
 | Time per move | ~500 ms (`go movetime 500`) | ~35 ms once loaded |
-| Cost | 7 MB, served from `public/` | 93 MB, fetched at runtime from a pinned commit in our own mirror repo |
+| Cost | 7 MB, served from `web/public/` | 93 MB, fetched at runtime from a pinned commit in our own mirror repo |
 
 The difference is visible in play, which is the point: Stockfish 1320 plays like
 a weakened engine, Maia 1100 plays like a 1100-rated person — including the kinds
@@ -51,7 +51,7 @@ of mistakes a person actually makes.
                      chess.js          ← sole authority on legality and game end
                          │
                          ▼
-                  lib/games/store.ts   ← localStorage today, Vercel KV behind a flag
+                  web/lib/games/store.ts   ← localStorage today, Vercel KV behind a flag
 ```
 
 Four decisions carry most of the design:
@@ -62,7 +62,7 @@ server code in the app is two Server Actions for storage.
 
 **One contract, two engines.** Everything downstream calls
 `getMoveFor(fen, config)` and never imports an engine module directly. Adding or
-dropping an engine is a change to `lib/chess/engines.ts` and nothing else — which
+dropping an engine is a change to `web/lib/chess/engines.ts` and nothing else — which
 is what let Maia land *after* the Model 1v1 screen was already working.
 
 **chess.js is the only thing that knows the rules.** Engines choose from legal
@@ -71,7 +71,7 @@ threefold, fifty-move, insufficient material). If an engine ever returns
 something illegal it's discarded for a random legal move rather than breaking the
 game. No chess logic is hand-rolled anywhere.
 
-**Storage is behind an adapter.** `lib/games/store.ts` writes to localStorage by
+**Storage is behind an adapter.** `web/lib/games/store.ts` writes to localStorage by
 default and to Vercel KV when `NEXT_PUBLIC_KV_ENABLED=1`. The app is fully
 demo-able with nothing provisioned, and turning KV on is an env var plus a
 redeploy — no code change. Runbook in [`docs/deployment.md`](docs/deployment.md) §3.
@@ -96,26 +96,36 @@ redeploy — no code change. Runbook in [`docs/deployment.md`](docs/deployment.m
 ## Repo map
 
 ```
-app/                    routes (App Router)
-  actions/games.ts        the two KV Server Actions — the only server-side code
-  dev/                    verification harnesses, not part of the app (see its README)
-components/             Board, EngineConfigPicker, ResultScreen, header, brand mark…
-  fx/                     the fight-FX stage and its stylesheet
-lib/
-  chess/                  engineStockfish · engineMaia · engines (getMoveFor) · gameLoop
-  fx/                     effect definitions, move classification, runtime
-  games/                  storage: types · localStore · store (the adapter facade)
-  boardFeed.ts            module store the header scoreboard subscribes to
-public/
-  stockfish/              7 MB single-threaded wasm build
-  ort/                    26.9 MB onnxruntime-web jsep pair — exactly the two files ORT fetches
-scripts/                CDP verification harnesses, icon generation
-docs/                   see docs/README.md
+docs/                     see docs/README.md
+web/                      the Next.js app — everything below is relative to here
+  app/                      routes (App Router)
+    actions/games.ts          the two KV Server Actions — the only server-side code
+    dev/                      verification harnesses, not part of the app (see its README)
+  components/               Board, EngineConfigPicker, ResultScreen, header, brand mark…
+    fx/                       the fight-FX stage and its stylesheet
+  lib/
+    chess/                    engineStockfish · engineMaia · engines (getMoveFor) · gameLoop
+    fx/                       effect definitions, move classification, runtime
+    games/                    storage: types · localStore · store (the adapter facade)
+    boardFeed.ts              module store the header scoreboard subscribes to
+  public/
+    stockfish/                7 MB single-threaded wasm build
+    ort/                      26.9 MB onnxruntime-web jsep pair — exactly the two files ORT fetches
+  scripts/                  CDP verification harnesses, icon generation
 ```
+
+The app lives in `web/` rather than at the repo root so the root stays readable —
+`next.config.ts`, `tsconfig.json`, `postcss.config.mjs` and both `package*.json`
+can't be moved individually (Next and npm resolve them from wherever the build
+runs, and Next writes to two of them), so the whole project moves instead. Vercel
+is configured with **Root Directory = `web`** to match.
 
 ## Run it locally
 
+Everything runs from `web/`, not the repo root:
+
 ```sh
+cd web
 npm install
 npm run dev          # http://localhost:3000
 ```
@@ -135,7 +145,7 @@ Two things that will otherwise waste your afternoon, both documented at length i
   `127.0.0.1` as cross-origin and blocks its own `/_next` dev resources, so the
   page server-renders perfectly and then never hydrates. Every click is a no-op
   and the browser console stays completely clean.
-- **Rebuild after adding anything to `public/`.** Next 16 snapshots that folder at
+- **Rebuild after adding anything to `web/public/`.** Next 16 snapshots that folder at
   build time, so files copied in afterwards 404 until you build again.
 
 ## Docs
@@ -171,7 +181,7 @@ Stated plainly, because they're all deliberate calls rather than oversights:
   shallower. [A spec exists](docs/specs/2026-08-05-sprt-engine-ratings.md)
   to settle it with SPRT; it hasn't been run.
 - **No automated test suite.** Verification is headless-Chrome CDP harnesses in
-  `scripts/` driving the production build and asserting on the post-hydration DOM
+  `web/scripts/` driving the production build and asserting on the post-hydration DOM
   — full games played through the UI, drags dispatched as real pointer events,
   animation timelines sampled with `requestAnimationFrame`. Deliberate for a build
   this size, but not a substitute for unit tests.

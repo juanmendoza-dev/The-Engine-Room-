@@ -78,7 +78,7 @@ No UI in this phase. The goal is to prove the two riskiest integrations work in 
 The repo already has `.git`, `AGENTS.md`, `.githooks/`, `.claude/`, `docs/`, and `README.md`. `create-next-app` doesn't run cleanly into a non-empty directory, so scaffold in a sibling temp folder and merge in by hand, rather than running it in place.
 
 **Files:**
-- Create: everything a standard `create-next-app` TypeScript/App Router/Tailwind project generates (`package.json`, `tsconfig.json`, `next.config.ts`, `app/layout.tsx`, `app/page.tsx`, `app/globals.css`, `public/`, `.eslintrc`, `.gitignore`)
+- Create: everything a standard `create-next-app` TypeScript/App Router/Tailwind project generates (`package.json`, `tsconfig.json`, `next.config.ts`, `web/app/layout.tsx`, `web/app/page.tsx`, `web/app/globals.css`, `web/public/`, `.eslintrc`, `.gitignore`)
 - Preserve: `README.md` (existing content, not the generated boilerplate)
 
 **Done — commit `55755e0`.** Built with create-next-app **16.3.0** (Next 16.3.0,
@@ -177,10 +177,10 @@ Worth knowing, since the same traps apply to later tasks:
 UCI is a stable, well-documented text protocol — this task can be written with full confidence, unlike Task 3.
 
 **Files:**
-- Create: `lib/chess/types.ts`
-- Create: `lib/chess/engineStockfish.ts`
-- Create: `public/stockfish/` (copied single-threaded build files)
-- Create: `app/dev/stockfish-test/page.tsx` (scratch verification page, removed in Task 8)
+- Create: `web/lib/chess/types.ts`
+- Create: `web/lib/chess/engineStockfish.ts`
+- Create: `web/public/stockfish/` (copied single-threaded build files)
+- Create: `web/app/dev/stockfish-test/page.tsx` (scratch verification page, removed in Task 8)
 - Modify: `package.json` (add `chess.js`, `stockfish`)
 
 **Interfaces:**
@@ -211,9 +211,9 @@ flavours; the sizes are the whole story:
 | `stockfish-18-asm.js` | 10.0 MB | JS fallback, very slow |
 
 ```bash
-mkdir -p public/stockfish
-cp node_modules/stockfish/bin/stockfish-18-lite-single.js public/stockfish/
-cp node_modules/stockfish/bin/stockfish-18-lite-single.wasm public/stockfish/
+mkdir -p web/public/stockfish
+cp node_modules/stockfish/bin/stockfish-18-lite-single.js web/public/stockfish/
+cp node_modules/stockfish/bin/stockfish-18-lite-single.wasm web/public/stockfish/
 ```
 
 Both files must sit in the same directory — Emscripten resolves the `.wasm`
@@ -232,7 +232,7 @@ inside the binary and silently corrupt it:
 - [x] **Step 3: Write the shared types**
 
 ```typescript
-// lib/chess/types.ts
+// web/lib/chess/types.ts
 export type EngineType = "stockfish" | "maia" | "human";
 
 export interface EngineConfig {
@@ -251,13 +251,13 @@ export interface EngineMove {
 
 - [x] **Step 4: Write the Stockfish wrapper**
 
-> **Read `lib/chess/engineStockfish.ts`, not the snippet below.** The snippet
+> **Read `web/lib/chess/engineStockfish.ts`, not the snippet below.** The snippet
 > was the plan's first draft and four things in it needed changing — the worker
 > path, the handshake, request serialization, and error/timeout handling. All
 > four are listed under "What differed" at the end of this task.
 
 ```typescript
-// lib/chess/engineStockfish.ts
+// web/lib/chess/engineStockfish.ts
 import type { EngineConfig, EngineMove } from "./types";
 
 let worker: Worker | null = null;
@@ -333,7 +333,7 @@ below checks:
    move would time identically.
 
 ```tsx
-// app/dev/stockfish-test/page.tsx
+// web/app/dev/stockfish-test/page.tsx
 "use client";
 import { useEffect, useState } from "react";
 import { Chess } from "chess.js";
@@ -396,12 +396,12 @@ the page, polled `document.body.innerText` until it printed `done`, and dumped
 it needs no dependencies, since Node 22+ has `fetch` and `WebSocket` built in.
 
 If the worker fails to load, check the path in `ENGINE_URL` against what's
-actually in `public/stockfish/`.
+actually in `web/public/stockfish/`.
 
 - [x] **Step 7: Commit**
 
 ```bash
-git add .gitattributes lib/chess/types.ts lib/chess/engineStockfish.ts public/stockfish app/dev/stockfish-test package.json package-lock.json
+git add .gitattributes web/lib/chess/types.ts web/lib/chess/engineStockfish.ts web/public/stockfish web/app/dev/stockfish-test package.json package-lock.json
 git commit -m "get stockfish talking over uci in a web worker"
 ```
 
@@ -454,9 +454,9 @@ This is fundamentally different from Task 2. Stockfish speaks a stable text prot
 **Timebox: 90 minutes.** If checkpoint 7 isn't reached by then, stop and take the fallback below. That is not a failure state — it's the plan working as designed.
 
 **Files:**
-- Create: `lib/chess/engineMaia.ts`
+- Create: `web/lib/chess/engineMaia.ts`
 - Create: `docs/maia-notes.md` (what you found/did at each checkpoint, however far you got)
-- Create: `public/maia/1500.onnx` (if you get far enough to have one)
+- Create: `web/public/maia/1500.onnx` (if you get far enough to have one)
 
 **Interfaces:**
 - Produces (if successful): `getMaiaMove(fen: string, config: EngineConfig) => Promise<EngineMove>` — same signature as `getStockfishMove`.
@@ -491,7 +491,7 @@ authoritative record. In short:
   numbers to a tenth of a percentage point.
 - **Post-review follow-ups, all done in this PR:** the ~25 s cold-load now streams
   a byte/percent readout on both game screens with a heads-up line and a stall
-  timeout (it was a frozen board under a "thinking" lamp before); `public/ort/`
+  timeout (it was a frozen board under a "thinking" lamp before); `web/public/ort/`
   dropped 13.6 MB of variants that are never fetched; the model moved to our own
   mirror. `docs/deployment.md` §4's stale COOP/COEP reasoning was corrected at the
   same time. What's still open is the IndexedDB model cache — Chrome won't
@@ -568,7 +568,7 @@ Fill in real content based on what actually happened.
 - [ ] **Step: Commit whatever state you're in**
 
 ```bash
-git add lib/chess/engineMaia.ts docs/maia-notes.md public/maia
+git add web/lib/chess/engineMaia.ts docs/maia-notes.md web/public/maia
 git commit -m "maia onnx spike, got to checkpoint N - notes in scripts"
 ```
 
@@ -580,14 +580,14 @@ git commit -m "maia onnx spike, got to checkpoint N - notes in scripts"
 
 ### Task 4: Engine preset registry
 
-**Done — `lib/chess/engines.ts`.** One deviation: `MAIA_PRESETS` is `[]` and
+**Done — `web/lib/chess/engines.ts`.** One deviation: `MAIA_PRESETS` is `[]` and
 `engineMaia` is deliberately **not** imported. A static import of a module that
 does not exist fails the build, so the snippet below cannot compile until Task 3
 lands. Adding Maia later is three lines, all inside this one file — the insertion
 point is commented at the site.
 
 **Files:**
-- Create: `lib/chess/engines.ts`
+- Create: `web/lib/chess/engines.ts`
 
 **Interfaces:**
 - Consumes: `EngineConfig`, `EngineMove` (Task 2), `getStockfishMove` (Task 2), `getMaiaMove` (Task 3)
@@ -596,7 +596,7 @@ point is commented at the site.
 - [x] **Step 1: Write the registry**
 
 ```typescript
-// lib/chess/engines.ts
+// web/lib/chess/engines.ts
 import type { EngineConfig, EngineMove } from "./types";
 import { getStockfishMove } from "./engineStockfish";
 import { getMaiaMove } from "./engineMaia";
@@ -631,7 +631,7 @@ In a scratch browser console on any page (or extend the Task 2 test page tempora
 - [x] **Step 3: Commit**
 
 ```bash
-git add lib/chess/engines.ts
+git add web/lib/chess/engines.ts
 git commit -m "add the engine preset list and a single getMoveFor entry point"
 ```
 
@@ -645,12 +645,12 @@ translation note — the preview uses a design tool's own template syntax,
 not JSX, so it's a visual/interaction spec to build from, not code to copy.
 
 **Files:**
-- Modify: `app/page.tsx`
+- Modify: `web/app/page.tsx`
 
 - [ ] **Step 1: Replace the default page with the menu**
 
 ```tsx
-// app/page.tsx
+// web/app/page.tsx
 import Link from "next/link";
 
 export default function MenuPage() {
@@ -672,7 +672,7 @@ export default function MenuPage() {
 - [ ] **Step 3: Commit**
 
 ```bash
-git add app/page.tsx
+git add web/app/page.tsx
 git commit -m "add the menu screen"
 ```
 
@@ -680,7 +680,7 @@ git commit -m "add the menu screen"
 
 ### Task 6: Game loop
 
-**Done — `lib/chess/gameLoop.ts`.** Three corrections to the snippet below:
+**Done — `web/lib/chess/gameLoop.ts`.** Three corrections to the snippet below:
 
 1. **chess.js 1.x `move()` throws** on an illegal move instead of returning
    `null`, so `if (!applied)` is dead code — a bad engine move would have killed
@@ -693,7 +693,7 @@ git commit -m "add the menu screen"
    should account for it.
 
 **Files:**
-- Create: `lib/chess/gameLoop.ts`
+- Create: `web/lib/chess/gameLoop.ts`
 
 **Interfaces:**
 - Consumes: `EngineConfig` (Task 2), `getMoveFor` (Task 4)
@@ -702,7 +702,7 @@ git commit -m "add the menu screen"
 - [x] **Step 1: Write the loop**
 
 ```typescript
-// lib/chess/gameLoop.ts
+// web/lib/chess/gameLoop.ts
 import { Chess } from "chess.js";
 import type { EngineConfig } from "./types";
 import { getMoveFor } from "./engines";
@@ -763,7 +763,7 @@ Temporarily call `runModelGame(STOCKFISH_PRESETS[0], STOCKFISH_PRESETS[1], (fen)
 - [x] **Step 3: Commit**
 
 ```bash
-git add lib/chess/gameLoop.ts
+git add web/lib/chess/gameLoop.ts
 git commit -m "wire up the model-vs-model game loop"
 ```
 
@@ -771,7 +771,7 @@ git commit -m "wire up the model-vs-model game loop"
 
 ### Task 7: Board component
 
-**Done — `components/Board.tsx`.** `react-chessboard` v5 moved every prop into a
+**Done — `web/components/Board.tsx`.** `react-chessboard` v5 moved every prop into a
 single `options` object and renamed `arePiecesDraggable` → `allowDragging`, so the
 v4-shaped snippet below does not compile. The plan did warn to check this. Squares
 use the hero's `--er-sq-*` tokens so the board matches the rest of the app.
@@ -779,7 +779,7 @@ use the hero's `--er-sq-*` tokens so the board matches the rest of the app.
 One component, reused read-only in Model 1v1 (Task 8) and interactively in User 1v1 (Task 10).
 
 **Files:**
-- Create: `components/Board.tsx`
+- Create: `web/components/Board.tsx`
 - Modify: `package.json` (add `react-chessboard`)
 
 **Interfaces:**
@@ -794,7 +794,7 @@ npm install react-chessboard
 - [x] **Step 2: Write the component**
 
 ```tsx
-// components/Board.tsx
+// web/components/Board.tsx
 "use client";
 import { Chessboard } from "react-chessboard";
 
@@ -826,7 +826,7 @@ Drop `<Board fen={new Chess().fen()} />` onto any page temporarily, confirm the 
 - [x] **Step 4: Commit**
 
 ```bash
-git add components/Board.tsx package.json package-lock.json
+git add web/components/Board.tsx package.json package-lock.json
 git commit -m "add a shared board component for both game modes"
 ```
 
@@ -834,22 +834,22 @@ git commit -m "add a shared board component for both game modes"
 
 ### Task 8: Model 1v1 page
 
-**Done — `app/model-1v1/page.tsx`, plus `EngineConfigPicker` and `ResultScreen`.**
+**Done — `web/app/model-1v1/page.tsx`, plus `EngineConfigPicker` and `ResultScreen`.**
 Styled with the hero's design tokens instead of the inline styles below. Two
 additions beyond the snippet, both of which a spectate screen needs to be legible
 at all: a numbered move log, and a "thinking" indicator naming the side and
 engine. `saveGame` stays commented for Task 9.
 
-**`app/dev/stockfish-test/` was NOT deleted.** The plan has this task remove it,
+**`web/app/dev/stockfish-test/` was NOT deleted.** The plan has this task remove it,
 but it is the manual verification entry point for the engine this screen depends
 on and Task 3 is still in flight. Deleting it is a one-line follow-up whenever
 Phase 0 closes.
 
 **Files:**
-- Create: `components/EngineConfigPicker.tsx`
-- Create: `components/ResultScreen.tsx`
-- Create: `app/model-1v1/page.tsx`
-- Delete: `app/dev/stockfish-test/` (superseded by this page)
+- Create: `web/components/EngineConfigPicker.tsx`
+- Create: `web/components/ResultScreen.tsx`
+- Create: `web/app/model-1v1/page.tsx`
+- Delete: `web/app/dev/stockfish-test/` (superseded by this page)
 
 **Interfaces:**
 - Consumes: `ALL_ENGINE_PRESETS`, `getMoveFor` indirectly via `runModelGame` (Task 4, Task 6), `Board` (Task 7), `saveGame` (Task 9 — see note below)
@@ -860,7 +860,7 @@ Note: this task references `saveGame` from Task 9, which comes after it. Write t
 - [x] **Step 1: Engine config picker**
 
 ```tsx
-// components/EngineConfigPicker.tsx
+// web/components/EngineConfigPicker.tsx
 "use client";
 import type { EngineConfig } from "@/lib/chess/types";
 
@@ -899,7 +899,7 @@ export function EngineConfigPicker({ presets, value, onChange, label }: Props) {
 - [x] **Step 2: Result screen**
 
 ```tsx
-// components/ResultScreen.tsx
+// web/components/ResultScreen.tsx
 interface Props {
   result: "1-0" | "0-1" | "1/2-1/2";
   endReason: string;
@@ -925,7 +925,7 @@ export function ResultScreen({ result, endReason, whiteLabel, blackLabel, onRema
 - [x] **Step 3: Model 1v1 page**
 
 ```tsx
-// app/model-1v1/page.tsx
+// web/app/model-1v1/page.tsx
 "use client";
 import { useState } from "react";
 import { Chess } from "chess.js";
@@ -990,7 +990,7 @@ export default function Model1v1Page() {
 - [x] **Step 4: Remove the superseded scratch page**
 
 ```bash
-rm -rf app/dev
+rm -rf web/app/dev
 ```
 
 - [x] **Step 5: Manual verification**
@@ -1016,11 +1016,11 @@ See "What differed from the original plan" below — the KV half is
 **untested against a real store** and the plan's Step 1 remains the owner's.
 
 **Files (as actually built):**
-- Create: `lib/games/types.ts` (`GameRecord` and friends — client-safe)
-- Create: `lib/games/localStore.ts` (localStorage adapter, 50-record cap)
-- Create: `lib/games/store.ts` (`saveGame`/`listGames` facade both screens call)
-- Create: `app/actions/games.ts` (`"use server"`, the KV adapter)
-- Modify: `app/model-1v1/page.tsx` (wire the `saveGame` call from Task 8)
+- Create: `web/lib/games/types.ts` (`GameRecord` and friends — client-safe)
+- Create: `web/lib/games/localStore.ts` (localStorage adapter, 50-record cap)
+- Create: `web/lib/games/store.ts` (`saveGame`/`listGames` facade both screens call)
+- Create: `web/app/actions/games.ts` (`"use server"`, the KV adapter)
+- Modify: `web/app/model-1v1/page.tsx` (wire the `saveGame` call from Task 8)
 - Modify: `package.json` (add `@vercel/kv`)
 
 **Interfaces:**
@@ -1046,7 +1046,7 @@ npm install @vercel/kv
 - [x] **Step 3: Write the Server Action**
 
 ```typescript
-// app/actions/games.ts
+// web/app/actions/games.ts
 "use server";
 import { kv } from "@vercel/kv";
 import { randomUUID } from "crypto";
@@ -1074,7 +1074,7 @@ export async function saveGame(game: Omit<GameRecord, "id" | "timestamp">): Prom
 
 - [x] **Step 4: Wire it into the Model 1v1 page**
 
-In `app/model-1v1/page.tsx`, uncomment the `import { saveGame }` line and the `await saveGame({...})` block from Task 8. *(Done, with one change: the import comes from `@/lib/games/store` — the facade — not `@/app/actions/games` directly. Task 10 should do the same.)*
+In `web/app/model-1v1/page.tsx`, uncomment the `import { saveGame }` line and the `await saveGame({...})` block from Task 8. *(Done, with one change: the import comes from `@/lib/games/store` — the facade — not `@/app/actions/games` directly. Task 10 should do the same.)*
 
 - [x] **Step 5: Manual verification**
 
@@ -1083,7 +1083,7 @@ In `app/model-1v1/page.tsx`, uncomment the `import { saveGame }` line and the `a
 - [x] **Step 6: Commit**
 
 ```bash
-git add app/actions/games.ts app/model-1v1/page.tsx package.json package-lock.json
+git add web/app/actions/games.ts web/app/model-1v1/page.tsx package.json package-lock.json
 git commit -m "log finished games to kv"
 ```
 
@@ -1099,22 +1099,22 @@ shows nothing) on the live site until someone clicks through the dashboard.
 So the storage went behind an adapter interface, decided deliberately (not
 relitigating the spec's schema — the KV side implements it exactly):
 
-- **`lib/games/types.ts`** owns `GameRecord`/`NewGameRecord`. The plan had the
-  type exported from `app/actions/games.ts` — that can't work once you need it
+- **`web/lib/games/types.ts`** owns `GameRecord`/`NewGameRecord`. The plan had the
+  type exported from `web/app/actions/games.ts` — that can't work once you need it
   in client components: a `"use server"` module may only export async
   functions. Any future code wanting these shapes imports them from here.
-- **`lib/games/localStore.ts`** — localStorage adapter, works with nothing
+- **`web/lib/games/localStore.ts`** — localStorage adapter, works with nothing
   provisioned. Per-browser records, capped at 50, pruned oldest-first (an
   unbounded key in a store you never trim is a slow-motion bug). Handles
   corrupt JSON by starting over rather than crashing the page.
-- **`app/actions/games.ts`** — the KV adapter, still `"use server"`, still
+- **`web/app/actions/games.ts`** — the KV adapter, still `"use server"`, still
   `game:{id}` + `games:index` ZADD / ZRANGE-REV + MGET per the design doc. Two
   robustness changes from the snippet: the client is built lazily via
   `createClient` (accepting `KV_REST_API_*` **or** `UPSTASH_REDIS_REST_*`,
   since the marketplace integration names vary by flow), and the action does a
   cheap shape-check before writing, because a Server Action is a public POST
   endpoint on the live site.
-- **`lib/games/store.ts`** — the `saveGame`/`listGames` facade screens call.
+- **`web/lib/games/store.ts`** — the `saveGame`/`listGames` facade screens call.
   Branches on `NEXT_PUBLIC_KV_ENABLED === "1"` — it must be `NEXT_PUBLIC_`
   because the branch runs in the browser where server env vars don't exist,
   and Next inlines those at build time (so flipping it means redeploying).
@@ -1139,8 +1139,8 @@ ordering, all green, no console errors).
 
 ### Task 10: User 1v1 page
 
-**Done — `app/user-1v1/page.tsx`, plus a one-word export change in
-`lib/chess/gameLoop.ts` and a grammar fix in `components/ResultScreen.tsx`.**
+**Done — `web/app/user-1v1/page.tsx`, plus a one-word export change in
+`web/lib/chess/gameLoop.ts` and a grammar fix in `web/components/ResultScreen.tsx`.**
 Do not build from the snippet below — it has four real bugs, listed under
 "What differed" at the end of this task. Styled with the Ink & Bone tokens,
 same two-column layout as Model 1v1 (controls + move log left, board right,
@@ -1149,7 +1149,7 @@ same two-column layout as Model 1v1 (controls + move log left, board right,
 Reuses `Board` (interactive mode), `EngineConfigPicker`, `ResultScreen`, and `saveGame` — no new shared components needed.
 
 **Files:**
-- Create: `app/user-1v1/page.tsx`
+- Create: `web/app/user-1v1/page.tsx`
 
 **Interfaces:**
 - Consumes: `Board`, `EngineConfigPicker`, `ResultScreen` (Task 7, Task 8), `ALL_ENGINE_PRESETS`, `getMoveFor` (Task 4), `saveGame` (Task 9)
@@ -1157,7 +1157,7 @@ Reuses `Board` (interactive mode), `EngineConfigPicker`, `ResultScreen`, and `sa
 - [x] **Step 1: Write the page**
 
 ```tsx
-// app/user-1v1/page.tsx
+// web/app/user-1v1/page.tsx
 "use client";
 import { useState } from "react";
 import { Chess } from "chess.js";
@@ -1310,7 +1310,7 @@ with real `Input.dispatchMouseEvent` drags — see the harness note below):
 - [x] **Step 3: Commit**
 
 ```bash
-git add app/user-1v1
+git add web/app/user-1v1
 git commit -m "build the user vs engine screen"
 ```
 
@@ -1326,14 +1326,14 @@ the reference, not the snippet:
    killed the game instead of falling back. Both paths are `try`/`catch` now —
    the same correction Task 6 already documented for the game loop.
 2. **End detection is not duplicated.** The snippet's `checkEnd` re-implements
-   `describeEnd`; instead `lib/chess/gameLoop.ts` now exports `describeEnd`
+   `describeEnd`; instead `web/lib/chess/gameLoop.ts` now exports `describeEnd`
    (that's the whole gameLoop diff) and the page calls it. One source of truth
    for how a finished position maps to result/reason.
 3. **The `Chess` instance lives in a `useRef`, not `useState`.** The snippet
    holds it in state and mutates it — mutation doesn't trigger a render, and
    under React 19 StrictMode's double invocation that's a latent bug. The UI
    renders from a separate `fen` state string; the ref is the source of truth.
-4. **The snippet's `saveGame` import doesn't compile** — `app/actions/games.ts`
+4. **The snippet's `saveGame` import doesn't compile** — `web/app/actions/games.ts`
    is Task 9, which was in flight in a parallel lane when this shipped. The call
    is written out but commented, Task 8-style, with the exact payload shape
    ready to uncomment. *(Since wired: Task 9 landed right after this did, and a
@@ -1353,7 +1353,7 @@ Beyond the bug fixes:
 - **`ResultScreen` got a two-line grammar fix**: the human side is labelled
   "You", and the card said "You wins". It now special-cases that label to "You
   win"; engine labels are untouched.
-- **CDP harness for interactive pages:** `scripts/cdp-model-1v1.mjs` only
+- **CDP harness for interactive pages:** `web/scripts/cdp-model-1v1.mjs` only
   clicks a button; this page needed real drags. The adaptation that worked:
   dnd-kit's PointerSensor (react-chessboard v5, 1px activation distance)
   responds fine to `Input.dispatchMouseEvent` sequences (pressed → a few
@@ -1375,8 +1375,8 @@ show the original server-component shape, superseded by "What differed" at the
 end of this task.
 
 **Files (as actually built):**
-- Modify: `app/actions/games.ts` (add `listGamesKv`) + `lib/games/store.ts`/`localStore.ts` (the `listGames` facade + local read)
-- Create: `app/history/page.tsx`
+- Modify: `web/app/actions/games.ts` (add `listGamesKv`) + `web/lib/games/store.ts`/`localStore.ts` (the `listGames` facade + local read)
+- Create: `web/app/history/page.tsx`
 
 **Interfaces:**
 - Consumes: `GameRecord` (Task 9)
@@ -1385,7 +1385,7 @@ end of this task.
 - [x] **Step 1: Add `listGames` to the Server Action file**
 
 ```typescript
-// app/actions/games.ts (append to the existing file from Task 9)
+// web/app/actions/games.ts (append to the existing file from Task 9)
 export async function listGames(limit = 20): Promise<GameRecord[]> {
   const ids = await kv.zrange<string[]>("games:index", 0, limit - 1, { rev: true });
   if (ids.length === 0) return [];
@@ -1397,7 +1397,7 @@ export async function listGames(limit = 20): Promise<GameRecord[]> {
 - [x] **Step 2: History page**
 
 ```tsx
-// app/history/page.tsx
+// web/app/history/page.tsx
 import { listGames } from "@/app/actions/games";
 
 export default async function HistoryPage() {
@@ -1427,7 +1427,7 @@ Having already played a few games in Phase 1/2, visit `/history` and confirm ent
 - [x] **Step 4: Commit**
 
 ```bash
-git add app/actions/games.ts app/history
+git add web/app/actions/games.ts web/app/history
 git commit -m "add the game history page"
 ```
 
@@ -1455,8 +1455,8 @@ git commit -m "add the game history page"
   — a broken store renders as an empty history with the error in the console,
   not a crashed page.
 - Follow-up owed by whoever lands Task 10: wire `saveGame` from
-  `@/lib/games/store` into `app/user-1v1/page.tsx`, mirroring the call in
-  `app/model-1v1/page.tsx`. (If that page landed before this PR merged, it was
+  `@/lib/games/store` into `web/app/user-1v1/page.tsx`, mirroring the call in
+  `web/app/model-1v1/page.tsx`. (If that page landed before this PR merged, it was
   wired here instead — check the PR body.) *Done — both PRs merged within
   minutes of each other with the wiring still pending, so it landed as its own
   tiny follow-up PR right after: uncommented the Task-8-style block and pointed
@@ -1473,12 +1473,12 @@ over both game boards, built as a tiered beat system rather than per-screen
 animation code. Full write-up: [`docs/design/fight-fx-notes.md`](../design/fight-fx-notes.md).
 
 **Files:**
-- Create: `lib/fx/{types,classify,openings,effects,runtime}.ts`
-- Create: `components/fx/{FxStage.tsx,fx.css}`
-- Create: `app/dev/fx-lab/page.tsx` (disposable picker — safe to delete)
-- Modify: `lib/chess/gameLoop.ts` (verbose move in `onMove`, per-ply pause hook),
-  `lib/chess/engines.ts` (`onInfo` passthrough + `parseSearchDepth`),
-  `app/model-1v1/page.tsx`, `app/user-1v1/page.tsx`
+- Create: `web/lib/fx/{types,classify,openings,effects,runtime}.ts`
+- Create: `web/components/fx/{FxStage.tsx,fx.css}`
+- Create: `web/app/dev/fx-lab/page.tsx` (disposable picker — safe to delete)
+- Modify: `web/lib/chess/gameLoop.ts` (verbose move in `onMove`, per-ply pause hook),
+  `web/lib/chess/engines.ts` (`onInfo` passthrough + `parseSearchDepth`),
+  `web/app/model-1v1/page.tsx`, `web/app/user-1v1/page.tsx`
 
 - [x] All 19 effects built and individually confirmed firing in the lab over CDP
 - [x] Tier ladder + hit-stop wired through `runModelGame`

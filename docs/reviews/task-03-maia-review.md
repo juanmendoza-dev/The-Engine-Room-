@@ -9,7 +9,7 @@
 > - **All three follow-ups were done inside PR #7 before it merged**, so don't
 >   re-do them: the first-load status line *plus* a stall timeout (20 s of zero
 >   bytes, not a total budget) on both `/model-1v1` and `/user-1v1` and a new
->   `components/MaiaLoadNotice.tsx`; the 13.6 MB of dead ort files deleted
+>   `web/components/MaiaLoadNotice.tsx`; the 13.6 MB of dead ort files deleted
 >   (40.4 → 26.9 MB); and the model rehosted.
 > - **The weights now live in a second repo**, `juanmendoza-dev/engine-room-assets`,
 >   fetched from `raw.githubusercontent.com` pinned to `7c916f4`. That closes the
@@ -151,7 +151,7 @@ described the same table.
 
 One thing the pin turned out to be **necessary** for, not just hygienic:
 CSSLab's current `main` no longer contains `maia_rapid.onnx` *at all* (they
-ship only `public/maia3/` now). An unpinned MODEL_URL wouldn't be "at risk of
+ship only `web/public/maia3/` now). An unpinned MODEL_URL wouldn't be "at risk of
 drift" — it would already be a 404. Q6 continues this thought.
 
 ### Q3 — Is the encoder actually correct?
@@ -200,7 +200,7 @@ this prior on display, and "it plays like a weird human" is the honest framing.
 ### Q4 — Can the vendored wasm be cut down?
 
 **Yes — 13.6 MB for free, 26.8 MB more for a small verified change.**
-`public/ort/` carries 40.4 MB; the network log answers which half is real:
+`web/public/ort/` carries 40.4 MB; the network log answers which half is real:
 
 - **As shipped** (default `onnxruntime-web` import), the app loads **only the
   jsep pair** — `ort-wasm-simd-threaded.jsep.wasm` (26.8 MB on disk, 6.04 MB
@@ -216,7 +216,7 @@ this prior on display, and "it plays like a weird human" is the honest framing.
   The working recipe, verified end-to-end: make ort a **client-side dynamic
   import inside `load()`** (`ort = await import("onnxruntime-web/wasm")`, types
   via `import type` from the main entry). Then only the plain pair is needed:
-  `public/ort/` drops to **13.5 MB**, the wire cost drops 6.04 → **3.30 MB**,
+  `web/public/ort/` drops to **13.5 MB**, the wire cost drops 6.04 → **3.30 MB**,
   and the whole suite passes identically.
 
 Recommend doing the free deletion in or right after the merge, and the dynamic
@@ -342,7 +342,7 @@ npm install && npm run build && npm run start -- -p 3003
   --headless=new --remote-debugging-port=9222 \
   --user-data-dir=/tmp/fresh-profile about:blank &
 
-node scripts/cdp-verify.mjs http://localhost:3003/dev/maia-test done 300000 9222
+node web/scripts/cdp-verify.mjs http://localhost:3003/dev/maia-test done 300000 9222
 ```
 
 Expect: every PASS above, `e3d4 93.9%`, `1880 entries, 0 round-trip
@@ -362,7 +362,7 @@ Replace the "No COOP/COEP headers needed." paragraph with:
 > uses the single-threaded build, which never touches `SharedArrayBuffer`.
 > onnxruntime-web (Maia) only *ships* threaded-named binaries, so there the
 > guarantee is a runtime setting instead: `ort.env.wasm.numThreads = 1` in
-> `lib/chess/engineMaia.ts`. Verified against a production build:
+> `web/lib/chess/engineMaia.ts`. Verified against a production build:
 > `crossOriginIsolated` is `false`, `SharedArrayBuffer` is absent, no console
 > warnings, inference correct. If anyone raises `numThreads` above 1 without
 > adding cross-origin-isolation headers, ort logs a warning and **falls back to

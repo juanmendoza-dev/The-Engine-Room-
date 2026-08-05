@@ -54,7 +54,7 @@ work".
 - **Reference implementation:** `CSSLab/maia-platform-frontend`
   - `src/lib/engine/tensor.ts` — encoding, mirroring, move index lookup
   - `src/lib/engine/maia.ts` — inference + output decode (`processOutputsMaia3`)
-  - `public/maia-worker.js` — ONNX session in a Web Worker, IndexedDB model cache
+  - `web/public/maia-worker.js` — ONNX session in a Web Worker, IndexedDB model cache
 - **Move index tables:** `src/lib/engine/data/all_moves_maia3.json` (58.7 KB) and
   `all_moves_maia3_reversed.json` (67.2 KB). Small enough to commit.
 
@@ -69,7 +69,7 @@ Why we moved off the upstream URL: CSSLab have **deleted `maia_rapid.onnx` from
 their `main`**, so the pinned commit `e23a50e` was the only thing still serving
 it — a single point of failure on the demo path that we didn't control.
 
-Why a separate repo rather than `public/maia/` in this one: 93 MB in this repo's
+Why a separate repo rather than `web/public/maia/` in this one: 93 MB in this repo's
 history forever, plus ~93 MB of Vercel egress per page load (about 1,000 loads
 against Hobby's 100 GB/month). The separate repo keeps the clone lean and puts
 the egress on GitHub — the same trade CSSLab made when they moved these files off
@@ -200,7 +200,7 @@ GPL-3.0 Stockfish. That predates this task but should be fixed.
 
 ## Results
 
-Verified against a production build in headless Chrome (`scripts/cdp-verify.mjs`).
+Verified against a production build in headless Chrome (`web/scripts/cdp-verify.mjs`).
 
 **Graph interface — confirmed, not assumed:**
 
@@ -259,7 +259,7 @@ start position is not ~0, so don't read this as a centipawn-like eval.
 chess.js-legal moves.
 
 **End-to-end through the real app — PASS.** After Model 1v1 (#8) merged, Maia was
-wired into `lib/chess/engines.ts` using the three-step seam that PR's author left
+wired into `web/lib/chess/engines.ts` using the three-step seam that PR's author left
 in place, and a real game was driven on the actual `/model-1v1` screen: **Maia 1100
 as White versus Stockfish 1320 as Black, 11 plies, no console errors**. So the
 contract holds all the way through — my engine, their registry, their game loop,
@@ -338,7 +338,7 @@ head looked correct while the policy looked off — the value head doesn't use t
 
 It's false. The table has moved paths twice upstream
 (`hooks/useMaiaEngine/data/` → `providers/MaiaEngineContextProvider/data/` →
-`lib/engine/data/`) but both moves were **pure renames**: GitHub reports
+`web/lib/engine/data/`) but both moves were **pure renames**: GitHub reports
 `additions: 0, deletions: 0`, and the git blob SHA at `e23a50e` and on `main` is the
 same object, `1698c229…`, 25298 bytes. Confirmed independently by the fact that
 pinning the table changed the policy output not at all — the numbers came back
@@ -349,12 +349,12 @@ future.
 
 ## Gotchas worth knowing (both cost me a build cycle)
 
-- **Next 16 snapshots `public/` at build time.** Files added to `public/` *after*
+- **Next 16 snapshots `web/public/` at build time.** Files added to `web/public/` *after*
   `next build` return 404 from `next start` until you rebuild. Adding ORT's assets
   and re-running without a rebuild produced a confusing "no available backend
   found" error that looked like an ORT problem and wasn't.
 - **`onnxruntime-web` needs its `.mjs` glue, not just the `.wasm`.**
-  `docs/deployment.md` §4 says to copy its wasm assets into `public/`; that's
+  `docs/deployment.md` §4 says to copy its wasm assets into `web/public/`; that's
   necessary but insufficient. It dynamically imports
   `ort-wasm-simd-threaded.jsep.mjs` alongside the `.wasm`, and a missing `.mjs`
   surfaces as `no available backend found` with every backend reporting
@@ -368,7 +368,7 @@ future.
 - ~~The move table is fetched unpinned.~~ **Fixed.** Both the model and the table
   are now pinned to `e23a50e`
   (`src/hooks/useMaiaEngine/data/all_moves.json`), so they cannot drift apart.
-- ~~**`public/ort/` is ~38 MB of vendored ORT assets**, because I copied both the
+- ~~**`web/public/ort/` is ~38 MB of vendored ORT assets**, because I copied both the
   jsep and non-jsep wasm variants for safety.~~ **Trimmed.** It was 40.4 MB; the
   hunch was right and it's now 26.9 MB, two files. The default
   `onnxruntime-web` import resolves to the **jsep** build, so the jsep `.wasm` +
@@ -380,7 +380,7 @@ future.
   `next build`. Details in `docs/deployment.md` §4.
 - ~~**No loading state for the 89 MB model.**~~ **Done.** The download now
   streams with a byte/percent readout on both `/model-1v1` and `/user-1v1`
-  (`components/MaiaLoadNotice.tsx`), a heads-up line before you even press
+  (`web/components/MaiaLoadNotice.tsx`), a heads-up line before you even press
   Start, and a **stall timeout** — 20 s of zero bytes aborts with a real message
   instead of leaving a permanent thinking lamp. It's a stall timeout rather than
   a total one on purpose: 93 MB is a legitimate ~2.5 minutes on 5 Mbit/s wifi,

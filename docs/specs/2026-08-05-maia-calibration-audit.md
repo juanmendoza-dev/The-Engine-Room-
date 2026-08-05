@@ -39,10 +39,10 @@ runs" for why that's the right call here).
 Calibration needs (position, move actually played, player's real rating)
 rows from real humans, at some volume. This app doesn't produce that today:
 
-- `lib/games/types.ts`'s `GamePlayer` is `{ type: EngineType; label: string
+- `web/lib/games/types.ts`'s `GamePlayer` is `{ type: EngineType; label: string
   }` — no numeric rating field, ever, for any player. A human side is
   always `{ type: "human", label: "You" }`.
-- `lib/games/localStore.ts` caps at `MAX_RECORDS = 50`, per-browser
+- `web/lib/games/localStore.ts` caps at `MAX_RECORDS = 50`, per-browser
   (`localStorage`), pruned oldest-first — the wrong order of magnitude even
   setting the point above aside.
 - Most recorded games are `mode: "model-1v1"` — engine vs. engine, no human
@@ -76,7 +76,7 @@ dumps of every rated game on the site. Checked this session, not assumed:
 Build sketch (a script this spec specifies, does not create):
 
 ```
-scripts/build-maia-calibration-fixture.mjs
+web/scripts/build-maia-calibration-fixture.mjs
   → streams one lichess_db_standard_rated_*.pgn.zst month
   → filters Event contains "Rated Rapid game"
   → parses with chess.js's own loadPgn (the project's one rules authority;
@@ -85,7 +85,7 @@ scripts/build-maia-calibration-fixture.mjs
   → keeps at most 1-2 plies per game (one long game shouldn't dominate the
     sample — positions inside a game aren't independent draws)
   → stops once 3,000-5,000 rows are collected, discards the rest
-  → writes scripts/fixtures/maia-calibration-sample.jsonl
+  → writes web/scripts/fixtures/maia-calibration-sample.jsonl
 ```
 
 Row schema, one JSON object per line:
@@ -260,7 +260,7 @@ caller wants the hook.
 
 ## Where this runs
 
-**A one-off Node script under `scripts/`, not in-app code.** Reasons:
+**A one-off Node script under `web/scripts/`, not in-app code.** Reasons:
 
 - Nothing about "is Maia calibrated" needs computing while a player looks
   at a board — a research artifact, run once or re-run on change. Contrast
@@ -269,7 +269,7 @@ caller wants the hook.
   about contention and concurrency — none of that applies offline.
 - **Reuse the pure math, not the browser session.** `onnxruntime-web`
   exists in this app for browser reasons (fetch-with-progress, wasm paths
-  under `public/ort/`) a batch pass doesn't need, so `onnxruntime-node`
+  under `web/public/ort/`) a batch pass doesn't need, so `onnxruntime-node`
   (native bindings, same `onnxruntime-common` `Tensor`/`InferenceSession`
   surface) fits a script better. `mirrorFen`, `mirrorMove`, `boardToTensor`,
   `eloToCategory` have no browser dependency — import them directly.
@@ -282,7 +282,7 @@ caller wants the hook.
   of this math is how that repeats.
 - Script dependencies (`onnxruntime-node`, a zstd/PGN helper if needed) are
   dev-only tooling, never in the Vercel build or client bundle, so they
-  don't compete with the `public/ort`/`public/maia` budget discipline. The
+  don't compete with the `web/public/ort`/`web/public/maia` budget discipline. The
   93 MB weight still has to come from somewhere — fetch it from the same
   mirror `engineMaia.ts` uses, cached to local disk between runs, not
   re-committed.

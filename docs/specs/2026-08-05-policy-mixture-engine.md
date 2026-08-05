@@ -291,7 +291,7 @@ would silently get capped again — worth a comment or a dev-time warning.
 member — they just evaluate to `false`. So the risk isn't a compile break,
 it's silent no-op UI:
 
-- `app/model-1v1/page.tsx`'s `eloLabel()` falls through to
+- `web/app/model-1v1/page.tsx`'s `eloLabel()` falls through to
   `return config.type` for anything not stockfish/maia — a mixture config
   would show the literal word "mixture" on the VS card. Needs one branch.
 - **Two lookalike checks need *opposite* treatment**, in both page files:
@@ -302,7 +302,7 @@ it's silent no-op UI:
   passthrough, so a naive "add mixture everywhere" pass gets one right and
   the other backwards. A shared `usesMaiaWeights(config)` helper beats
   repeating the `||` twice.
-- `lib/games/types.ts`'s `GamePlayer.type` comment goes stale (a comment, not
+- `web/lib/games/types.ts`'s `GamePlayer.type` comment goes stale (a comment, not
   a type — nothing breaks, worth a one-line fix per AGENTS.md). No
   `GameRecord` schema change needed; storage already covers `"mixture"`.
 

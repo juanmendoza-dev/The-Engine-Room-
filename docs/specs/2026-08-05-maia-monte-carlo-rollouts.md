@@ -26,12 +26,12 @@ and `2026-08-05-move-surprisal.md` — cross-referenced inline where relevant.
 - No training or fine-tuning — inference only. Zero budget: still
   onnxruntime-web wasm client-side, no server compute.
 - chess.js stays sole authority on legality and game end — every rollout
-  reuses `chess.moves()` and `describeEnd` (from `lib/chess/gameLoop.ts`),
+  reuses `chess.moves()` and `describeEnd` (from `web/lib/chess/gameLoop.ts`),
   no separate rules logic.
 
 ## What exists today (the diff is against this)
 
-`evaluateMaia(fen, config)` in `lib/chess/engineMaia.ts` builds a single
+`evaluateMaia(fen, config)` in `web/lib/chess/engineMaia.ts` builds a single
 `[1, 18, 8, 8]` tensor via `boardToTensor`, plus `elo_self`/`elo_oppo` as
 length-1 `BigInt64Array`s, runs one `session.run()`, and softmaxes
 `logits_maia` over legal moves only. `getMaiaMove` takes `policy[0]` — the
@@ -225,7 +225,7 @@ mate-in-1 check below is designed to catch it.
 
 ## Cost model
 
-New module: `lib/chess/maiaRollout.ts`, consuming `evaluateMaiaBatch` /
+New module: `web/lib/chess/maiaRollout.ts`, consuming `evaluateMaiaBatch` /
 `sampleFromPolicy` from `engineMaia.ts` and `describeEnd` from `gameLoop.ts`.
 Orchestrates N `Chess` instances, the alive-mask, and the statistics above;
 `engineMaia.ts` stays purely about the ONNX call shape.
@@ -275,11 +275,11 @@ out of scope below — the point of this spec is the compute layer under it.
 ## Verification plan
 
 No automated test suite exists here — every check is a manual action,
-following the existing pattern in `app/dev/maia-test/page.tsx` (a `<pre>`
+following the existing pattern in `web/app/dev/maia-test/page.tsx` (a `<pre>`
 page logging PASS/FAIL lines, a `done` marker at the end) driven by the
-already-generic `scripts/cdp-verify.mjs` (`node cdp-verify.mjs <url>
+already-generic `web/scripts/cdp-verify.mjs` (`node cdp-verify.mjs <url>
 <done-marker> <timeout-ms>`) — no new driver needed, just a new page, e.g.
-`app/dev/maia-rollout-test/page.tsx`.
+`web/app/dev/maia-rollout-test/page.tsx`.
 
 1. **Batching correctness (the sharpest check here).** Run one position
    through `evaluateMaiaBatch` at N=1 and compare to `evaluateMaia` on that
@@ -305,7 +305,7 @@ already-generic `scripts/cdp-verify.mjs` (`node cdp-verify.mjs <url>
    numeric match would be suspicious, since the premise is that these two
    diverge (an easy-to-miss tactic can show a big cp edge while converting
    far less against humans). Needs one prerequisite: `parseSearchDepth` in
-   `lib/chess/engines.ts` only extracts `depth` from `info` lines today;
+   `web/lib/chess/engines.ts` only extracts `depth` from `info` lines today;
    pulling `score cp \d+` from the same stream (a two-line parser) is outside
    this spec's core scope but required to get numeric cp for the comparison.
 4. **Masking check.** Seed one lane of a batch with a mate-in-1/2 (finishes

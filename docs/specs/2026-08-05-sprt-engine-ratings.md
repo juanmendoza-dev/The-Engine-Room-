@@ -32,7 +32,7 @@ plugs into this machinery unchanged).
 - Decide "is A actually stronger than B, and by how much" via a sequential
   test that stops once the evidence is in, fishtest-style, not a fixed game
   count picked by guesswork.
-- Reuse `runModelGame` (`lib/chess/gameLoop.ts`) for every game. No second
+- Reuse `runModelGame` (`web/lib/chess/gameLoop.ts`) for every game. No second
   game loop.
 - Zero budget: no paid compute, runs on whatever machine is open.
 - Doesn't touch model weights or `UCI_Elo`/rating-tier values — this
@@ -49,7 +49,7 @@ Both engines are close to deterministic at fixed settings, which is why
 "play preset A vs B 100 times and count wins" gives a sample size of one
 wearing a hundred costumes. Has to be fixed before anything below matters.
 
-**Maia is exactly deterministic.** `getMaiaMove` (`lib/chess/engineMaia.ts`)
+**Maia is exactly deterministic.** `getMaiaMove` (`web/lib/chess/engineMaia.ts`)
 takes `policy[0]`, the argmax of a softmax over legal moves — a pure
 function of `(fen, ratingTier)`. Same inputs, bit-identical output, forever.
 
@@ -100,7 +100,7 @@ an opaque `OpeningLine[]`.
 **Escalation, not default: policy-temperature sampling for Maia.**
 `evaluateMaia` already returns the full sorted `policy` list, so categorical
 sampling from it (temperature 1, no argmax) instead of taking `policy[0]` is
-a few lines in `lib/analysis/`, not a change to `engineMaia.ts`. Not the
+a few lines in `web/lib/analysis/`, not a change to `engineMaia.ts`. Not the
 default because the deployed app always takes argmax, and a run that
 samples measures the strength of Maia's whole distribution — sometimes its
 2nd or 3rd choice — not what a user actually watches. Use only if the book
@@ -302,10 +302,10 @@ at the app's real movetime; this lever isn't available, however tempting the
 
 ## Where results live
 
-Not `lib/games/store.ts`: no room in `GameRecord` for rating/SPRT metadata,
+Not `web/lib/games/store.ts`: no room in `GameRecord` for rating/SPRT metadata,
 a 50-record cap, and per-browser rather than committed/diffable. These also
 aren't user game records — nobody played them. Instead, a checked-in fixture
-under `lib/analysis/fixtures/`:
+under `web/lib/analysis/fixtures/`:
 - `games-log.jsonl` — one JSON object per completed game (pairing, opening
   id, result, full SAN list, timestamp). Newline-delimited so each new game
   is a pure append (small diffs), not a rewrite of a growing array.
@@ -320,7 +320,7 @@ covers actual binaries — wasm/onnx/nnue — not these).
 ## Interfaces
 
 ```
-lib/analysis/
+web/lib/analysis/
   types.ts           — OpeningLine, MatchGameResult, SprtConfig, SprtState,
                         RatingEstimate. No runtime dependency.
   eloModel.ts        — pure: davidsonProbs(delta, gamma) -> {pWin,pDraw,pLoss},
@@ -337,17 +337,17 @@ lib/analysis/
                         {games, finalSprt, ratings}
   fixtures/games-log.jsonl, ratings.json
 
-scripts/
+web/scripts/
   sprt-run.mjs              — Node CDP driver, zero-dependency, same pattern
                                as cdp-model-1v1.mjs: URL + CDP port + match
                                config as argv, polls a headless Chrome
                                already running with --remote-debugging-port,
                                pulls final JSON via Runtime.evaluate, writes
-                               it into lib/analysis/fixtures/
+                               it into web/lib/analysis/fixtures/
   verify-analysis-math.mjs — pure Node, no Chrome, no engines — Verification
 
-app/dev/match-runner/page.tsx — new scratch page, same family as
-  app/dev/{stockfish,maia}-test and fx-lab: reads config from the URL, runs
+web/app/dev/match-runner/page.tsx — new scratch page, same family as
+  web/app/dev/{stockfish,maia}-test and fx-lab: reads config from the URL, runs
   matchRunner.ts, writes progress/result JSON into the DOM for the CDP
   script to poll, same pattern cdp-model-1v1.mjs uses today.
 ```
@@ -377,7 +377,7 @@ Three things worth knowing before building from the tree above:
   partial results rather than throwing the match away.
 - **A preset's `label` doubles as its id — a small, real gap.**
   `EngineConfig` has no dedicated identifier; adding one is a wider change
-  than this spec wants to force through `lib/chess/types.ts`, so `label` is
+  than this spec wants to force through `web/lib/chess/types.ts`, so `label` is
   the key for now (relabeling risk noted in Risks).
 
 ## Error handling
@@ -399,7 +399,7 @@ Three things worth knowing before building from the tree above:
 ## Verification plan
 
 No automated suite, per project convention — a check with a known answer,
-run once, read by a human. `scripts/verify-analysis-math.mjs`, pure Node, no
+run once, read by a human. `web/scripts/verify-analysis-math.mjs`, pure Node, no
 engines, no Chrome:
 
 1. Fix a true `(δ_true, γ_true)` (e.g. 150, 0.45), derive exact
@@ -446,7 +446,7 @@ which is reasoned, not measured.
 - Surfacing empirical ratings in the live app's UI — this spec only produces
   the fixture.
 - Any change to `getMaiaMove`'s/`getStockfishMove`'s default, deployed
-  behavior — sampling and `moveDelayMs:0` live only inside `lib/analysis/`.
+  behavior — sampling and `moveDelayMs:0` live only inside `web/lib/analysis/`.
 - Retuning `UCI_Elo`/rating-tier values based on results — a measurement
   tool, not a self-tuning one; that would brush close to the
   no-training/fine-tuning constraint even scoped to settings, not weights.

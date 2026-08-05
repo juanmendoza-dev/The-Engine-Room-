@@ -38,7 +38,7 @@ done about each.
 ## The model, stated precisely
 
 `r` ranges over the 9 named Maia buckets `{1100, 1200, ..., 1900}` —
-categories 1-9 of `eloToCategory()` in `lib/chess/engineMaia.ts` (category 0
+categories 1-9 of `eloToCategory()` in `web/lib/chess/engineMaia.ts` (category 0
 is "<1100", category 10 is ">=2000"; neither is a named preset, so both are
 outside the prior's support). `o` is the opponent's bucket (see "The
 elo_oppo problem"). `fen_t` is the position before the player's t-th own
@@ -172,7 +172,7 @@ games here to check it against.
 
 Maia takes both ratings as input, and today's interface can't express them
 independently: in `evaluateMaia`, `config.ratingTier` becomes *both*
-`elo_self` and `elo_oppo` (`lib/chess/engineMaia.ts` — one `category`, reused
+`elo_self` and `elo_oppo` (`web/lib/chess/engineMaia.ts` — one `category`, reused
 for both tensors). Fine for gameplay (Model 1v1's "we both think we're this
 rating" is good enough to pick a move); wrong for inference, where
 `elo_self` is the hypothesis being swept and `elo_oppo` must stay fixed at
@@ -180,7 +180,7 @@ the real opponent. `evaluateMaiaAt(fen, selfBucket, oppoBucket)` (Interfaces)
 splits the two.
 
 **Known case: opponent is a Maia preset.** `MAIA_PRESETS`
-(`lib/chess/engines.ts`) carry an exact `ratingTier` — `eloToCategory` of it
+(`web/lib/chess/engines.ts`) carry an exact `ratingTier` — `eloToCategory` of it
 is the bucket, no guessing.
 
 **Unknown case: opponent is Stockfish.** `STOCKFISH_PRESETS` carry a UCI
@@ -274,7 +274,7 @@ at batch>1 to confirm it has a usable batch dimension at all.
 Prerequisite, not implemented here — a small split in the existing wrapper:
 
 ```ts
-// lib/chess/engineMaia.ts — new export, reusing evaluateMaia's tensor-
+// web/lib/chess/engineMaia.ts — new export, reusing evaluateMaia's tensor-
 // building and legal-move softmax with two independent category tensors
 // instead of one reused value. evaluateMaia(fen, config) becomes a 1-line
 // wrapper: evaluateMaiaAt(fen, cat, cat), cat = eloToCategory(config.ratingTier ?? 1500).
@@ -285,11 +285,11 @@ export async function evaluateMaiaAt(
 ): Promise<MaiaEvaluation>
 ```
 
-New, under `lib/analysis/` — consumes `EngineConfig` from
-`lib/chess/types.ts` and `MaiaEvaluation` from the extended `engineMaia.ts`:
+New, under `web/lib/analysis/` — consumes `EngineConfig` from
+`web/lib/chess/types.ts` and `MaiaEvaluation` from the extended `engineMaia.ts`:
 
 ```ts
-// lib/analysis/maiaLikelihood.ts
+// web/lib/analysis/maiaLikelihood.ts
 export const MAIA_RATING_BUCKETS = [1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900] as const;
 export type RatingBucket = (typeof MAIA_RATING_BUCKETS)[number];
 
@@ -308,7 +308,7 @@ export function moveMutualInformation(policies: MaiaEvaluation[], posterior: num
 ```
 
 ```ts
-// lib/analysis/ratingPosterior.ts
+// web/lib/analysis/ratingPosterior.ts
 import type { EngineConfig } from "@/lib/chess/types";
 import type { RatingBucket } from "./maiaLikelihood";
 
@@ -348,7 +348,7 @@ export interface RatingReport {
 export function summarizePosterior(state: RatingEstimatorState): RatingReport;
 ```
 
-**Call site** (proposed, not wired up): `app/user-1v1/page.tsx`'s
+**Call site** (proposed, not wired up): `web/app/user-1v1/page.tsx`'s
 `onPieceDrop`, after the human's own `game.move(...)` succeeds —
 fire-and-forget into its own state slot; `resolveOppoBucket(engine)` runs
 once in `start()`.
@@ -362,7 +362,7 @@ two copies drifting apart, the way the move table and model almost did
 ## Verification
 
 No automated test suite in this repo — every check is a manual action, in
-the spirit of `scripts/cdp-verify.mjs`.
+the spirit of `web/scripts/cdp-verify.mjs`.
 
 1. **Self-consistency (strongest, and cheap).** Play a game where one side is
    Maia fixed at a known bucket (e.g. the 1700 preset). Feed that side's own
@@ -371,7 +371,7 @@ the spirit of `scripts/cdp-verify.mjs`.
    `mapBucket` converges to 1700 and the interval tightens around it. The
    estimator's generative model *is* Maia, so this is a real test of whether
    it recovers a ground truth it has no excuse to miss. Deliverable: a script
-   (`scripts/verify-rating-posterior.mjs`) that drives such a game and logs
+   (`web/scripts/verify-rating-posterior.mjs`) that drives such a game and logs
    the posterior every ply.
 2. **One legal move.** Hand-construct a FEN with exactly one legal move.
    Confirm `moveMutualInformation` ≈ 0 and `g_t` computes to 0 — check the

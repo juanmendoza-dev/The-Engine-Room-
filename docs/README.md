@@ -26,7 +26,7 @@ glance:
 | File | What's in it |
 | --- | --- |
 | [`deployment.md`](deployment.md) | Branch workflow, Vercel setup, the KV switch-on runbook, and a long §4 of app-specific things that bite in production — Maia's 93 MB cold load, the ONNX wasm 404 trap, why `curl \| grep` lies about whether a deploy landed, and a pile of headless-Chrome verification traps. The most useful file here. |
-| [`maia-notes.md`](maia-notes.md) | The Maia integration, end to end: why Maia 2 over original Maia and Maia 3 (licensing and encoding), the 18-plane tensor layout, the policy decode, the move table, and the measurements. Moved out of `scripts/` — it's prose, not a script. |
+| [`maia-notes.md`](maia-notes.md) | The Maia integration, end to end: why Maia 2 over original Maia and Maia 3 (licensing and encoding), the 18-plane tensor layout, the policy decode, the move table, and the measurements. Moved out of the scripts folder — it's prose, not a script. |
 | [`design/ink-and-bone-notes.md`](design/ink-and-bone-notes.md) | The current design system: tokens, fonts, day/night mechanics, the header scoreboard, the brand mark, the route transition, and a Traps section. |
 | [`design/fight-fx-notes.md`](design/fight-fx-notes.md) | The 19 fight effects and the tier ladder that decides which one fires on a given move. |
 | [`design/hero-notes.md`](design/hero-notes.md) | **Superseded.** The original brass/steam design, replaced on 2026-08-04. Kept for history — don't build from it. |

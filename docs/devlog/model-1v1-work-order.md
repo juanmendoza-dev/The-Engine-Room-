@@ -24,38 +24,38 @@ decoupled entirely rather than sequenced ahead of the demo.
 Task 9 (KV persistence) is also deliberately *not* in this lane. It needs Vercel
 dashboard provisioning, the Phase 0 work order parked it while someone else was in
 the dashboard, and nothing about watching two engines play requires a database.
-The `saveGame` call sits commented in `app/model-1v1/page.tsx` exactly where the
+The `saveGame` call sits commented in `web/app/model-1v1/page.tsx` exactly where the
 build plan says to leave it.
 
 ## Files I create and own
 
-- `components/Board.tsx` — react-chessboard wrapper (Task 7)
-- `components/EngineConfigPicker.tsx` — preset dropdown (Task 8)
-- `components/ResultScreen.tsx` — end-of-game summary (Task 8)
-- `lib/chess/engines.ts` — presets + `getMoveFor` (Task 4)
-- `lib/chess/gameLoop.ts` — `runModelGame` (Task 6)
-- `app/model-1v1/page.tsx` — the screen (Task 8)
-- `scripts/cdp-model-1v1.mjs` — headless driver that can *click*, since
+- `web/components/Board.tsx` — react-chessboard wrapper (Task 7)
+- `web/components/EngineConfigPicker.tsx` — preset dropdown (Task 8)
+- `web/components/ResultScreen.tsx` — end-of-game summary (Task 8)
+- `web/lib/chess/engines.ts` — presets + `getMoveFor` (Task 4)
+- `web/lib/chess/gameLoop.ts` — `runModelGame` (Task 6)
+- `web/app/model-1v1/page.tsx` — the screen (Task 8)
+- `web/scripts/cdp-model-1v1.mjs` — headless driver that can *click*, since
   `cdp-verify.mjs` only polls page text
 - `package.json` / `package-lock.json` — adds `react-chessboard`
 
 ## Files I do not touch
 
-- `lib/chess/engineStockfish.ts`, `lib/chess/types.ts`, `public/stockfish/` — Task
+- `web/lib/chess/engineStockfish.ts`, `web/lib/chess/types.ts`, `web/public/stockfish/` — Task
   2's, already merged. I consume them unchanged.
-- `lib/chess/engineMaia.ts`, `docs/maia-notes.md`, `public/maia/` — Task 3's,
+- `web/lib/chess/engineMaia.ts`, `docs/maia-notes.md`, `web/public/maia/` — Task 3's,
   not mine, and not imported (see below).
-- `scripts/cdp-verify.mjs` — Task 2's harness. I wrote a sibling instead of adding
+- `web/scripts/cdp-verify.mjs` — Task 2's harness. I wrote a sibling instead of adding
   a click hook to it.
-- `app/dev/stockfish-test/` — the build plan has Task 8 delete this. **I've left it
+- `web/app/dev/stockfish-test/` — the build plan has Task 8 delete this. **I've left it
   in place**: it's the manual entry point for verifying the engine my code depends
   on, and Task 3 is still in flight. Cheap to delete later; actively useful now.
-- Anything Vercel/KV: `app/actions/games.ts`, `.env.local`, the dashboard.
-- `app/user-1v1/page.tsx` (Task 10), `app/history/page.tsx` (Task 11).
+- Anything Vercel/KV: `web/app/actions/games.ts`, `.env.local`, the dashboard.
+- `web/app/user-1v1/page.tsx` (Task 10), `web/app/history/page.tsx` (Task 11).
 
 ## The Maia insertion point
 
-`lib/chess/engines.ts` has `MAIA_PRESETS: EngineConfig[] = []` and does **not**
+`web/lib/chess/engines.ts` has `MAIA_PRESETS: EngineConfig[] = []` and does **not**
 import `./engineMaia`. That's not laziness — a static import of a module that
 doesn't exist fails the build, so the build plan's Task 4 snippet cannot compile
 as written until Task 3 lands.
@@ -103,7 +103,7 @@ npm run dev
   --headless=new --remote-debugging-port=9222 \
   --user-data-dir=/tmp/cdp-profile about:blank &
 
-node scripts/cdp-model-1v1.mjs http://127.0.0.1:3000/model-1v1 300 300000 9222
+node web/scripts/cdp-model-1v1.mjs http://127.0.0.1:3000/model-1v1 300 300000 9222
 ```
 
 **Use `127.0.0.1`, not `localhost`.** This Chrome refuses to navigate to
