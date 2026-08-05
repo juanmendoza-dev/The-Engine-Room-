@@ -50,3 +50,31 @@ export function parseSearchDepth(infoLine: string): number | null {
   const m = /\bdepth (\d+)/.exec(infoLine);
   return m ? Number(m[1]) : null;
 }
+
+export interface SearchScore {
+  /** Centipawns, from the side to move's point of view. Null on a mate score. */
+  cp: number | null;
+  /** Moves to mate, signed: positive means the side to move is mating. */
+  mate: number | null;
+}
+
+/**
+ * `info ... score cp -24 ...` → `{ cp: -24, mate: null }`, `score mate 3` →
+ * `{ cp: null, mate: 3 }`. Null for `info` lines carrying no score at all.
+ *
+ * Both are **relative to the side to move**, per UCI — not to white. Reading a cp
+ * score as white's advantage is a sign error that only shows up on black's moves.
+ *
+ * Added for the rollout sanity check: "does a human-realistic win probability
+ * move in the same direction as Stockfish's evaluation" needs a number to compare
+ * against, and `parseSearchDepth` only ever pulled the depth out of this stream.
+ */
+export function parseSearchScore(infoLine: string): SearchScore | null {
+  const cp = /\bscore cp (-?\d+)/.exec(infoLine);
+  if (cp) return { cp: Number(cp[1]), mate: null };
+
+  const mate = /\bscore mate (-?\d+)/.exec(infoLine);
+  if (mate) return { cp: null, mate: Number(mate[1]) };
+
+  return null;
+}
