@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 24">
+  <style>
+    .carriage { animation: shuttle 7s cubic-bezier(.45,.05,.55,.95) infinite alternate; }
+    @keyframes shuttle { from { transform: translateX(0); } to { transform: translateX(760px); } }
+  </style>
+  <rect width="800" height="24" fill="#f2f0ea"/>
+  <rect x="0" y="11.25" width="800" height="1.5" fill="rgba(22,21,26,.35)"/>
+  <rect x="0" y="7" width="1.5" height="10" fill="rgba(22,21,26,.6)"/>
+  <rect x="798.5" y="7" width="1.5" height="10" fill="rgba(22,21,26,.6)"/>
+  <g class="carriage">
+    <rect x="17" y="9" width="6" height="6" fill="#e0331f"/>
+  </g>
+</svg>

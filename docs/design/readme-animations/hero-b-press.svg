@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 320" font-family="'Archivo Black','Arial Black',sans-serif">
+  <style>
+    .slat { transform-box: fill-box; transform-origin: center bottom; animation: lift .55s cubic-bezier(.55,.06,.68,.19) both; }
+    .s0{animation-delay:.45s}.s1{animation-delay:.52s}.s2{animation-delay:.59s}.s3{animation-delay:.66s}.s4{animation-delay:.73s}.s5{animation-delay:.8s}
+    @keyframes lift { from { transform: scaleY(1); } to { transform: scaleY(0); } }
+    .rule { transform-box: fill-box; animation: draw .6s cubic-bezier(.16,1,.3,1) both; }
+    .rt { transform-origin: left center; } .rb { transform-origin: right center; animation-delay: .12s; }
+    @keyframes draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .fadein { opacity: 0; animation: fin .6s ease-out forwards; animation-delay: 1.25s; }
+    @keyframes fin { to { opacity: 1; } }
+    .line { fill: #16151a; font-size: 84px; letter-spacing: -3px; }
+    .hollow { fill: none; stroke: #16151a; stroke-width: 2.5; }
+    .mono { font-family: 'Spline Sans Mono','Cascadia Mono',Consolas,monospace; }
+    .reg { stroke: rgba(22,21,26,.45); stroke-width: 1; }
+  </style>
+  <rect width="800" height="320" fill="#f2f0ea"/>
+  <!-- registration marks -->
+  <g class="reg">
+    <path d="M22 12 v12 M16 18 h12"/><path d="M778 12 v12 M772 18 h12"/>
+    <path d="M22 296 v12 M16 302 h12"/><path d="M778 296 v12 M772 302 h12"/>
+  </g>
+  <rect class="rule rt" x="44" y="30" width="712" height="1.5" fill="#16151a"/>
+  <rect class="rule rb" x="44" y="289" width="712" height="1.5" fill="#16151a"/>
+  <text class="line" x="46" y="128">THE</text>
+  <text class="line hollow" x="46" y="208">ENGINE</text>
+  <text class="line" x="46" y="278">ROOM</text>
+  <text class="mono fadein" x="756" y="128" font-size="10" letter-spacing="3" fill="rgba(22,21,26,.6)" text-anchor="end">PLATE Nº 64</text>
+  <text class="mono fadein" x="756" y="146" font-size="10" letter-spacing="3" fill="#e0331f" text-anchor="end">REGISTERED ▪</text>
+  <!-- platen slats -->
+  <g fill="#16151a">
+    <rect class="slat s0" x="0" y="0" width="134" height="320"/>
+    <rect class="slat s1" x="133" y="0" width="134" height="320"/>
+    <rect class="slat s2" x="266" y="0" width="134" height="320"/>
+    <rect class="slat s3" x="399" y="0" width="134" height="320"/>
+    <rect class="slat s4" x="532" y="0" width="134" height="320"/>
+    <rect class="slat s5" x="665" y="0" width="135" height="320"/>
+  </g>
+</svg>

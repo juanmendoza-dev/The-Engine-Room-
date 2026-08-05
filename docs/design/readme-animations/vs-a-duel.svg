@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 190" font-family="'Archivo Black','Arial Black',sans-serif">
+  <style>
+    .mono { font-family: 'Spline Sans Mono','Cascadia Mono',Consolas,monospace; }
+    .lampL { animation: lampL 6s linear infinite; }
+    @keyframes lampL {
+      0% { opacity: .25; } 6% { opacity: 1; } 12% { opacity: .25; } 18% { opacity: 1; }
+      24% { opacity: .25; } 30% { opacity: 1; } 36% { opacity: .25; } 42% { opacity: 1; }
+      48% { opacity: 0; } 100% { opacity: 0; }
+    }
+    .lampR { animation: lampR 6s linear infinite; }
+    @keyframes lampR { 0%,51% { opacity: 0; } 52%,55% { opacity: 1; } 56%,100% { opacity: 0; } }
+    .d1 { animation: d1 6s step-end infinite; } .d2 { animation: d2 6s step-end infinite; }
+    .d3 { animation: d3 6s step-end infinite; } .d4 { animation: d4 6s step-end infinite; }
+    @keyframes d1 { 0% { opacity: 1; } 12% { opacity: 0; } 100% { opacity: 0; } }
+    @keyframes d2 { 0% { opacity: 0; } 12% { opacity: 1; } 24% { opacity: 0; } 100% { opacity: 0; } }
+    @keyframes d3 { 0% { opacity: 0; } 24% { opacity: 1; } 36% { opacity: 0; } 100% { opacity: 0; } }
+    @keyframes d4 { 0% { opacity: 0; } 36% { opacity: 1; } 97% { opacity: 0; } 100% { opacity: 0; } }
+    .bar { transform-box: fill-box; transform-origin: left center; animation: bar 6s linear infinite; }
+    @keyframes bar { 0% { transform: scaleX(0); } 48% { transform: scaleX(1); } 96% { transform: scaleX(1); } 97%,100% { transform: scaleX(0); } }
+    .mvL { animation: mvL 6s linear infinite; }
+    @keyframes mvL { 0%,49% { opacity: 0; } 51%,96% { opacity: 1; } 98%,100% { opacity: 0; } }
+    .mvR { animation: mvR 6s linear infinite; }
+    @keyframes mvR { 0%,56% { opacity: 0; } 58%,96% { opacity: 1; } 98%,100% { opacity: 0; } }
+  </style>
+  <rect width="800" height="190" fill="#f2f0ea"/>
+  <rect x="8" y="8" width="784" height="174" fill="none" stroke="rgba(22,21,26,.35)" stroke-width="1.5"/>
+  <!-- center -->
+  <text x="400" y="118" font-size="58" text-anchor="middle" fill="none" stroke="#16151a" stroke-width="2" letter-spacing="-1">VS</text>
+  <!-- left: stockfish -->
+  <rect class="lampL" x="42" y="52" width="9" height="9" fill="#e0331f"/>
+  <text x="62" y="62" font-size="26" fill="#16151a" letter-spacing="-.5">STOCKFISH</text>
+  <text class="mono" x="62" y="84" font-size="10" letter-spacing="2.5" fill="rgba(22,21,26,.6)">ALPHA-BETA · UCI · 500 MS / MOVE</text>
+  <g class="mono" font-size="14" fill="#16151a">
+    <text x="62" y="122">DEPTH <tspan class="d1">3</tspan><tspan class="d2" x="115">7</tspan><tspan class="d3" x="115">11</tspan><tspan class="d4" x="115">13</tspan></text>
+  </g>
+  <rect x="62" y="138" width="240" height="3" fill="rgba(22,21,26,.14)"/>
+  <rect class="bar" x="62" y="138" width="240" height="3" fill="#e0331f"/>
+  <text class="mono mvL" x="62" y="168" font-size="13" fill="#16151a">▪ plays e4</text>
+  <!-- right: maia -->
+  <rect class="lampR" x="749" y="52" width="9" height="9" fill="#e0331f"/>
+  <text x="738" y="62" font-size="26" fill="#16151a" letter-spacing="-.5" text-anchor="end">MAIA</text>
+  <text class="mono" x="738" y="84" font-size="10" letter-spacing="2.5" fill="rgba(22,21,26,.6)" text-anchor="end">HUMAN POLICY NET · 35 MS / MOVE</text>
+  <text class="mono" x="738" y="122" font-size="14" fill="#16151a" text-anchor="end">ONE FORWARD PASS</text>
+  <text class="mono mvR" x="738" y="168" font-size="13" fill="#16151a" text-anchor="end">plays e5 ▪</text>
+</svg>

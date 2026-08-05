@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 64" font-family="'Spline Sans Mono','Cascadia Mono',Consolas,monospace">
+  <style>
+    .ringW { animation: ringW 7.5s step-end infinite; }
+    @keyframes ringW { 0% { opacity: 0; } 20% { opacity: 1; } 40% { opacity: 0; } 60% { opacity: 1; } 80% { opacity: 0; } 100% { opacity: 0; } }
+    .ringB { animation: ringB 7.5s step-end infinite; }
+    @keyframes ringB { 0% { opacity: 1; } 20% { opacity: 0; } 40% { opacity: 1; } 60% { opacity: 0; } 80% { opacity: 1; } 100% { opacity: 1; } }
+    .t0 { animation: t0 7.5s step-end infinite; } .t1 { animation: t1 7.5s step-end infinite; }
+    .t2 { animation: t2 7.5s step-end infinite; } .t3 { animation: t3 7.5s step-end infinite; }
+    .t4 { animation: t4 7.5s step-end infinite; }
+    @keyframes t0 { 0% { opacity: 1; } 20% { opacity: 0; } 100% { opacity: 0; } }
+    @keyframes t1 { 0% { opacity: 0; } 20% { opacity: 1; } 40% { opacity: 0; } 100% { opacity: 0; } }
+    @keyframes t2 { 0% { opacity: 0; } 40% { opacity: 1; } 60% { opacity: 0; } 100% { opacity: 0; } }
+    @keyframes t3 { 0% { opacity: 0; } 60% { opacity: 1; } 80% { opacity: 0; } 100% { opacity: 0; } }
+    @keyframes t4 { 0% { opacity: 0; } 80% { opacity: 1; } 100% { opacity: 1; } }
+    text { font-size: 13px; letter-spacing: 1.5px; fill: #16151a; }
+  </style>
+  <rect width="800" height="64" fill="#f2f0ea"/>
+  <rect x="8" y="8" width="784" height="48" fill="none" stroke="rgba(22,21,26,.35)" stroke-width="1.5"/>
+  <!-- the two sides -->
+  <rect x="330" y="25" width="14" height="14" fill="#f2f0ea" stroke="#16151a" stroke-width="1.5"/>
+  <rect x="356" y="25" width="14" height="14" fill="#16151a"/>
+  <rect class="ringW" x="326" y="21" width="22" height="22" fill="none" stroke="#e0331f" stroke-width="1.5"/>
+  <rect class="ringB" x="352" y="21" width="22" height="22" fill="none" stroke="#e0331f" stroke-width="1.5"/>
+  <!-- cycling readout -->
+  <text class="t0" x="392" y="37">MOVE 1 · e4 · BLACK TO MOVE</text>
+  <text class="t1" x="392" y="37">MOVE 1 · e5 · WHITE TO MOVE</text>
+  <text class="t2" x="392" y="37">MOVE 2 · Nf3 · BLACK TO MOVE</text>
+  <text class="t3" x="392" y="37">MOVE 2 · Nc6 · WHITE TO MOVE</text>
+  <text class="t4" x="392" y="37">MOVE 3 · Bb5 · BLACK TO MOVE</text>
+  <text x="30" y="37" fill="rgba(22,21,26,.6)" font-size="10" letter-spacing="3">LIVE BOARD</text>
+</svg>

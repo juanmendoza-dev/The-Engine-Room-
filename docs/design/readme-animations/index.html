@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>README animation options — The Engine Room</title>
+<style>
+  :root { --bg: #ffffff; --fg: #1f2328; --dim: #59636e; --line: #d1d9e0; }
+  html.dark { --bg: #0d1117; --fg: #f0f6fc; --dim: #9198a1; --line: #3d444d; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 15px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         transition: background .2s, color .2s; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 32px 24px 96px; }
+  header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .note { color: var(--dim); font-size: 13px; max-width: 640px; }
+  button { font: inherit; font-size: 13px; padding: 5px 12px; cursor: pointer;
+           background: transparent; color: var(--fg); border: 1px solid var(--line); border-radius: 6px; }
+  button:hover { border-color: var(--dim); }
+  section { margin-top: 48px; }
+  section > h2 { font-size: 17px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+  .where { color: var(--dim); font-size: 13px; margin: -6px 0 18px; }
+  .opt { margin: 26px 0; }
+  .opt .head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .opt .id { font-family: ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 700;
+             color: #e0331f; letter-spacing: .5px; }
+  .opt .name { font-weight: 600; font-size: 14px; }
+  .opt .desc { color: var(--dim); font-size: 13px; margin: 0 0 10px; }
+  .opt img { display: block; width: 100%; max-width: 800px; height: auto;
+             outline: 1px dashed var(--line); }
+  .opt img.narrow { max-width: 340px; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; }
+  .replay { margin-top: 8px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>README animation options</h1>
+      <p class="note">Every option below is a real standalone <code>.svg</code> — CSS/SMIL only, no JS,
+      system-font fallbacks — which is exactly what GitHub allows inside a README <code>&lt;img&gt;</code>.
+      Each carries its own bone-paper plate so it reads identically on GitHub light and dark
+      (toggle the page background to check). Night-edition (ink ground, lit-red) variants can be cut
+      for whichever options win, swapped via <code>&lt;picture prefers-color-scheme&gt;</code>.</p>
+    </div>
+    <button onclick="document.documentElement.classList.toggle('dark')">Toggle GitHub theme</button>
+  </header>
+
+  <section>
+    <h2>1 · Masthead</h2>
+    <p class="where">Sits at the very top, above (or replacing) the <code># The Engine Room</code> H1. Options A and B play once per page load; C loops forever.</p>
+    <div class="opt">
+      <div class="head"><span class="id">1A</span><span class="name">Rising lines</span></div>
+      <p class="desc">The site hero, miniaturised: THE / ENGINE / ROOM rise out of masks, ENGINE hollow-stroked, red plate tick. The closest match to what the app actually does on load.</p>
+      <img src="hero-a-rising.svg" alt="">
+      <button class="replay" onclick="rp(this)">Replay</button>
+    </div>
+    <div class="opt">
+      <div class="head"><span class="id">1B</span><span class="name">The press</span></div>
+      <p class="desc">The route-transition metaphor: registration marks, rules drawing in, then six platen slats lift to reveal the headline. "PLATE Nº 64 · REGISTERED" stamps last.</p>
+      <img src="hero-b-press.svg" alt="">
+      <button class="replay" onclick="rp(this)">Replay</button>
+    </div>
+    <div class="opt">
+      <div class="head"><span class="id">1C</span><span class="name">Telemetry marquee</span></div>
+      <p class="desc">The landing page's flavor-text strip. Thin, loops seamlessly — could also sit <em>under</em> a static H1 rather than replacing it, or pair with 1A/1B.</p>
+      <img src="hero-c-marquee.svg" alt="">
+      <button class="replay" onclick="rp(this)">Replay</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Section dividers</h2>
+    <p class="where">Between the big sections (screens → engines → how it works → repo map…). Same divider reused, so pick one temperament.</p>
+    <div class="opt">
+      <div class="head"><span class="id">2A</span><span class="name">Registration rules</span></div>
+      <p class="desc">Two hairlines draw toward the centre; a red tick rotates in. Plays once — calm after it lands.</p>
+      <img src="div-a-registration.svg" alt="">
+      <button class="replay" onclick="rp(this)">Replay</button>
+    </div>
+    <div class="opt">
+      <div class="head"><span class="id">2B</span><span class="name">Press carriage</span></div>
+      <p class="desc">A red carriage shuttles end-to-end along the hairline, forever. The most alive of the three — maybe use for one or two dividers, not all.</p>
+      <img src="div-b-inkdot.svg" alt="">
+      <button class="replay" onclick="rp(this)">Replay</button>
+    </div>
+    <div class="opt">
+      <div class="head"><span class="id">2C</span><span class="name">Typed section label</span></div>
+      <p class="desc">The section name types up between rules, caret keeps blinking. Would be cut once per section with its own label (§ THE ENGINES, § HOW IT WORKS…).</p>
+      <img src="div-c-typed.svg" alt="">
+      <button class="replay" onclick="rp(this)">Replay</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · "The two engines"</h2>
+    <p class="where">Header card for the engines section, above the comparison table. Both loop.</p>
+    <div class="opt">
+      <div class="head"><span class="id">3A</span><span class="name">The duel</span></div>
+      <p class="desc">Stockfish thinks for real — lamp pulsing, depth ticking 3→13, a bar filling for its 500&nbsp;ms — then plays. Maia's lamp blinks once (35&nbsp;ms) and answers instantly. The joke is the point: same loop, two temperaments.</p>
+      <img src="vs-a-duel.svg" alt="">
+      <button class="replay" onclick="rp(this)">Replay</button>
+    </div>
+    <div class="opt">
+      <div class="head"><span class="id">3B</span><span class="name">Header scoreboard</span></div>
+      <p class="desc">The site's live header scoreboard, replicated: two side-squares with the red to-move ring alternating, notation cycling through a Ruy Lopez. Quieter, thinner.</p>
+      <img src="vs-b-scoreboard.svg" alt="">
+      <button class="replay" onclick="rp(this)">Replay</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · "How it works" pipeline</h2>
+    <p class="where">Replaces (or sits beside) the ASCII architecture diagram. Both loop.</p>
+    <div class="opt">
+      <div class="head"><span class="id">4A</span><span class="name">Move pulses</span></div>
+      <p class="desc">Two red pulses travel the real request path — one from each screen, through <code>getMoveFor</code>, out to its engine, down into chess.js — offset so the two lanes take turns.</p>
+      <img src="flow-a-pulse.svg" alt="">
+      <button class="replay" onclick="rp(this)">Replay</button>
+    </div>
+    <div class="opt">
+      <div class="head"><span class="id">4B</span><span class="name">Conveyor + sequence</span></div>
+      <p class="desc">All wires run like belts, and the stages light up red in order: screens → contract → engines → the law. More diagrammatic, less literal.</p>
+      <img src="flow-b-conveyor.svg" alt="">
+      <button class="replay" onclick="rp(this)">Replay</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>5 · Board plates (footer, or next to "Known limits")</h2>
+    <p class="where">Small enough to float right or sit centred at the very end of the README. Both loop.</p>
+    <div class="row">
+      <div class="opt">
+        <div class="head"><span class="id">5A</span><span class="name">Opera Game replay</span></div>
+        <p class="desc">The landing page's replay, in miniature: the first six plies loop, last-move square tracking in red.</p>
+        <img class="narrow" src="board-a-replay.svg" alt="">
+        <button class="replay" onclick="rp(this)">Replay</button>
+      </div>
+      <div class="opt">
+        <div class="head"><span class="id">5B</span><span class="name">Rd8#, pulsing</span></div>
+        <p class="desc">The Opera Game's final position, still — only the mating square breathes red. The quietest option in the whole gallery.</p>
+        <img class="narrow" src="board-b-mate.svg" alt="">
+        <button class="replay" onclick="rp(this)">Replay</button>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+  function rp(btn) {
+    const img = btn.parentElement.querySelector('img');
+    const base = img.src.split('?')[0];
+    img.src = base + '?' + Date.now();
+  }
+</script>
+</body>
+</html>

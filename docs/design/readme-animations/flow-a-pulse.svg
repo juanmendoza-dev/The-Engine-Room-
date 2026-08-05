@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 370" font-family="'Spline Sans Mono','Cascadia Mono',Consolas,monospace">
+  <style>
+    .box { fill: none; stroke: rgba(22,21,26,.5); stroke-width: 1.5; }
+    .lbl { font-size: 12px; letter-spacing: 1px; fill: #16151a; text-anchor: middle; }
+    .sub { font-size: 9px; letter-spacing: 2px; fill: rgba(22,21,26,.55); text-anchor: middle; }
+    .wire { fill: none; stroke: rgba(22,21,26,.3); stroke-width: 1.5; stroke-dasharray: 3 4; }
+  </style>
+  <rect width="800" height="370" fill="#f2f0ea"/>
+  <!-- wires -->
+  <path class="wire" d="M180,54 L370,110"/>
+  <path class="wire" d="M620,54 L430,110"/>
+  <path class="wire" d="M370,146 L190,210"/>
+  <path class="wire" d="M430,146 L610,210"/>
+  <path class="wire" d="M190,246 L370,310"/>
+  <path class="wire" d="M610,246 L430,310"/>
+  <!-- boxes -->
+  <rect class="box" x="90" y="20" width="180" height="34"/><text class="lbl" x="180" y="41">/model-1v1</text>
+  <rect class="box" x="530" y="20" width="180" height="34"/><text class="lbl" x="620" y="41">/user-1v1</text>
+  <rect class="box" x="280" y="110" width="240" height="36" stroke="#16151a"/><text class="lbl" x="400" y="132">getMoveFor(fen, config)</text>
+  <rect class="box" x="90" y="210" width="200" height="36"/><text class="lbl" x="190" y="228">engineStockfish</text><text class="sub" x="190" y="240">WEB WORKER · UCI</text>
+  <rect class="box" x="510" y="210" width="200" height="36"/><text class="lbl" x="610" y="228">engineMaia</text><text class="sub" x="610" y="240">ONNXRUNTIME-WEB</text>
+  <rect class="box" x="300" y="310" width="200" height="36" stroke="#16151a"/><text class="lbl" x="400" y="328">chess.js</text><text class="sub" x="400" y="340">SOLE AUTHORITY</text>
+  <!-- pulses -->
+  <rect x="-3.5" y="-3.5" width="7" height="7" fill="#e0331f" opacity="0">
+    <set attributeName="opacity" to="1" begin="0.2s"/>
+    <animateMotion dur="5s" begin="0.2s" repeatCount="indefinite"
+      path="M180,54 L370,110 L370,146 L190,210 L190,246 L370,310"/>
+  </rect>
+  <rect x="-3.5" y="-3.5" width="7" height="7" fill="#e0331f" opacity="0">
+    <set attributeName="opacity" to="1" begin="2.7s"/>
+    <animateMotion dur="5s" begin="2.7s" repeatCount="indefinite"
+      path="M620,54 L430,110 L430,146 L610,210 L610,246 L430,310"/>
+  </rect>
+</svg>

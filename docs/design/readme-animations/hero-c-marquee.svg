@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 56" font-family="'Spline Sans Mono','Cascadia Mono',Consolas,monospace">
+  <style>
+    .track { animation: slide 26s linear infinite; }
+    @keyframes slide { from { transform: translateX(0); } to { transform: translateX(-1400px); } }
+    text { font-size: 13px; letter-spacing: 2px; fill: rgba(22,21,26,.62); }
+    tspan.r { fill: #e0331f; }
+  </style>
+  <rect width="800" height="56" fill="#f2f0ea"/>
+  <rect x="0" y="0" width="800" height="1.5" fill="rgba(22,21,26,.35)"/>
+  <rect x="0" y="54.5" width="800" height="1.5" fill="rgba(22,21,26,.35)"/>
+  <g class="track">
+    <text x="0" y="34" textLength="1400" lengthAdjust="spacing">STOCKFISH 18 · WASM <tspan class="r">▪</tspan> MAIA 2 · ONNX <tspan class="r">▪</tspan> GO MOVETIME 500 <tspan class="r">▪</tspan> ONE FORWARD PASS · 35 MS <tspan class="r">▪</tspan> CHESS.JS IS THE LAW <tspan class="r">▪</tspan> NO BACKEND <tspan class="r">▪</tspan> EDITION: INK &amp; BONE <tspan class="r">▪</tspan> </text>
+    <text x="1400" y="34" textLength="1400" lengthAdjust="spacing">STOCKFISH 18 · WASM <tspan class="r">▪</tspan> MAIA 2 · ONNX <tspan class="r">▪</tspan> GO MOVETIME 500 <tspan class="r">▪</tspan> ONE FORWARD PASS · 35 MS <tspan class="r">▪</tspan> CHESS.JS IS THE LAW <tspan class="r">▪</tspan> NO BACKEND <tspan class="r">▪</tspan> EDITION: INK &amp; BONE <tspan class="r">▪</tspan> </text>
+  </g>
+</svg>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 32" font-family="'Spline Sans Mono','Cascadia Mono',Consolas,monospace">
+  <style>
+    .reveal { transform-box: fill-box; transform-origin: left center; animation: type 1.3s steps(14, end) .3s both; }
+    @keyframes type { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .caretpos { animation: travel 1.3s steps(14, end) .3s both; }
+    @keyframes travel { from { transform: translateX(-236px); } to { transform: translateX(0); } }
+    .caret { animation: blink 1.1s steps(1, end) 1.6s infinite; }
+    @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+  </style>
+  <rect width="800" height="32" fill="#f2f0ea"/>
+  <rect x="0" y="15.25" width="256" height="1.5" fill="rgba(22,21,26,.35)"/>
+  <rect x="544" y="15.25" width="256" height="1.5" fill="rgba(22,21,26,.35)"/>
+  <clipPath id="tc"><rect class="reveal" x="282" y="4" width="236" height="24"/></clipPath>
+  <g clip-path="url(#tc)">
+    <text x="282" y="21" font-size="12" letter-spacing="3" fill="#16151a" textLength="228" lengthAdjust="spacing"><tspan fill="#e0331f">§</tspan> HOW IT WORKS</text>
+  </g>
+  <g class="caretpos">
+    <rect class="caret" x="516" y="6" width="2" height="18" fill="#e0331f"/>
+  </g>
+</svg>

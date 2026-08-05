@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 330" font-family="'Segoe UI Symbol','Apple Symbols','Noto Sans Symbols 2',serif">
+  <style>
+    .pulse { animation: pulse 2.2s ease-in-out infinite alternate; }
+    @keyframes pulse { from { fill: rgba(224,51,31,.1); stroke-opacity: .45; } to { fill: rgba(224,51,31,.32); stroke-opacity: 1; } }
+    .p { font-size: 24px; text-anchor: middle; fill: #16151a; }
+    .mono { font-family: 'Spline Sans Mono','Cascadia Mono',Consolas,monospace; }
+  </style>
+  <rect width="320" height="330" fill="#f2f0ea"/>
+  <pattern id="checker" patternUnits="userSpaceOnUse" x="40" y="20" width="60" height="60">
+    <rect width="60" height="60" fill="#e9e6dd"/>
+    <rect x="30" y="0" width="30" height="30" fill="#dcd8cb"/>
+    <rect x="0" y="30" width="30" height="30" fill="#dcd8cb"/>
+  </pattern>
+  <rect x="40" y="20" width="240" height="240" fill="url(#checker)"/>
+  <rect x="38.5" y="18.5" width="243" height="243" fill="none" stroke="#16151a" stroke-width="1.5"/>
+  <rect class="pulse" x="130" y="20" width="30" height="30" stroke="#e0331f" stroke-width="1.5"/>
+  <!-- rank 8 -->
+  <text class="p" x="85" y="42">&#9822;</text><text class="p" x="145" y="42">&#9814;</text>
+  <text class="p" x="175" y="42">&#9818;</text><text class="p" x="205" y="42">&#9821;</text><text class="p" x="265" y="42">&#9820;</text>
+  <!-- rank 7 -->
+  <text class="p" x="55" y="72">&#9823;</text><text class="p" x="205" y="72">&#9823;</text>
+  <text class="p" x="235" y="72">&#9823;</text><text class="p" x="265" y="72">&#9823;</text>
+  <!-- rank 6 -->
+  <text class="p" x="175" y="102">&#9819;</text>
+  <!-- rank 5 -->
+  <text class="p" x="175" y="132">&#9823;</text><text class="p" x="235" y="132">&#9815;</text>
+  <!-- rank 4 -->
+  <text class="p" x="175" y="162">&#9817;</text>
+  <!-- rank 2 -->
+  <text class="p" x="55" y="222">&#9817;</text><text class="p" x="85" y="222">&#9817;</text><text class="p" x="115" y="222">&#9817;</text>
+  <text class="p" x="205" y="222">&#9817;</text><text class="p" x="235" y="222">&#9817;</text><text class="p" x="265" y="222">&#9817;</text>
+  <!-- rank 1 -->
+  <text class="p" x="115" y="252">&#9812;</text>
+  <text class="mono" x="160" y="290" font-size="9" letter-spacing="1" fill="rgba(22,21,26,.6)" text-anchor="middle">17. Rd8&#35; · CHECKMATE</text>
+  <text class="mono" x="160" y="308" font-size="9" letter-spacing="2.5" fill="#16151a" text-anchor="middle">THE OPERA GAME · PARIS 1858 <tspan fill="#e0331f">▪</tspan></text>
+</svg>
