@@ -370,7 +370,7 @@ export default function MaiaRolloutTestPage() {
         log(summarize(middlegame));
         log(`end reasons: ${JSON.stringify(middlegame.endReasons)}`);
         log(
-          `${verdict(middlegame.compromised === middlegame.truncatedFraction > 0.15)}  the ` +
+          `${verdict(middlegame.compromised === (middlegame.truncatedFraction > 0.15))}  the ` +
             `compromised flag agrees with the truncated fraction (${pct(middlegame.truncatedFraction)})`,
         );
         // The claim being tested is about the raised ply budget, not about luck: at

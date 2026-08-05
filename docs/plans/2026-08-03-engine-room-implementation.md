@@ -1633,6 +1633,154 @@ called it "plays most like a 1100 · likely 1100–1600". It's reading something
 
 ---
 
+## Task 14: Maia Monte Carlo rollouts (added 2026-08-05, outside the original plan)
+
+Spec: [`../specs/2026-08-05-maia-monte-carlo-rollouts.md`](../specs/2026-08-05-maia-monte-carlo-rollouts.md).
+Second of the five 2026-08-05 stretch specs, in the order
+[`../specs/2026-08-05-build-priority.md`](../specs/2026-08-05-build-priority.md)
+sets out. Built on top of Task 13's branch rather than `main`, because it needs
+the `evaluateMaiaAt` split that task introduced — the shared
+legal-move-softmax extraction lives in the same function, and doing it twice is
+how two copies of a decoder drift apart.
+
+Estimates a *human-realistic* win/draw/loss at a position: play it out N times
+with Maia choosing every move for both sides, count how they ended. Flat Monte
+Carlo, not MCTS — every rollout is an independent sample from the root, which is
+what makes the intervals mean anything.
+
+**Files:**
+- Create: `web/lib/chess/maiaRollout.ts` (the rollout loop and the statistics)
+- Create: `web/components/OddsReadout.tsx`
+- Create: `web/app/dev/maia-rollout-test/page.tsx`
+- Create: `web/scripts/probe-maia-graph.mjs` (graph questions, answered in Node)
+- Create: `web/scripts/cdp-odds-readout.mjs` (the panel, driven in a browser)
+- Modify: `web/lib/chess/engineMaia.ts` (`evaluateMaiaBatch`, `sampleFromPolicy`,
+  `uciToMove`, and the decode both paths now share)
+- Modify: `web/lib/chess/engines.ts` (`parseSearchScore`), `web/app/user-1v1/page.tsx`,
+  `docs/maia-notes.md`, `docs/README.md`, `web/app/dev/README.md`
+
+- [x] Batch axis spiked *before* anything was built on it, per the spec's own instruction
+- [x] `evaluateMaiaBatch` + temperature sampler, with the softmax extracted, not forked
+- [x] Rollout loop: lockstep passes, per-category Wilson intervals, value-bootstrapped truncation
+- [x] Verification page, every check green, no console errors
+- [x] On-demand readout on `/user-1v1`, driven in a real browser (not cut for time, unlike Task 12's)
+
+#### The spike came first, and it changed the case for the feature
+
+The spec called one thing its "single biggest unknown": whether the ONNX graph's
+batch axis is dynamic or was exported hardcoded to 1. It's dynamic —
+`session.inputMetadata` declares `boards: ["batch_size",18,8,8]` — and row *i* of
+the `[N,1880]` output is **bit-identical** (0.000e+0, not merely close) to
+evaluating that position alone.
+
+But the spec was banking on batching being *faster*, and it isn't: **27.3ms per
+position at N=1 against 24.2 at N=30.** About 10%, not a multiple. Full table in
+`docs/maia-notes.md`. So the spec's "floor case" is simply the case, and the
+reason to batch is that ~4,000 sequential awaits become ~40 — scheduling and code
+shape, not wall clock. Budget any rollout as `Σ rollout lengths × ~25ms`.
+
+Worth stressing that this took ten minutes in Node, before a line of the feature
+existed. `onnxruntime-web`'s wasm backend runs outside a browser, so
+`probe-maia-graph.mjs` answers graph questions without the 93 MB download the
+browser pays on every load.
+
+#### What differed from the spec
+
+1. **Finished rollouts leave the batch instead of being masked.** The spec keeps
+   the tensor at `[N,...]` and resubmits finished rows with the output discarded,
+   avoiding compaction only because it "reopens the dynamic-batch-size question" —
+   which the spike had just closed. Since total FLOPs are conserved, padding dead
+   rows costs real time, so they get dropped instead.
+2. **Ply budget 200, not 120** — and this one only became affordable *because* of
+   (1). At 120, 17% of rollouts from an opening position were still running when
+   the cap hit (mean game length 81 plies), so a sixth of the sample got scored by
+   the value head's guesswork rather than played out — enough to trip the module's
+   own "interval is compromised" flag. Extending to 200 costs about 10s on a 99s
+   run, because only the 5 stragglers pay for the extra plies. Under the spec's
+   fixed-shape batch the same extension would have cost 60s.
+3. **The truncation bootstrap centres on a measured number, and the measurement
+   nearly went the wrong way.** Sweeping `elo_self` moves `logits_value` by 0.88
+   across the nine buckets — more than a queen of material — which reads as a
+   rating-dependent bias needing a per-bucket centre. It isn't: that sweep pinned
+   `elo_oppo` at 1500, so it was measuring a rating *gap*. With both inputs matched
+   the sweep is flat to within 0.04, giving one honest constant (-0.047 over four
+   level positions × nine matched tiers) and a rollout at mismatched tiers gets the
+   gap priced in for free. The control mattered more than the measurement.
+4. **Truncated rollouts are *sampled* from the value-implied distribution, not
+   added as fractions.** Keeps the counts integers, so the Wilson intervals keep
+   meaning "N independent draws", and the extra uncertainty widens the interval
+   instead of hiding inside a confident-looking fractional count.
+5. **The player's own tier comes from Task 13's rating read** when it has passed
+   its display gate, falling back to 1500 with the readout saying which it used.
+   The spec explicitly leaves this to the caller ("a preset tier, or whatever
+   bayesian-rating-inference produces"); this is that composition.
+6. **`parseSearchScore` added to `engines.ts`** — the spec flags it as a
+   prerequisite for its own Stockfish comparison, since `parseSearchDepth` only
+   ever pulled `depth` off the `info` stream.
+
+#### Verification — observed, not asserted
+
+`/dev/maia-rollout-test`, driven by the existing `cdp-verify.mjs` against a
+production build. Every check green, zero console errors.
+
+- **Batching:** three distinct positions (one black-to-move, so the mirroring path
+  is uneven across rows) each matched their standalone evaluation to 0.00e+0 on
+  both policy and value, and row 1 did *not* match position 0.
+- **Sampler:** `T=0` returns the top move; `T=1` empirical frequencies track the
+  policy to within 0.7 points over 6,000 draws (28.5% → 28.5%, 24.2% → 23.9%);
+  `T=0.05` sampled the top move 95.4% of the time against the 96.4% the sharpened
+  distribution implies.
+- **Wilson:** all five hand-computed cases match, including 30/30 → [88.6%, 100%]
+  where Wald would claim [100%, 100%].
+- **Mate in 1:** Maia puts 98.1% on `a1a8` (Ra8#) and 30/30 rollouts won in a mean
+  of 1.0 plies, in a single pass.
+- **Perspective:** the same board with each side to move inverts cleanly — rook-up
+  83.3% win / 0% loss, rook-down 0% win / 83.3% loss. This is the check that
+  catches reading chess.js's `1-0` as the root mover's win.
+- **Direction vs Stockfish:** cp +644 → 73.3% win, cp +23 → 46.7% *draw*, cp −628 →
+  90.0% loss. Ranks identically; deliberately not a numeric match, and the +644
+  position converting only 73% of the time is the whole point of the feature.
+- **A realistic middlegame at the defaults:** win 43.3% [27.4–60.8%], draw 20.0%,
+  loss 36.7% — 160 passes, mean 101.8 plies, **nothing truncated**, 83.7s. Note it
+  came in *faster* than the same position under the 120-ply budget (99.3s) despite
+  averaging 20 plies more per rollout: passes get cheap once most rows have left the
+  batch, whereas the 120 run still had 25 of 30 alive at the cap, paying full width
+  the whole way.
+- **Mismatched tiers:** from that same position, 1100 against 1900 loses 86.7% where
+  matched 1500s lose 36.7% — the clearest evidence that pulling `elo_self` and
+  `elo_oppo` apart bought something real.
+- **Regression:** `/dev/maia-test` passes end to end and reproduces the numbers
+  `docs/maia-notes.md` recorded before this task existed (`g8f6` at 31.9/29.3/32.6%
+  across the three tiers, start-position value −0.1813, `exd4` at 93.9%). That's
+  what backs the claim that `evaluateMaia`/`getMaiaMove` behave exactly as they did
+  before the decode was extracted out from under them.
+- **The panel itself,** via `cdp-odds-readout.mjs` against a production build: real
+  drags versus Stockfish 1320, then ask for the odds. All three outcomes appear each
+  with its own interval, the sample size and both tiers are named — it read
+  `MAIA 1500 VS 1300`, so the Stockfish-1320-to-1300-bucket rounding and the
+  "rating read hasn't passed its gate yet, so use 1500" fallback both did what they
+  should — and **moving a piece wiped the numbers**, which is the state that would
+  otherwise be the most misleading thing on the page. No `Session already started`,
+  so the rollouts and the live game shared one ORT session without colliding.
+
+#### Still open
+
+- **No Worker, so the main thread blocks in bursts** — roughly 730ms per full-width
+  pass at N=30, once per ply. It yields between passes so progress paints, which
+  doesn't make the bursts go away. `2026-08-05-engine-worker-pool.md` is the real fix and
+  is out of this feature's scope.
+- **Self-play distributional shift**, the spec's own biggest caveat and still
+  unresolved: Maia imitates human-vs-human games, and chaining its samples back
+  into itself for dozens of plies is an input distribution nobody has checked
+  against real games. Treat these numbers as informative, not precise.
+- **The value head is not monotone** — "about to be mated" reads *better* than
+  "down a queen" (`docs/maia-notes.md`). The squashing is deliberately wide
+  because of it, and no amount of care in this module fixes the underlying head.
+- **N is fixed at 30** with no adaptive stopping, per the spec's scope. At 30 the
+  worst-case interval is ±16.8 points, and halving that takes 4× the rollouts.
+
+---
+
 ## After Phase 3
 
 Stop and check in with the user. Stretch goals (eval bar, blunder summary, adaptive-opponent heuristic, win-rate stats, expanding Maia to all 9 rating tiers) are explicitly not part of this plan — they get their own planning pass only after Phases 0–3 are confirmed working end to end.

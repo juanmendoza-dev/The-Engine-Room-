@@ -11,7 +11,7 @@ run entirely in your browser — there is no backend doing the thinking.
 | --- | --- |
 | `/` | Menu. A looping replay of Morphy's Opera Game (1858) plays on the board while you pick. |
 | `/model-1v1` | Pick two engines, press start, watch them fight. Move log, per-side rating labels, a thinking indicator that names which engine is searching. |
-| `/user-1v1` | Pick one engine and a colour, then play it. Drag or click; illegal moves snap back. Restart mid-game if it's going badly. Reads your own moves as you go and estimates the rating you play like — as a band, not a number. |
+| `/user-1v1` | Pick one engine and a colour, then play it. Drag or click; illegal moves snap back. Restart mid-game if it's going badly. Reads your own moves as you go and estimates the rating you play like — as a band, not a number. Ask it to play the position out 30 times and it'll tell you how those games ended. |
 | `/history` | Finished games, newest first — who played, result, how it ended. |
 
 ## The two engines
@@ -85,6 +85,15 @@ redeploy — no code change. Runbook in [`docs/deployment.md`](docs/deployment.m
   information to be worth reading. Honest about its limits: it locates you within
   about ±1 bucket, not to the nearest 100 points, and it says so. Task 13 in the
   [plan](docs/plans/2026-08-03-engine-room-implementation.md) has the measurements.
+- **Odds from here** — also on `/user-1v1`, on demand: play the current position out
+  30 times with Maia choosing every move for both sides, then count how they ended.
+  A different question from Stockfish's centipawn score, which answers "what happens
+  under best play" — this one answers "what tends to happen at this rating", and the
+  two genuinely disagree (a position Stockfish scores at +644 converts 73% of the
+  time here). Your own side is sampled at whatever the rating estimate above has
+  settled on. Every number carries its Wilson interval, the sample size is on
+  screen, and moving a piece wipes the lot, because they described one exact
+  position. Task 14 in the [plan](docs/plans/2026-08-03-engine-room-implementation.md).
 - **Fight FX** — 19 effects (impact, shake, ghosts, combo counters, a charge bar
   fed by Stockfish's real search depth) over a tier ladder that classifies each
   move and picks a beat. Opts out entirely under `prefers-reduced-motion`, or
@@ -112,7 +121,7 @@ web/                      the Next.js app — everything below is relative to he
     fx/                       the fight-FX stage and its stylesheet
   lib/
     analysis/                 rating inference: maiaLikelihood · ratingPosterior
-    chess/                    engineStockfish · engineMaia · engines (getMoveFor) · gameLoop
+    chess/                    engineStockfish · engineMaia · engines (getMoveFor) · gameLoop · maiaRollout
     fx/                       effect definitions, move classification, runtime
     games/                    storage: types · localStore · store (the adapter facade)
     boardFeed.ts              module store the header scoreboard subscribes to
