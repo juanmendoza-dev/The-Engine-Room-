@@ -14,6 +14,25 @@ connections appear inline below, not gathered into one section.
 don't exist yet (checked); mentions of them are inferred from filename and
 task description only.
 
+> **Refreshed 2026-08-05, when this was built as Task 17.** Three of the
+> forward references above and below went stale between writing and building,
+> all in the same direction — the things this spec waited on landed:
+>
+> - **`evaluateMaiaAt` exists** (Task 13, `#23`). Its parameters are named
+>   `selfCategory`/`oppoCategory`, not the `selfBucket`/`oppoBucket` this spec
+>   guesses at, because `RatingBucket` in `lib/analysis` means a rating
+>   (1100–1900) while these are the model's category indices (0–10).
+> - **`2026-08-05-maia-monte-carlo-rollouts.md` exists and shipped** (Task 14,
+>   `#25`), which settles this spec's open question about batching — see Cost.
+> - **`2026-08-05-move-surprisal.md` still does not exist.** Every mention of
+>   it below remains inference from its filename.
+>
+> What was built: `web/scripts/build-maia-calibration-fixture.mjs`,
+> `web/scripts/audit-maia-calibration.mjs`, `web/scripts/lib/{calibration,maiaNode}.mjs`,
+> and the two `verify-calibration-*.mjs` checks. Results and what they mean are
+> in [`docs/maia-calibration-notes.md`](../maia-calibration-notes.md); this file
+> stays the spec, not the write-up.
+
 ## What "calibrated" means, and what it doesn't
 
 Different questions, scored separately, not folded into one number:
@@ -106,7 +125,8 @@ spent real effort protecting elsewhere.
 **Connects directly to `bayesian-rating-inference.md`:** that spec's
 posterior lives over exactly the 9 named buckets `MAIA_RATING_BUCKETS =
 [1100..1900]`, so that's this audit's primary scope too. It also proposes
-`evaluateMaiaAt(fen, selfBucket, oppoBucket)` (not yet built), splitting
+`evaluateMaiaAt(fen, selfBucket, oppoBucket)` (built in Task 13, as
+`evaluateMaiaAt(fen, selfCategory, oppoCategory)`), splitting
 `elo_self`/`elo_oppo` into independent arguments, and declines to
 marginalize `elo_oppo` "unless [this audit] finds it matters enough to
 justify 9× the cost." Answerable cheaply: `getMaiaMove` sets `elo_oppo =
@@ -267,19 +287,32 @@ caller wants the hook.
   with `bayesian-rating-inference`, which must run its 9 per-bucket passes
   live in-browser, on the main thread, and worries in its own Cost/Risks
   about contention and concurrency — none of that applies offline.
-- **Reuse the pure math, not the browser session.** `onnxruntime-web`
-  exists in this app for browser reasons (fetch-with-progress, wasm paths
-  under `web/public/ort/`) a batch pass doesn't need, so `onnxruntime-node`
-  (native bindings, same `onnxruntime-common` `Tensor`/`InferenceSession`
-  surface) fits a script better. `mirrorFen`, `mirrorMove`, `boardToTensor`,
-  `eloToCategory` have no browser dependency — import them directly.
-  `evaluateMaiaAt`, once it exists, is shaped for the browser's singleton
-  session and can't literally be called from Node, but this script should
-  share its exact pure encode → softmax logic underneath — two thin
-  runtime shims over one shared core, not a third implementation. This
+- **Reuse the pure math, not the browser session.** `mirrorFen`, `mirrorMove`,
+  `boardToTensor`, `eloToCategory` have no browser dependency — import them
+  directly. `evaluateMaiaAt` is shaped for the browser's singleton session and
+  can't literally be called from Node (`load()` throws there on purpose), but
+  this script should share its exact pure encode → softmax logic underneath —
+  two thin runtime shims over one shared core, not a third implementation. This
   project already paid once for two encoders quietly disagreeing
   (`docs/reviews/task-03-maia-review.md`, Q3's en-passant finding); a fourth copy
   of this math is how that repeats.
+
+  *As built:* `web/scripts/lib/maiaNode.mjs` imports all four of those **plus**
+  `legalPolicyIndices` and `decodePolicy`, which needed adding to
+  `engineMaia.ts`'s export list — a keyword each, no call site moved, no
+  behaviour changed. Those two are where "which policy slots are legal here" and
+  "softmax over just those" live, so copying them is precisely the duplication
+  this bullet warns about. The audit then asserts parity from the other
+  direction too: re-softmaxing the raw legal logits it caches for temperature
+  scaling reproduces `decodePolicy`'s output to 0.00e+0.
+
+- **`onnxruntime-web`, not `onnxruntime-node`.** This spec recommended the
+  native package; don't. The wasm backend runs perfectly well outside a browser
+  — Task 14's `probe-maia-graph.mjs` had already proved that — and it's the
+  package the app depends on anyway, so the audit measures the same runtime it
+  ships. `onnxruntime-node` would add a native build, which this spec's own
+  Risks section calls the likeliest install failure on this Windows machine, for
+  no gain.
 - Script dependencies (`onnxruntime-node`, a zstd/PGN helper if needed) are
   dev-only tooling, never in the Vercel build or client bundle, so they
   don't compete with the `web/public/ort`/`web/public/maia` budget discipline. The
@@ -309,16 +342,20 @@ already uses. Call it ~50 ms as the planning number, for consistency.
   during the one pass that already happens; fitting *T* afterward is a 1-D
   search over cached numbers, not a model re-run per candidate *T*.
 
-**If `2026-08-05-maia-monte-carlo-rollouts.md`'s batching lands:**
-`evaluateMaia` today hardcodes batch size 1 (`new ort.Tensor("float32",
-boardToTensor(encodedFen), [1, 18, 8, 8])`), so every row pays full
-session-call overhead independently; a batched call would speed this pass
-up by roughly the batch factor. **Unverified** whether the real speedup
-approaches that: this app runs `onnxruntime-web` single-threaded
-(`numThreads = 1`, to avoid COOP/COEP headers), and CPU/wasm backends don't
-always parallelize a batch dimension as cleanly as a GPU would —
-`bayesian-rating-inference.md` names the identical caveat about its own 9
-per-ply calls. Worth one shared check once that spec exists.
+**Batching landed, and it does not help. Measured, so stop budgeting for it.**
+Task 14 added `evaluateMaiaBatch` and probed the graph directly
+(`web/scripts/probe-maia-graph.mjs`): the batch axis is dynamic and row *i* of an
+`[N,1880]` output is bit-identical to evaluating that position alone — but
+throughput is **27.3 ms/position at N=1 against 24.2 at N=30**, about 10%,
+not a multiple. Total FLOPs are conserved and this single-threaded wasm
+backend gets almost nothing from a wider batch, exactly the caveat this
+section and `bayesian-rating-inference.md` both hedged on. So budget every
+pass here as `positions × ~25 ms` regardless of batch size; the reason to
+batch at all is that thousands of sequential awaits collapse into dozens.
+
+The audit as built uses batches of 32 for that scheduling reason, and its
+full run — 3,964 rows scored twice, plus a 2,700-pass self-consistency gate —
+comes in around 6 minutes, in line with the per-pass number above.
 
 ## Verification plan
 
@@ -376,11 +413,18 @@ review and in PR #12's discussion, not checked in anywhere.
   single legal move, so the bins that matter most may still be sparsest.
   Mitigated by equal-count binning and reporting bin populations, not
   hiding them.
-- **Data engineering, not inference time, is most of the effort.** Node's
-  built-in `zlib.zstdDecompress` only landed in **23.8.0** (this repo's
-  `@types/node` is `^20`) and this dev machine is Windows, so prefer a
-  WASM/pure-JS zstd decompressor over a native-binding package if one is
-  added — native builds are the likelier install failure here.
+- **Data engineering, not inference time, is most of the effort.** Confirmed —
+  it was all of the effort. Two corrections to this bullet from building it:
+  the machine runs **Node 24.16**, so `zlib.createZstdDecompress` is built in
+  and no zstd dependency of any kind was needed; and the real trap was
+  somewhere else entirely. Lichess writes the dumps in the seekable-zstd
+  layout, so the file opens with a **skippable frame**, and Node's decompressor
+  does not skip it — fed the file as-is it emits **zero bytes and no error**,
+  which reads exactly like "this month has no rapid games in it". Stripping
+  leading skippable frames by hand is what makes the stream work at all.
+  Second, smaller: Node's decompressor stops cleanly at the end of the first
+  zstd frame rather than continuing into the next, capping one run at ~14,000
+  games — enough for this sample size, documented rather than fixed.
 - **Unmeasured interaction with Maia's opening prior.** That knight-heavy
   prior (`docs/reviews/task-03-maia-review.md`, Q3) "looks constant across
   ratings... not measured either way" per `bayesian-rating-inference.md`'s
@@ -416,7 +460,6 @@ review and in PR #12's discussion, not checked in anywhere.
   report −log p(move played) per move, this audit's log-loss term
   computed one row at a time; a temperature correction would rescale it
   directly, and should match its log base (Metrics).
-- **`2026-08-05-maia-monte-carlo-rollouts.md`** — doesn't exist yet.
-  Referenced only for its presumed batching (Cost), a benefit shared with
-  `bayesian-rating-inference.md`, whose real speedup here neither doc has
-  verified.
+- **`2026-08-05-maia-monte-carlo-rollouts.md`** — exists, and shipped as Task
+  14. Its batching is real but worth ~10%, not a multiple, which retires the
+  "presumed speedup" this doc referenced it for (Cost).

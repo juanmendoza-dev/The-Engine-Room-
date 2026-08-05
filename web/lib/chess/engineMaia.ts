@@ -404,6 +404,16 @@ function runExclusive<T>(work: () => Promise<T>): Promise<T> {
 // so the batched path can reuse them per row. A pure extraction on purpose: the
 // gameplay path's output stays byte-identical, which is the whole reason
 // getMaiaMove needed no attention when batching landed.
+//
+// Both are exported for a third caller that is not in the app at all:
+// web/scripts/lib/maiaNode.mjs, the offline calibration audit, which runs this
+// same model under plain Node. It cannot call evaluateMaiaAt - that goes through
+// load(), which throws outside a browser by design - so it drives the session
+// itself and reuses these two for the parts that decide what the numbers *mean*.
+// The alternative was a second copy of the legal-move lookup and the softmax, and
+// this codebase has already paid once for two encoders quietly disagreeing
+// (docs/reviews/task-03-maia-review.md, Q3). Nothing else changes: no call site
+// moves, no behaviour differs, these are pure functions either way.
 
 /**
  * Policy-table indices of the legal moves at an **already-mirrored** FEN.
@@ -412,7 +422,7 @@ function runExclusive<T>(work: () => Promise<T>): Promise<T> {
  * white-to-move board. A legal move missing from the table is skipped rather
  * than defaulted — better to leave it unscored than to score the wrong move.
  */
-function legalPolicyIndices(encodedFen: string, table: Record<string, number>): number[] {
+export function legalPolicyIndices(encodedFen: string, table: Record<string, number>): number[] {
   const board = new Chess(encodedFen);
   const indices: number[] = [];
   for (const move of board.moves({ verbose: true })) {
@@ -423,7 +433,7 @@ function legalPolicyIndices(encodedFen: string, table: Record<string, number>): 
 }
 
 /** Softmax over the legal moves only, back in real board coordinates, best first. */
-function decodePolicy(
+export function decodePolicy(
   rowLogits: Float32Array,
   legalIndices: number[],
   blackToMove: boolean,
