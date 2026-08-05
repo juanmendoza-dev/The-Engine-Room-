@@ -200,6 +200,70 @@ pushing only one half cost this project a live-site fix overnight — the marque
 kept claiming a backend we don't have because the second half never got pushed.
 When you split a branch, push both halves before you stop for the day.
 
+### One clone, two agents: your commits can land on someone else's branch
+
+`git checkout` is repo-global, not per-process. If another agent switches branches
+in the clone you're working in, your *next* commit goes to **their** branch, and
+nothing warns you. This is not hypothetical — Task 13's docs commit landed on
+`feat/14-maia-rollouts`, and the `git push -u origin feat/13-bayesian-rating`
+immediately after it reported `* [new branch]` and exited 0 while pushing a tip
+that didn't contain the commit, because the local ref had stopped moving one
+commit earlier.
+
+That's the nasty part: **the push looks like it worked.** The only thing that
+catches it is comparing the two directly.
+
+```sh
+git rev-parse HEAD                                           # what you think you pushed
+git ls-remote origin refs/heads/<branch> | awk '{print $1}'   # what's actually there
+git branch -vv                                               # and which branch you're really on
+```
+
+Fix it without disturbing the other agent's working tree. Both of these operate on
+refs and need no checkout:
+
+```sh
+git push origin <sha>:refs/heads/<branch>   # fast-forward, if <sha>'s parent is the old tip
+git branch -f <branch> <sha>                # safe: not the checked-out branch
+```
+
+**Do not `git checkout` to fix this.** The other agent may have uncommitted work in
+files that differ between the two branches — switching under them turns one
+stranded commit into a lost afternoon. Same reason to prefer
+`git fetch origin main:main` over `git checkout main && git pull`: it updates the
+local ref without touching the tree.
+
+Two follow-on consequences:
+
+- **A branch cut from another agent's in-flight branch inherits its commits.**
+  `feat/14-maia-rollouts` was created from `feat/13-bayesian-rating`'s tip instead
+  of from `main`, so it carried four of Task 13's commits. Once Task 13
+  squash-merged, those commits exist on `main` only as one new object sharing no
+  ancestry with them — so that branch looks like it still has unique content
+  forever, which is the same trap as "Squash-merging means git can't tell you
+  what's merged" below, arrived at from the other direction. Rebase onto `main`;
+  don't trust the diff.
+- **Skip `gh pr merge --delete-branch` in a shared clone.** It deletes the local
+  branch as well as the remote one, and doing that can mean checking out the
+  default branch first — which in a shared clone is someone else's working tree.
+  Not verified here, because the right move was to avoid finding out. Merge
+  without it and clean up by hand:
+
+```sh
+gh pr merge <n> --squash
+git fetch origin main:main       # local main, no checkout
+git push origin --delete <branch>
+git branch -D <branch>
+```
+
+**Or just don't share the clone.** `git worktree add ../engine-room-<lane> -b
+<branch> main` gives each lane its own checkout with its own HEAD, and a linked
+worktree inherits `.git/config` — so `core.hooksPath` and `user.signingkey`
+carry over and commits still sign correctly without repeating the per-clone
+setup. That's how this very section was written while another agent held the main
+worktree. Remove it with `git worktree remove` when done (it refuses if dirty,
+which is the point).
+
 ### Who can work in parallel
 
 The build plan's tasks aren't all independent. Dependency waves, so multiple
