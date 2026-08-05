@@ -572,6 +572,46 @@ section("6. Ford's condition — refusing to rate what the data can't rate");
 }
 
 {
+  // The case real games actually produced, and the one a score-based check waves
+  // through: 7 wins, 1 draw, no losses. Score is 7.5/8, not a sweep — but the
+  // Davidson likelihood still has no interior maximum, because γ absorbs the
+  // draw while δ runs to infinity. The first version of this fit answered
+  // "+1680 Elo ± 8279" here. Regression test, not a hypothetical.
+  const oneDraw = [];
+  for (let i = 0; i < 8; i++) {
+    const strongIsWhite = i % 2 === 0;
+    const result = i === 3 ? "1/2-1/2" : strongIsWhite ? "1-0" : "0-1";
+    oneDraw.push({
+      white: strongIsWhite ? "Strong" : "Weak",
+      black: strongIsWhite ? "Weak" : "Strong",
+      result,
+    });
+  }
+  const fit = fitBradleyTerryDavidson(oneDraw, ["Strong", "Weak"], "Strong", 1800);
+  const weak = fit.ratings.find((r) => r.presetId === "Weak");
+  check(
+    "7W-1D-0L is refused, not given a number with a four-digit error bar",
+    !weak.rated,
+    weak.note ?? "(no note)",
+  );
+
+  // ...but an all-draws pairing IS identifying: δ̂ = 0 is a real interior maximum,
+  // so refusing it would be the opposite mistake.
+  const allDraws = Array.from({ length: 20 }, (_, i) => ({
+    white: i % 2 ? "P" : "Q",
+    black: i % 2 ? "Q" : "P",
+    result: "1/2-1/2",
+  }));
+  const drawFit = fitBradleyTerryDavidson(allDraws, ["P", "Q"], "P", 1800);
+  const q = drawFit.ratings.find((r) => r.presetId === "Q");
+  check(
+    "an all-draws pairing is still rateable, at zero gap",
+    q.rated && Math.abs(q.elo - 1800) < 1,
+    `Q at ${fmt(q.elo)} Elo against the 1800 anchor`,
+  );
+}
+
+{
   const fit = fitBradleyTerryDavidson([], ["A", "B"], "A", 1800);
   check("no games at all is handled", !fit.converged && fit.ratings.every((r) => !r.rated), fit.warnings[0]);
 }

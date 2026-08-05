@@ -131,9 +131,22 @@ function viewsFor(pairs: Pair[], p: number): PairView[] {
  *    increases without bound as that preset's Elo goes to +∞. The iterate runs
  *    off rather than converging.
  *
- * A draw is evidence in both directions, so it counts as an edge each way — the
- * natural reading of Ford's condition under Davidson, and it is what stops a
- * hard-fought all-draws pairing from being called disconnected.
+ * **A draw is not an edge, and getting that wrong produced a real number that was
+ * real nonsense.** The tempting reading is that a draw is evidence in both
+ * directions, so it should connect a pair the way a win does. Under plain
+ * Bradley-Terry that is defensible. Under Davidson it is not, and the first
+ * eight games of Stockfish 1800 vs 1320 demonstrated why: 7 wins, 1 draw, no
+ * losses. Score 7.5/8 is not a sweep, so a score-based check passes it — but the
+ * likelihood still has no interior maximum, because γ can absorb the draw while
+ * δ runs off. Send s→∞ with γ = s/7 and the model reproduces 7/8 wins and 1/8
+ * draws exactly, forever, getting better the further it goes. The fit reported
+ * +1680 Elo with a standard error of ±8279 and a non-convergence warning, which
+ * is at least honest, but the honest answer is "unbounded".
+ *
+ * So an edge needs an actual win. The one exception is a pairing that is *all*
+ * draws: there δ̂ = 0 is a genuine interior maximum (s + 1/s is minimised at
+ * s = 1), so the two presets are pinned rigidly together and the pair does
+ * connect them.
  *
  * Returns the set of presets sharing a strongly-connected component with the
  * anchor; anything else cannot be placed on the anchor's scale.
@@ -144,8 +157,12 @@ function rateableSet(pairs: Pair[], count: number, anchor: number): Set<number> 
   for (const p of pairs) {
     const loWins = p.scoreLo - p.draws / 2;
     const hiWins = p.n - p.draws - loWins;
-    if (loWins > 0 || p.draws > 0) edge[p.lo][p.hi] = true;
-    if (hiWins > 0 || p.draws > 0) edge[p.hi][p.lo] = true;
+    if (loWins > 0) edge[p.lo][p.hi] = true;
+    if (hiWins > 0) edge[p.hi][p.lo] = true;
+    if (loWins === 0 && hiWins === 0 && p.draws > 0) {
+      edge[p.lo][p.hi] = true;
+      edge[p.hi][p.lo] = true;
+    }
   }
 
   // Transitive closure. n<=6 presets here, so an O(n^3) Floyd-Warshall costs
@@ -285,7 +302,25 @@ export function fitBradleyTerryDavidson(
   // unrated preset carries an unknown opponent strength and would drag the rest.
   const pairs = allPairs.filter((p) => rateable.has(p.lo) && rateable.has(p.hi));
   const gamesUsed = pairs.reduce((sum, p) => sum + p.n, 0);
-  if (pairs.length === 0) return unrated("no games between presets on a common scale");
+
+  /** W/D/L across every game a preset played, unrateable opponents included. */
+  function recordOf(i: number) {
+    const views = viewsFor(allPairs, i);
+    const played = views.reduce((sum, v) => sum + v.n, 0);
+    const score = views.reduce((sum, v) => sum + v.score, 0);
+    const drawn = views.reduce((sum, v) => sum + v.draws, 0);
+    const won = score - drawn / 2;
+    return { played, score, drawn, won, lost: played - drawn - won };
+  }
+
+  /** Why a preset isn't on the scale. The useful half of an unrated result. */
+  function exclusionNote(i: number): string {
+    const { played, drawn, won, lost } = recordOf(i);
+    if (played === 0) return "no games";
+    if (lost === 0) return `never lost (${won}W ${drawn}D 0L) — its Elo is unbounded above, not measurable`;
+    if (won === 0) return `never won (0W ${drawn}D ${lost}L) — its Elo is unbounded below, not measurable`;
+    return "no chain of decisive results links it to the anchor in both directions";
+  }
 
   const missing = presetIds.filter((_, i) => !rateable.has(i));
   if (missing.length > 0) {
@@ -293,6 +328,32 @@ export function fitBradleyTerryDavidson(
       `not on the anchor's scale (Ford's condition): ${missing.join(", ")} — ` +
         `either no cross-engine games connect them, or they swept/were swept`,
     );
+  }
+
+  if (pairs.length === 0) {
+    // Everything but the anchor got excluded. Still worth saying *why* for each
+    // one — "no games between presets on a common scale" is true and useless.
+    return {
+      ratings: presetIds.map((presetId, i) => {
+        const { played, score } = recordOf(i);
+        return {
+          presetId,
+          elo: anchorElo,
+          stderr: null,
+          games: played,
+          score,
+          anchor: i === anchor,
+          rated: false,
+          note: i === anchor ? "anchor, but nothing left on its scale to compare it to" : exclusionNote(i),
+        };
+      }),
+      drawParam: fixedGamma ?? 0,
+      drawParamStderr: null,
+      converged: false,
+      iterations: 0,
+      gamesUsed: 0,
+      warnings: [...warnings, "no games between presets on a common scale"],
+    };
   }
 
   const free = [...rateable].filter((i) => i !== anchor).sort((a, b) => a - b);
@@ -428,9 +489,7 @@ export function fitBradleyTerryDavidson(
   }
 
   const ratings: RatingEstimate[] = presetIds.map((presetId, i) => {
-    const views = viewsFor(allPairs, i);
-    const played = views.reduce((sum, v) => sum + v.n, 0);
-    const score = views.reduce((sum, v) => sum + v.score, 0);
+    const { played, score } = recordOf(i);
     const isRateable = rateable.has(i);
     return {
       presetId,
@@ -444,13 +503,7 @@ export function fitBradleyTerryDavidson(
         ? i === anchor
           ? "anchor — fixed by definition, not measured"
           : undefined
-        : played === 0
-          ? "no games"
-          : score === played
-            ? `won all ${played} games — Elo is unbounded above, not measurable`
-            : score === 0
-              ? `lost all ${played} games — Elo is unbounded below, not measurable`
-              : "no path of wins/draws connects it to the anchor",
+        : exclusionNote(i),
     };
   });
 

@@ -47,7 +47,14 @@ export interface MatchGameResult {
   /** Full SAN, book prefix included — `runModelGame` only reports its own plies. */
   moves: string[];
   timestamp: number;
-  /** Set when a game was cut short (abort, engine failure). Excluded from fits. */
+  /**
+   * A game that didn't reach a real conclusion. `ratingBT.ts` skips these.
+   *
+   * `matchRunner.ts` never sets it — a game interrupted by an abort or an engine
+   * failure is simply not logged, since a half-played game has no result to
+   * record. The flag exists for the log's sake: if a game ever needs to be kept
+   * but not counted, this is how you say so without deleting the line.
+   */
   incomplete?: boolean;
   /**
    * Which match run produced this game. Lets `ratings.json` tie a stored SPRT
