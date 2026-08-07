@@ -16,10 +16,10 @@
 
 ---
 
-Most chess apps that let you "play the computer" are one engine on a server with a difficulty knob turned down. This one ships two genuinely diffrent minds straight to ur browser: Stockfish, a classical search engine that plays the best move it can find, and Maia, a neural net trained on millions of human games to play the move a *person* at a given rating would actually play, mistakes included. Watch them fight each other, play either one yourself, and while you play it quietly reads **your** moves and tells you what rating you play like. So basically chess, but with the honesty of the numbers at the forefront of the whole design. There is no backend doing any of the thinking, its all your CPU.
+Most chess apps that let you "play the computer" are one engine with a difficulty slider. This one ships two actually diffrent minds to ur browser: Stockfish plays the best move it can find, Maia plays the move a *person* at your rating would actually play, mistakes included. So basically chess, but honesty at the forefront of the whole design. Watch them fight each other, play one yourself, and while you play it quietly tells you what rating you play like. No backend doing any of the thinking btw, its all your CPU.
 
 > [!NOTE]
-> Maia is a 93 MB neural net fetched on first use, so your first Maia game can take a minute or three to wake up, sorry about that :( theres a progress bar counting the bytes so you can tell loading apart from hanging. Every game after that in the same tab is instant
+> Maia is a 93 MB neural net so your first game can take a min or two to load, sorry about that :( theres a progress bar so you know its loading and not just hanging. every game after that in the same tab is instant
 
 ## the beautiful gallery
 
@@ -83,19 +83,19 @@ and it all works on ur phone too:
 </a>
 -->
 
-Just open the [live demo](https://the-engine-room-gold.vercel.app) yourself. Hit **Model 1v1** and put Stockfish 2800 against Maia 1100, thats an engine that only knows the best move versus a net that only knows what a beginner would do, and its exactly as one sided as it sounds. Or go to **User 1v1** and play Maia at your own level (great if you have no friends, the engines never say no), and by around move 8 the readout under the board starts telling you what rating your moves look like. Live. While ur playing.
+Just open the [live demo](https://the-engine-room-gold.vercel.app) yourself. Hit **Model 1v1** and put Stockfish 2800 against Maia 1100, its an engine that only knows the best move versus a net that only knows what a beginner would do, and its exactly as one sided as it sounds. Or go to **User 1v1** and play Maia at your own level (great if you have no friends, it never says no), and by around move 8 the readout under the board starts telling you what rating your moves look like. live. while ur playing.
 
 ## What Stockfish says vs what actually happens
 
-Stockfishs evaluation answers *"whats the score under best play"*. The odds button answers a completly diffrent question: *"how does this actually tend to end when players at this rating take it from here"*. Same positions, both engines asked:
+Stockfishs eval answers *"whats the best score here"*. The odds button answers a completly diffrent question: *"how does this actually tend to end for players at this rating"*. same positions, both engines asked:
 
 | Stockfish says | Maias 30 playouts say |
 |---|---|
-| **+6.44** — totally winning | won **73%** of the time. the other 27%, the human level players let it slip |
-| **+0.23** — dead equal | mostly **draws**, as youd hope |
-| **−6.28** — totally lost | lost **90%** of the time, so at least the bad news is reliable |
+| **+6.44**, totally winning | won **73%** of the time. the other 27%, the human level players let it slip |
+| **+0.23**, dead equal | mostly **draws**, as youd hope |
+| **−6.28**, totally lost | lost **90%** of the time, so at least the bad news is reliable |
 
-Thats the whole point of having both engines in one app: a position being *winning* and a position being *won by people like you* are genuinely diffrent facts, and now you can watch the gap between them. Every number comes with its confidence interval and the sample size on screen, and moving a piece wipes the panel, because those numbers described one exact position and leaving them up would be lying.
+Thats kinda the whole point of having both engines in one app: winning and won by people like you are genuinely diffrent facts, and now you can actually watch the gap between them. every number comes with its confidence interval and sample size on screen, and moving a piece wipes the panel, cause those numbers were for that one exact position and leaving them up wouldve been lying.
 
 ---
 
@@ -128,31 +128,31 @@ Thats the whole point of having both engines in one app: a position being *winni
 
 | | Stockfish | Maia |
 | --- | --- | --- |
-| What it is | Classical alpha-beta search — `stockfish-18-lite-single.wasm` in a Web Worker, driven over UCI | Maia 2 "rapid" — a neural net trained to predict what a *human* of a given rating plays, one forward pass via `onnxruntime-web` |
-| Strength control | `UCI_LimitStrength` + `UCI_Elo` — presets 1320 / 1800 / 2800 (1320 is this builds actual floor) | Rating is a **model input**, not a seperate network — presets 1100 / 1500 / 1900 feed `elo_self` / `elo_oppo` as bucket indices |
+| What it is | Classical alpha-beta search, `stockfish-18-lite-single.wasm` in a Web Worker, driven over UCI | Maia 2 "rapid", a neural net trained to predict what a *human* of a given rating plays, one forward pass via `onnxruntime-web` |
+| Strength control | `UCI_LimitStrength` + `UCI_Elo`, presets 1320 / 1800 / 2800 (1320 is this builds actual floor) | Rating is a **model input**, not a seperate network, presets 1100 / 1500 / 1900 feed `elo_self` / `elo_oppo` as bucket indices |
 | Time per move | ~500 ms | ~35 ms once loaded |
 | Cost | 7 MB, served from `web/public/` | 93 MB, fetched at runtime from a pinned commit in our own mirror repo |
 
-The difference is visible in play, which is the point: Stockfish 1320 plays like a weakened engine, Maia 1100 plays like a 1100 rated person, including the *kinds* of mistakes a person makes.
+you can actually see the difference in play, thats the whole point: Stockfish 1320 plays like a weakened engine, Maia 1100 plays like an actual 1100 rated person, kinds of mistakes and all.
 
 <details>
 <summary>How a chess position becomes a tensor</summary>
 
-Maia 2 takes an 18-plane `8×8` board encoding: 12 planes of piece placement (6 piece types × 2 colors), plus castling rights and en passant — more game state than Maia 3 encodes, which is one of the reasons this app uses 2 (the other is licensing: Maia 2 is MIT, Maia 3s weights are AGPL). The board is always encoded from the movers perspective, so black-to-move positions get mirrored. The policy head outputs logits over 1880 possible moves; we mask to the legal ones chess.js allows and either take the best (gameplay) or sample (rollouts). The full plane layout, the decode, and the measurements are in [`docs/maia-notes.md`](docs/maia-notes.md).
+Maia 2 takes an 18 plane `8×8` board encoding: 12 planes of piece placement (6 piece types × 2 colors), plus castling rights and en passant, more game state than Maia 3 encodes (one reason we use 2, the other is licensing, Maia 2 is MIT, Maia 3s weights are AGPL). the board gets mirrored for black to move. the policy head outputs logits over 1880 possible moves, we mask to whatever chess.js says is legal and take the best one (or sample, for rollouts). full plane layout and the decode are in [`docs/maia-notes.md`](docs/maia-notes.md).
 
 </details>
 
 ### 2. One contract, two and a half engines
 
-Everything downstream calls `getMoveFor(fen, config)` and never imports an engine module directly. Adding or dropping an engine is a change to one file, which is what let Maia land *after* the Model 1v1 screen already worked, and later let a third opponent slot in with zero UI changes: the **Policy Mixture** preset, where Stockfishs MultiPV search picks a shortlist of decent moves and Maia picks the one a human would play from it. Its labelled *(uncalibrated)* in the picker because its real strength hasnt been measured yet — we dont label things stronger than we can prove, see the limits below.
+Everything downstream calls `getMoveFor(fen, config)` and never imports an engine module directly. adding or dropping an engine is a change to one file, thats what let Maia land *after* the Model 1v1 screen already worked, and later let a third opponent slot in with zero UI changes: the **Policy Mixture** preset, where Stockfishs MultiPV search picks a shortlist of decent moves and Maia picks the one a human would play from it. labelled *(uncalibrated)* in the picker cause its real strength hasnt actually been measured yet, we dont label things stronger than we can prove, see the limits below.
 
 ### 3. chess.js is the only thing that knows the rules
 
-Engines choose from legal moves; chess.js validates every single one and detects every ending (checkmate, stalemate, threefold, fifty-move, insufficient material). If an engine ever returns something illegal its discarded for a random legal move rather than breaking the game. **Zero hand rolled chess rules.** I compose a battle-tested rules library, I dont invent my own, thats rule number one of this whole project. (yes its the same rule as the crypto one from my last project, some things you just dont hand roll)
+Engines choose from legal moves. chess.js validates every single one and detects every ending (checkmate, stalemate, threefold, fifty move, insufficient material). if an engine ever returns something illegal its discarded for a random legal move instead of breaking the game. **zero hand rolled chess rules.** i compose a battle tested rules library, i dont invent my own, rule number one of this whole project. (yea its the same rule as the crypto one from my last project, some things you just dont hand roll)
 
 ### 4. Storage is behind an adapter
 
-`web/lib/games/store.ts` writes to localStorage by default and to Vercel KV when `NEXT_PUBLIC_KV_ENABLED=1`. The app is fully demo-able with nothing provisioned, and turning KV on is an env var plus a redeploy, no code change. The history page says which mode its in ("Local ledger" vs "Shared archive") instead of pretending a per-browser list is a global one, because that would lie to a judge opening the demo fresh.
+`web/lib/games/store.ts` writes to localStorage by default and to Vercel KV once `NEXT_PUBLIC_KV_ENABLED=1` is flipped. the app is fully demoable with nothing provisioned, and turning KV on is just an env var plus a redeploy, no code change. the history page says which mode its actually in ("Local ledger" vs "Shared archive") instead of pretending a per browser list is global, cause that wouldve lied to a judge opening the demo fresh.
 
 ---
 
@@ -162,32 +162,32 @@ Engines choose from legal moves; chess.js validates every single one and detects
 <tr>
 <td width="33%" valign="top">
   <b>Live rating estimate</b>
-  <p><sub>Every move you make gets scored against all nine of Maias rating buckets, and Bayes rule turns that into a posterior over "which rating plays like this". It shows nothing until it has enough evidence to be worth reading (about 6 effective plies), and it never names a number without its interval.</sub></p>
+  <p><sub>Every move you make gets scored against all nine of Maias rating buckets, and bayes rule turns that into a guess at "which rating plays like this". shows nothing until it has enough evidence to be worth reading (about 6 effective plies), and it never names a number without its interval.</sub></p>
 </td>
 <td width="33%" valign="top">
   <b>Odds from here</b>
-  <p><sub>Flat Monte Carlo, not MCTS — 30 independent playouts with Maia moving for both sides, batched through one ONNX session. Truncated games get sampled from the value head so the counts stay honest integers and the Wilson intervals keep meaning what they say.</sub></p>
+  <p><sub>Flat Monte Carlo, not MCTS. 30 playouts with Maia moving for both sides, batched through one ONNX session. truncated games get sampled from the value head so the counts stay honest integers and the intervals keep meaning what they say.</sub></p>
 </td>
 <td width="33%" valign="top">
   <b>Fight FX</b>
-  <p><sub>19 effects — impact frames, screen shake, ghosts, combo counters, a charge bar fed by Stockfishs real search depth — over a tier ladder that classifies each move. Fully opts out under <code>prefers-reduced-motion</code> or <code>?fx=off</code>.</sub></p>
+  <p><sub>19 effects, impact frames, screen shake, ghosts, combo counters, a charge bar fed by Stockfishs real search depth, over a tier ladder that classifies each move. fully opts out under <code>prefers-reduced-motion</code> or <code>?fx=off</code>.</sub></p>
 </td>
 </tr>
 </table>
 
-The chrome is one system too: an "Ink & Bone" print shop design (kinetic editorial monochrome, one red accent, no border-radius anywhere), a header scoreboard that reads whichever board is actually running, and a route transition where every navigation is a printing press taking an impression, the ink literally strikes at the pixel you clicked. Day is ink on paper; night is the same print shop after hours. (this is the part I keep opening just to look at) [Notes](docs/design/ink-and-bone-notes.md).
+the chrome is one system too: an "Ink & Bone" print shop design (kinetic editorial monochrome, one red accent, no border radius anywhere), a header scoreboard that reads whichever board is actually running, and every navigation is a printing press taking an impression, the ink literally strikes the pixel you clicked. day is ink on paper, night is the same print shop after hours. (this is the part i keep opening just to look at) [Notes](docs/design/ink-and-bone-notes.md).
 
 ---
 
 ## the no bueno
 
-Two shipped features *read Maias probabilities as actual probabilities* — the rating estimate uses them as likelihoods, the rollouts sample from them. So before submitting I audited whether the numbers deserve that trust: when Maia puts 30% on a move, do humans in that bucket really play it ~30% of the time? Nobody publishes that number (CSSLab publish accuracy, not calibration), so I measured it myself, 3,015 positions from real rated games, offline in Node.
+Two shipped features actually *read Maias probabilities as real probabilities*, the rating estimate uses them as likelihoods, the rollouts sample from them. so before submitting i audited whether the numbers deserve that trust: when Maia puts 30% on a move, do humans in that bucket really play it ~30% of the time? nobody publishes that number (CSSLab publish accuracy, not calibration), so i measured it myself, 3,015 positions from real rated games, offline in Node.
 
-The finding is a trap worth sharing: **the obvious calibration metric comes out 13× better than the honest one.** Pooled over every (position, legal move) pair the calibration error is 0.0028, looks perfect. But ~90% of those pairs are moves carrying under 1% probability, where being "calibrated" is trivial. Restrict to the models own top move per position and the error is **0.036, all of it in one direction: overconfidence**, fitted temperature 1.129. Everytime Maia says its 84% sure, its actually right about 73% of the time.
+The finding is a trap worth sharing: **the obvious calibration metric comes out 13x better than the honest one.** pooled over every (position, legal move) pair the error is 0.0028, looks perfect. but ~90% of those pairs are moves carrying under 1% probability, where being "calibrated" is trivial. restrict to the models own top move per position and the error is **0.036, all overconfidence**, fitted temperature 1.129. everytime Maia says its 84% sure, its actually right about 73% of the time.
 
-So the verdict on my own features: broadly trustworthy, mildly oversharp about its favourite move, and the wide credible intervals the rating readout draws were the right call all along. The same measure-before-believing habit caught worse earlier: the rating estimators spec guessed two of its constants an order of magnitude off in units, and shipping them as written would have made the posterior ignore its own evidence — found by measuring the real information content per move, not by reading the spec twice.
+So the verdict on my own features: broadly trustworthy, mildly oversharp about its favourite move, and the wide credible intervals the rating readout draws were the right call all along. the same measure before believing habit caught something worse earlier: the rating estimators spec guessed two of its constants a whole order of magnitude off in units, shipping them as written would've made the posterior ignore its own evidence, found by actually measuring the info content per move instead of just reading the spec twice.
 
-<sub>The audit: [`docs/maia-calibration-notes.md`](docs/maia-calibration-notes.md) (PR #28). The constants story is in Task 13s "What differed from the spec" in [the plan](docs/plans/2026-08-03-engine-room-implementation.md).</sub>
+<sub>The audit: [`docs/maia-calibration-notes.md`](docs/maia-calibration-notes.md) (PR #28). the constants story is in Task 13s "What differed from the spec" in [the plan](docs/plans/2026-08-03-engine-room-implementation.md).</sub>
 
 ---
 
@@ -202,7 +202,7 @@ Numbers are only worth anything next to their limits, so here is mines plainly �
 </td>
 <td valign="top">
   <b>Maias first load is slow, and slower on production</b><br>
-  <sub>93 MB of weights plus 27 MB of ONNX runtime, and browsers wont disk-cache a body that size so a page reload pays it again. Measured cold on the live site: 73 s and 261 s. The progress readout counts bytes so you can tell it apart from a hang. An IndexedDB cache is the real fix and isnt built yet.</sub>
+  <sub>93 MB of weights plus 27 MB of ONNX runtime, and browsers wont disk cache a body that size so a page reload pays it again. measured cold on the live site: 73s and 261s. the progress readout counts bytes so you can tell it apart from a hang. an IndexedDB cache is the real fix and isnt built yet.</sub>
 </td>
 </tr>
 </table>
@@ -214,7 +214,7 @@ Numbers are only worth anything next to their limits, so here is mines plainly �
 </td>
 <td valign="top">
   <b>The rating estimate resolves to about ±1 bucket, not 100 points</b><br>
-  <sub>Neighbouring Maia buckets differ by 1–3 percentage points on a given move, so a games worth of your play locates you within a couple hundred points and no better — fed Maias own 1700 rated moves, the posterior peaks at 1600 on one game and 1800 on another. Thats why its drawn as a band. It also measures which buckets move <i>distribution</i> you resemble, which correlates with rating without being the same thing.</sub>
+  <sub>Neighbouring Maia buckets differ by 1-3 percentage points on a given move, so a games worth of your play locates you within a couple hundred points and no better, fed Maias own 1700 rated moves, the posterior peaks at 1600 on one game and 1800 on another. thats why its drawn as a band. it also measures which buckets move <i>distribution</i> you resemble, which correlates with rating without being the same thing.</sub>
 </td>
 </tr>
 </table>
@@ -226,7 +226,7 @@ Numbers are only worth anything next to their limits, so here is mines plainly �
 </td>
 <td valign="top">
   <b>The dropdown numbers are not one shared scale across the two engines</b><br>
-  <sub>We ran actual SPRT matches to check (114 games, Bradley-Terry fit, <a href="docs/rating-notes.md">write-up</a>). Stockfishs <code>UCI_Elo</code> is real — 1800 beat 1320 7-1-0, 2800 beat 1800 8-0-0. But Maias tiers barely differentiate (1500 measured just 34 Elo above 1100, against a 400 point label gap), and Maia 1100 beat Stockfish 1320 <b>26-2-2</b> — weakened Stockfish seems to inject occasional catastrophic moves rather than play consistently weaker chess. So read the labels as within-engine settings, not a shared ladder.</sub>
+  <sub>We ran actual SPRT matches to check (114 games, Bradley-Terry fit, <a href="docs/rating-notes.md">write-up</a>). Stockfishs <code>UCI_Elo</code> is real, 1800 beat 1320 7-1-0, 2800 beat 1800 8-0-0. but Maias tiers barely differentiate (1500 measured just 34 Elo above 1100, against a 400 point label gap), and Maia 1100 beat Stockfish 1320 <b>26-2-2</b>, weakened Stockfish seems to inject occasional catastrophic moves rather than play consistently weaker chess. so read the labels as within engine settings, not a shared ladder.</sub>
 </td>
 </tr>
 </table>
@@ -238,20 +238,20 @@ Numbers are only worth anything next to their limits, so here is mines plainly �
 </td>
 <td valign="top">
   <b>The rollouts model Maia playing Maia, not humans playing humans</b><br>
-  <sub>Maia imitates moves from human-vs-human games; chaining its own samples back into itself for dozens of plies is an input distribution nobody has validated against real games. Treat the odds as informative, not precise, the intervals are wide on purpose. Also promotion is always to a queen, sorry underpromotion fans.</sub>
+  <sub>Maia imitates moves from human vs human games, chaining its own samples back into itself for dozens of plies is an input distribution nobody has validated against real games. treat the odds as informative, not precise, the intervals are wide on purpose. also promotion is always to a queen, sorry underpromotion fans.</sub>
 </td>
 </tr>
 </table>
 
-If you find something I've missed or misstated please reach out to me! This whole project turned into a series of "measure it instead of assuming it" moments and id genuinely love more of them.
+If you find something I've missed or misstated please reach out to me! this whole project turned into a series of "measure it instead of assuming it" moments and id genuinely love more of them.
 
 ---
 
 ## How its verified
 
-No unit test suite, deliberately, for a build this size — but nothing here got verified by eye either. Verification is **headless-Chrome CDP harnesses** in `web/scripts/` that drive the *production build* and assert on the post-hydration DOM: full games played through the UI with real dispatched pointer drags, illegal moves confirmed rejected, end-of-game records cross-checked against an independent chess.js replay of the move log, animation timelines sampled with `requestAnimationFrame` instead of wall clock guesses. The big features then re-ran the same harnesses **against the live production site** after merging, because a green Vercel build says nothing about UI that only renders client-side.
+No unit test suite, deliberately, for a build this size, but nothing here got verified by eye either. verification is **headless-Chrome CDP harnesses** in `web/scripts/` that drive the *production build* and assert on the post hydration DOM: full games played through the UI with real dispatched pointer drags, illegal moves confirmed rejected, end of game records cross checked against an independent chess.js replay of the move log, animation timelines sampled with `requestAnimationFrame` instead of wall clock guesses. the big features then re ran the same harnesses **against the live production site** after merging too, cause a green Vercel build says nothing about UI that only renders client side.
 
-The maths got the same treatment: Wilson intervals checked against hand computed cases, the batch evaluator against single evaluations (bit-identical, 0.000e+0), the sampler against its target distribution over 6,000 draws, and a mate-in-1 comes back 30/30 wins. The gallery above is shot by a Playwright spec (`web/e2e/`) — thats a camera, not a test suite, and [`docs/screenshots.md`](docs/screenshots.md) says so.
+The maths got the same treatment: Wilson intervals checked against hand computed cases, the batch evaluator against single evaluations (bit identical, 0.000e+0), the sampler against its target distribution over 6,000 draws, and a mate in 1 comes back 30/30 wins. the gallery above is shot by a Playwright spec (`web/e2e/`), thats a camera, not a test suite, and [`docs/screenshots.md`](docs/screenshots.md) says so.
 
 ```bash
 cd web && npm run build && npm run start   # the harnesses drive the production build
@@ -262,18 +262,18 @@ node scripts/cdp-verify.mjs               # then point one at it
 
 | Phase | What shipped |
 |---|---|
-| Planning | The design doc, an 11 task build plan, and parallel-agent lane declarations, all before any code |
+| Planning | The design doc, an 11 task build plan, and parallel agent lane declarations, all before any code |
 | 0 | The two engine spikes: Stockfish over UCI in a worker, Maia 2 via ONNX (the risky one, timeboxed) |
-| 1 | Menu, engine registry, game loop, Model 1v1 — the first watchable fight |
-| 2–3 | User 1v1 with drag input, history page, storage adapter |
+| 1 | Menu, engine registry, game loop, Model 1v1, the first watchable fight |
+| 2-3 | User 1v1 with drag input, history page, storage adapter |
 | Redesign | Ink & Bone: the whole visual system, header scoreboard, brand mark, the printing press route transition, Fight FX |
 | Day three | The analysis layer: live rating inference, Monte Carlo odds, the policy mixture opponent, the calibration audit, and SPRT matches measuring what the presets are actually worth |
 
-<sub>Planned on the 3rd, built on the 4th and 5th. Every change landed as a squash-merged PR off `main`, every commit signed and verified.</sub>
+<sub>Planned on the 3rd, built on the 4th and 5th. every change landed as a squash merged PR off `main`, every commit signed and verified.</sub>
 
 ## How I worked
 
-I used Claude Code as an implementation partner and also as a SWE the whole way through — several agents in parallel actually — and this repo keeps the paper trail instead of hiding it (its right there in the tree, `.claude/` and everything). [`AGENTS.md`](AGENTS.md) is the rulebook: signed commits, no AI co-author trailers, human sounding messages, and the interesting part is that its **hook-enforced** not honor-system, `.githooks/` rejects unsigned pushes and AI attribution trailers mechanically. Agents claimed lanes in writing ([`docs/devlog/`](docs/devlog/)) so nobody landed on the same files, specs were written *before* the work, and every task in [the plan](docs/plans/2026-08-03-engine-room-implementation.md) carries a "What differed from the plan" section recording where reality disagreed with the spec — which it did, measurably, almost everytime. The architecture decisions, the priority order and every scope call were mine. Same philosophy as my last project: I write everything down as I go so other people (and other agents) can pick the work up without worrying about breaking something they cant see.
+I used Claude Code as an implementation partner and basically as a SWE the whole way through, several agents in parallel actually, and this repo keeps the paper trail instead of hiding it (its right there in the tree, `.claude/` and everything). [`AGENTS.md`](AGENTS.md) is the rulebook: signed commits, no AI co-author trailers, human sounding messages, and the interesting part is its **hook-enforced** not honor system, `.githooks/` rejects unsigned pushes and AI attribution trailers mechanically. agents claimed lanes in writing ([`docs/devlog/`](docs/devlog/)) so nobody landed on the same files, specs got written *before* the work, and every task in [the plan](docs/plans/2026-08-03-engine-room-implementation.md) carries a "What differed from the plan" section recording where reality disagreed with the spec, which it did, measurably, almost everytime. the architecture decisions, the priority order and every scope call were mine. same philosophy as my last project: i write everything down as i go so other people (and other agents) can pick the work up without worrying about breaking something they cant see.
 
 ## Run it yourself (if the vercel doesnt work for some reason)
 
@@ -285,21 +285,21 @@ npm install
 npm run dev          # http://localhost:3000
 ```
 
-For anything you plan to trust, use the production build — its what Vercel runs and it catches what the dev server wont:
+For anything you plan to trust, use the production build, its what Vercel runs and it catches what the dev server wont:
 
 ```bash
 npm run build
 npm run start
 ```
 
-Two things that will otherwise eat your afternoon (both documented at length in [`docs/deployment.md`](docs/deployment.md) §4): use **`localhost`, not `127.0.0.1`**, against `next dev` — Next 16 treats `127.0.0.1` as cross-origin and serves you a page that renders perfectly and never hydrates, every click a no-op, console totally clean. And **rebuild after adding anything to `web/public/`**, Next snapshots that folder at build time.
+Two things that will otherwise eat your afternoon (both documented at length in [`docs/deployment.md`](docs/deployment.md) §4): use **`localhost`, not `127.0.0.1`**, against `next dev`, Next 16 treats `127.0.0.1` as cross origin and serves you a page that renders perfectly and never hydrates, every click a no-op, console totally clean. and **rebuild after adding anything to `web/public/`**, Next snapshots that folder at build time.
 
 <details>
 <summary>Deploying your own</summary>
 
-One Vercel project: import the repo, set **Root Directory to `web`** (the app doesnt live at the repo root — Next and npm resolve their configs from wherever the build runs, so the whole project moved down a level), leave everything else default. `main` is production; every PR gets a preview URL.
+One Vercel project: import the repo, set **Root Directory to `web`** (the app doesnt live at the repo root, Next and npm resolve their configs from wherever the build runs, so the whole project moved down a level), leave everything else default. `main` is production, every PR gets a preview URL.
 
-Game history runs on localStorage out of the box. To make it a shared archive, connect an Upstash Redis store, set `NEXT_PUBLIC_KV_ENABLED=1`, and redeploy — the full runbook is [`docs/deployment.md`](docs/deployment.md) §3.
+Game history runs on localStorage out of the box. to make it a shared archive, connect an Upstash Redis store, set `NEXT_PUBLIC_KV_ENABLED=1`, and redeploy, the full runbook is [`docs/deployment.md`](docs/deployment.md) §3.
 
 </details>
 
@@ -307,10 +307,10 @@ Game history runs on localStorage out of the box. To make it a shared archive, c
 <summary>Repo map</summary>
 
 ```
-docs/                     see docs/README.md — reference vs process, split on purpose
-web/                      the Next.js app — everything below is relative to here
+docs/                     see docs/README.md, reference vs process, split on purpose
+web/                      the Next.js app, everything below is relative to here
   app/                      routes (App Router)
-    actions/games.ts          the two KV Server Actions — the only server-side code
+    actions/games.ts          the two KV Server Actions, the only server-side code
     dev/                      verification harnesses, not part of the app
   components/               Board, EngineConfigPicker, ResultScreen, header, brand mark…
     fx/                       the fight-FX stage and its stylesheet
@@ -321,7 +321,7 @@ web/                      the Next.js app — everything below is relative to he
     games/                    storage: types · localStore · store (the adapter facade)
   public/
     stockfish/                7 MB single-threaded wasm build
-    ort/                      26.9 MB onnxruntime-web jsep pair — exactly the two files ORT fetches
+    ort/                      26.9 MB onnxruntime-web jsep pair, exactly the two files ORT fetches
   scripts/                  CDP verification harnesses, icon generation
   e2e/                      the Playwright gallery camera
 ```
@@ -330,7 +330,7 @@ web/                      the Next.js app — everything below is relative to he
 
 ## Where the reasoning lives
 
-This repo keeps its reasoning, not just its code, [docs/](docs/) has the full index. I wrote everything down as I went so you dont have to trust me, you can just check. The docs split into *reference* (kept current) and *process* (deliberately not rewritten after the fact, so it records what was believed at the time — several docs are wrong in interesting ways and say so).
+This repo keeps its reasoning, not just its code, [docs/](docs/) has the full index. i wrote everything down as i went so you dont have to trust me, you can just check. the docs split into *reference* (kept current) and *process* (deliberately not rewritten after the fact, so it records what was believed at the time, several docs are wrong in interesting ways and say so).
 
 | Path | Whats in it |
 |---|---|
@@ -339,8 +339,8 @@ This repo keeps its reasoning, not just its code, [docs/](docs/) has the full in
 | [`docs/rating-notes.md`](docs/rating-notes.md) | The SPRT matches: Stockfishs presets are real, Maias tiers barely differ, and the two scales dont compare |
 | [`docs/deployment.md`](docs/deployment.md) | Branch workflow, Vercel, the KV runbook, and a long §4 of production traps that each cost someone an afternoon |
 | [`docs/specs/`](docs/specs/) | Design specs per feature, written before the work |
-| [`docs/plans/`](docs/plans/) | The build plan, with per-task "What differed from the plan" post-mortems |
-| [`docs/reviews/`](docs/reviews/) | Independent review briefs — the Maia one reproduces the browser encoder against CSSLabs own training pipeline in Python |
+| [`docs/plans/`](docs/plans/) | The build plan, with per task "What differed from the plan" post-mortems |
+| [`docs/reviews/`](docs/reviews/) | Independent review briefs, the Maia one reproduces the browser encoder against CSSLabs own training pipeline in Python |
 | [`docs/devlog/`](docs/devlog/) | Lane declarations and the agent kickoff prompt, how the parallel work didnt collide |
 
 ## Stack
@@ -349,7 +349,7 @@ This repo keeps its reasoning, not just its code, [docs/](docs/) has the full in
 |---|---|
 | App | Next.js 16 (App Router) + TypeScript + Tailwind 4, deployed on Vercel |
 | Engines | `stockfish` 18 lite-single wasm in a Web Worker · Maia 2 rapid via `onnxruntime-web` |
-| Rules | chess.js — the sole authority, **zero hand rolled chess logic** |
+| Rules | chess.js, the sole authority, **zero hand rolled chess logic** |
 | Board | react-chessboard v5 |
 | Storage | localStorage today, Vercel KV behind one env flag, no accounts ever |
 
